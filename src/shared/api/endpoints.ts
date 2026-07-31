@@ -22,6 +22,7 @@ export const CART_SERVICE = {
 
 export const ORDER_SERVICE = {
   orders: "/api/v1/orders",
+  myOrders: "/api/v1/orders/me",
   order: (id: number | string) => `/api/v1/orders/${id}`,
   cancel: (id: number | string) => `/api/v1/orders/${id}/cancel`,
 };
