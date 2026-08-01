@@ -29,8 +29,14 @@ export const ORDER_SERVICE = {
 };
 
 export const PAYMENT_SERVICE = {
-  // payment-service는 main 기준 스텁 구현(memory 참고) — 실제 PG 연동 전까지 체크아웃은 껍데기.
-  payments: "/api/v1/payments",
+  // payment-service PaymentController(payment-service/.../payment/presentation/PaymentController.java) 실제
+  // 확인 결과: 클래스 레벨 @RequestMapping("api/v1/payments"). bare POST /api/v1/payments(즉석 결제 요청)는
+  // 존재하지 않는다 — 실제로는 PG(Toss Payments로 보임) 위젯이 결제 완료 후 돌려주는 paymentKey/
+  // pgOrderId/amount를 그대로 받는 승인 전용 엔드포인트(confirm)와 조회/취소뿐이다. PG 위젯 연동은
+  // 이 템플릿 범위 밖이라 CheckoutPage는 정직한 스텁으로 남긴다(가짜 paymentKey로 confirm을 호출하지 않음).
+  confirm: "/api/v1/payments/confirm",
+  payment: (id: number | string) => `/api/v1/payments/${id}`,
+  cancel: (id: number | string) => `/api/v1/payments/${id}/cancel`,
 };
 
 export const SETTLEMENT_SERVICE = {

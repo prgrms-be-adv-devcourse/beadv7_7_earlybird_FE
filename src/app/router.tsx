@@ -8,6 +8,7 @@ import { ProtectedRoute } from "../shared/auth/ProtectedRoute";
 import { CartPage } from "../features/cart/pages/CartPage";
 import { OrderListPage } from "../features/orders/pages/OrderListPage";
 import { OrderDetailPage } from "../features/orders/pages/OrderDetailPage";
+import { CheckoutPage } from "../features/payments/pages/CheckoutPage";
 
 export function AppRoutes() {
   return (
@@ -21,6 +22,7 @@ export function AppRoutes() {
           <Route path="/cart" element={<CartPage />} />
           <Route path="/orders" element={<OrderListPage />} />
           <Route path="/orders/:id" element={<OrderDetailPage />} />
+          <Route path="/orders/:id/checkout" element={<CheckoutPage />} />
         </Route>
       </Route>
     </Routes>
