@@ -6,6 +6,8 @@ import { ProjectListPage } from "../features/projects/pages/ProjectListPage";
 import { ProjectDetailPage } from "../features/projects/pages/ProjectDetailPage";
 import { ProtectedRoute } from "../shared/auth/ProtectedRoute";
 import { CartPage } from "../features/cart/pages/CartPage";
+import { OrderListPage } from "../features/orders/pages/OrderListPage";
+import { OrderDetailPage } from "../features/orders/pages/OrderDetailPage";
 
 export function AppRoutes() {
   return (
@@ -17,6 +19,8 @@ export function AppRoutes() {
         <Route path="/signup" element={<SignupPage />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/cart" element={<CartPage />} />
+          <Route path="/orders" element={<OrderListPage />} />
+          <Route path="/orders/:id" element={<OrderDetailPage />} />
         </Route>
       </Route>
     </Routes>
