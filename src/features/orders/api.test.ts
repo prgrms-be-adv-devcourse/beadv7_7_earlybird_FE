@@ -8,10 +8,10 @@ vi.mock("../../shared/api/client", () => ({
 }));
 
 describe("orders api", () => {
-  it("fetchOrders는 ORDER_SERVICE.myOrders를 GET한다", async () => {
+  it("fetchOrders는 ORDER_SERVICE.myOrders를 userId 쿼리 파라미터와 함께 GET한다", async () => {
     (apiClient.get as any).mockResolvedValue({ data: { success: true, data: [], error: null } });
-    await fetchOrders();
-    expect(apiClient.get).toHaveBeenCalledWith(ORDER_SERVICE.myOrders);
+    await fetchOrders(1);
+    expect(apiClient.get).toHaveBeenCalledWith(ORDER_SERVICE.myOrders, { params: { userId: 1 } });
   });
 
   it("fetchOrder는 ORDER_SERVICE.order(id)를 GET한다", async () => {

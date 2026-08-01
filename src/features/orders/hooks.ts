@@ -1,8 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuthStore } from "../../shared/auth/authStore";
 import { fetchOrders, fetchOrder, cancelOrder } from "./api";
 
 export function useOrders() {
-  return useQuery({ queryKey: ["orders"], queryFn: fetchOrders });
+  const userId = useAuthStore((state) => state.user?.id);
+  return useQuery({
+    queryKey: ["orders", userId],
+    queryFn: () => fetchOrders(userId as number),
+    enabled: !!userId,
+  });
 }
 
 export function useOrder(id: number) {

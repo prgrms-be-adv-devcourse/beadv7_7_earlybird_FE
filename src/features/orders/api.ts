@@ -3,8 +3,10 @@ import { ORDER_SERVICE } from "../../shared/api/endpoints";
 import type { ApiResponse } from "../../shared/types/ApiResponse";
 import type { Order, OrderSummary } from "./types";
 
-export async function fetchOrders(): Promise<OrderSummary[]> {
-  const response = await apiClient.get<ApiResponse<OrderSummary[]>>(ORDER_SERVICE.myOrders);
+export async function fetchOrders(userId: number): Promise<OrderSummary[]> {
+  const response = await apiClient.get<ApiResponse<OrderSummary[]>>(ORDER_SERVICE.myOrders, {
+    params: { userId },
+  });
   return response.data.data ?? [];
 }
 
