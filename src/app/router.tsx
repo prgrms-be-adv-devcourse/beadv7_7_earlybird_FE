@@ -10,6 +10,7 @@ import { OrderListPage } from "../features/orders/pages/OrderListPage";
 import { OrderDetailPage } from "../features/orders/pages/OrderDetailPage";
 import { CheckoutPage } from "../features/payments/pages/CheckoutPage";
 import { SettlementDashboardPage } from "../features/settlements/pages/SettlementDashboardPage";
+import { NotificationListPage } from "../features/notifications/pages/NotificationListPage";
 
 export function AppRoutes() {
   return (
@@ -25,6 +26,7 @@ export function AppRoutes() {
           <Route path="/orders/:id" element={<OrderDetailPage />} />
           <Route path="/orders/:id/checkout" element={<CheckoutPage />} />
           <Route path="/settlements" element={<SettlementDashboardPage />} />
+          <Route path="/notifications" element={<NotificationListPage />} />
         </Route>
       </Route>
     </Routes>

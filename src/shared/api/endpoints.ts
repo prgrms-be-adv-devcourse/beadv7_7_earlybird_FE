@@ -58,6 +58,8 @@ export const BOARD_SERVICE = {
 
 // TODO(FE): notification-service NotificationController도 /api/v1 프리픽스 없이 /notifications뿐.
 // 팀 컨벤션 기준으로 가정 — 배포 서버 켜지면 확인 후 이 값만 고치면 된다.
+// (별개 확인 완료 사항: GET 목록 엔드포인트는 /notifications/me이고 userId가 필수 쿼리 파라미터다 —
+// ORDER_SERVICE.myOrders/fetchOrders와 동일 패턴으로 params에 담아 보낸다.)
 export const NOTIFICATION_SERVICE = {
-  notifications: "/api/v1/notifications",
+  notifications: "/api/v1/notifications/me",
 };
