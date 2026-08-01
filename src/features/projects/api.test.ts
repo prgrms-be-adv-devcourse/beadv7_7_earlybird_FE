@@ -16,10 +16,10 @@ describe("projects api", () => {
   });
 
   it("fetchProject는 PROJECT_SERVICE.project(id)를 GET한다", async () => {
-    (apiClient.get as any).mockResolvedValue({ data: { success: true, data: { id: 39 }, error: null } });
+    (apiClient.get as any).mockResolvedValue({ data: { success: true, data: { projectId: 39 }, error: null } });
     const result = await fetchProject(39);
     expect(apiClient.get).toHaveBeenCalledWith(PROJECT_SERVICE.project(39));
-    expect(result).toEqual({ id: 39 });
+    expect(result).toEqual({ projectId: 39 });
   });
 
   it("fetchRewards는 PROJECT_SERVICE.rewards(projectId)를 GET한다", async () => {

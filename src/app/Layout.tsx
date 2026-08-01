@@ -1,10 +1,17 @@
 import { Link, Outlet } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "../shared/ui";
 import { useAuthStore } from "../shared/auth/authStore";
 
 export function Layout() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const queryClient = useQueryClient();
+
+  const handleLogout = () => {
+    logout();
+    queryClient.clear();
+  };
 
   return (
     <div className="min-h-screen">
@@ -20,7 +27,7 @@ export function Layout() {
           {user?.role === "CREATOR" && <Link to="/settlements">정산</Link>}
           {user?.role === "ADMIN" && <Link to="/admin/categories">관리자</Link>}
           {user ? (
-            <Button variant="ghost" onClick={logout}>
+            <Button variant="ghost" onClick={handleLogout}>
               {user.name}님 로그아웃
             </Button>
           ) : (

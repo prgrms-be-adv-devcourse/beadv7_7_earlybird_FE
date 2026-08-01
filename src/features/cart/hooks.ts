@@ -5,7 +5,7 @@ import { fetchCart } from "./api";
 export function useCart() {
   const userId = useAuthStore((state) => state.user?.id);
   return useQuery({
-    queryKey: ["cart", userId],
+    queryKey: ["cart", "detail", userId],
     queryFn: () => fetchCart(userId as number),
     enabled: !!userId,
   });

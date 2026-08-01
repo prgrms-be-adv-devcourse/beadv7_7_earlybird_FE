@@ -2,13 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchProjects, fetchProject, fetchRewards } from "./api";
 
 export function useProjects() {
-  return useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
+  return useQuery({ queryKey: ["projects", "list"], queryFn: fetchProjects });
 }
 
 export function useProject(id: number) {
-  return useQuery({ queryKey: ["projects", id], queryFn: () => fetchProject(id) });
+  return useQuery({ queryKey: ["projects", "detail", id], queryFn: () => fetchProject(id) });
 }
 
 export function useRewards(projectId: number) {
-  return useQuery({ queryKey: ["projects", projectId, "rewards"], queryFn: () => fetchRewards(projectId) });
+  return useQuery({ queryKey: ["rewards", "list", projectId], queryFn: () => fetchRewards(projectId) });
 }

@@ -1,6 +1,6 @@
 # beadv7_7_earlybird_FE
 
-얼리버드(Team 5) 크라우드펀딩 플랫폼 프론트엔드. React + Vite + TypeScript, gateway-server(`beadv7_7_earlybird_BE`)를 통해 9개 마이크로서비스와 통신한다.
+얼리버드(Team 5) 크라우드펀딩 플랫폼 프론트엔드. React + Vite + TypeScript, gateway-server(`beadv7_7_earlybird_BE`)를 통해 8개 마이크로서비스와 통신한다. (file-service는 미구현 스켈레톤이라 통신 대상에서 제외)
 
 ## 시작하기
 
@@ -15,7 +15,7 @@ npm run dev
 - `npm run dev` — 개발 서버
 - `npm run build` — 프로덕션 빌드
 - `npm run test` — Vitest 단위 테스트
-- `npm run lint` — ESLint
+- `npm run lint` — oxlint
 
 ## 구조
 
@@ -25,3 +25,7 @@ npm run dev
 - `src/features/<domain>` — 도메인별 api/hooks/types/pages (project, cart, orders, payments, settlements, board, notifications, admin, auth)
 
 자세한 설계는 BE 레포의 `docs/superpowers/specs/2026-08-01-earlybird-fe-template-design.md` 참고.
+
+## 주의사항
+
+- `src/shared/api/endpoints.ts`의 `board-service`/`notification-service` 엔드포인트는 `/api/v1` 프리픽스가 있다고 "가정"만 한 상태다(팀 컨벤션 기준 추정, 실제 컨트롤러 코드로는 미확인). 실제 배포 게이트웨이에 연결하기 전에 해당 파일의 `TODO(FE)` 주석을 확인하고 curl로 실제 라우트를 검증할 것.
