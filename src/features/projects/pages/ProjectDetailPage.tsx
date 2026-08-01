@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
 import { Badge, Card, EmptyState, ErrorState, Spinner } from "../../../shared/ui";
+import { ProjectBoardTabs } from "../../board/components/ProjectBoardTabs";
 import { useProject, useRewards } from "../hooks";
 
 export function ProjectDetailPage() {
@@ -40,8 +41,7 @@ export function ProjectDetailPage() {
         )}
       </Card>
 
-      {/* Task 12(board feature)가 이 자리에 공지/후기 탭을 추가한다 */}
-      <section id="project-board-slot" />
+      <ProjectBoardTabs projectId={projectId} />
     </div>
   );
 }
