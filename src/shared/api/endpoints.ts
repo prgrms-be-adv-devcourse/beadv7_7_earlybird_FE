@@ -16,7 +16,8 @@ export const PROJECT_SERVICE = {
 };
 
 export const CART_SERVICE = {
-  // 응답/요청 필드명은 cart-service CartController 실제 DTO로 확인 필요(추정치).
+  // GET 응답 DTO는 cart-service CartResponse(presentation/dto/CartResponse.java)로 확인 완료.
+  // src/features/cart/types.ts 참고 (cartId/itemCount/items/projects 등).
   cart: (userId: number | string) => `/api/v1/users/${userId}/cart`,
 };
 
