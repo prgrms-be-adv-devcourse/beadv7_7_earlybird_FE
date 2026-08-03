@@ -1,9 +1,19 @@
-@import url("https://fonts.googleapis.com/css2?family=Jua&display=swap");
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css");
+@import url("https://cdn.jsdelivr.net/npm/@noonnu/cafe24-ssurround@0.1.0/index.css");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
-  @apply bg-lavender/10 text-slate-800;
+  @apply bg-paper text-ink font-sans;
+}
+
+::selection {
+  @apply bg-brand/20 text-ink;
+}
+
+:focus-visible {
+  outline: 2px solid theme("colors.brand");
+  outline-offset: 2px;
 }

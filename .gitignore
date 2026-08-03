@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local env / tooling state
+.env
+.claude
+skills-lock.json

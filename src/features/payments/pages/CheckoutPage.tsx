@@ -18,9 +18,9 @@ export function CheckoutPage() {
 
   return (
     <Card className="mx-auto max-w-sm text-center">
-      <h1 className="mb-4 font-jua text-2xl">결제하기</h1>
-      <p className="mb-2 text-slate-500">주문 #{orderId}</p>
-      <p className="mb-4 text-sm text-slate-400">
+      <h1 className="mb-4 font-display text-2xl font-bold text-ink">결제하기</h1>
+      <p className="mb-2 text-sm text-mist">주문 #{orderId}</p>
+      <p className="mb-4 text-sm text-mist">
         실제 결제 승인에는 Toss Payments 위젯이 결제를 완료한 뒤 돌려주는 paymentKey와 amount 값이
         필요해요. 이 템플릿에는 결제 위젯 연동이 포함되어 있지 않아 지금은 결제를 진행할 수 없습니다.
       </p>

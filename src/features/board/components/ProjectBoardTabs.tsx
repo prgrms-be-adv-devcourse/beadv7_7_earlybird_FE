@@ -11,13 +11,17 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
     <Card>
       <div className="mb-3 flex gap-2">
         <button
-          className={`rounded-2xl px-3 py-1 font-jua ${tab === "notices" ? "bg-mint" : "bg-lavender/20"}`}
+          className={`rounded-sm border-2 px-3 py-1.5 text-sm font-bold transition-colors ${
+            tab === "notices" ? "border-ink bg-ink text-white" : "border-ink/20 text-mist hover:border-ink/40"
+          }`}
           onClick={() => setTab("notices")}
         >
           공지
         </button>
         <button
-          className={`rounded-2xl px-3 py-1 font-jua ${tab === "reviews" ? "bg-mint" : "bg-lavender/20"}`}
+          className={`rounded-sm border-2 px-3 py-1.5 text-sm font-bold transition-colors ${
+            tab === "reviews" ? "border-ink bg-ink text-white" : "border-ink/20 text-mist hover:border-ink/40"
+          }`}
           onClick={() => setTab("reviews")}
         >
           후기
@@ -30,9 +34,9 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
         ) : (
           <ul className="flex flex-col gap-2">
             {notices.map((notice) => (
-              <li key={notice.id} className="rounded-2xl bg-mint/10 p-3">
-                <p className="font-semibold">{notice.title}</p>
-                <p className="text-sm text-slate-600">{notice.content}</p>
+              <li key={notice.id} className="rounded-sm border border-ink/20 p-3">
+                <p className="font-medium text-ink">{notice.title}</p>
+                <p className="mt-1 text-sm text-mist">{notice.content}</p>
               </li>
             ))}
           </ul>
@@ -44,7 +48,7 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
         ) : (
           <ul className="flex flex-col gap-2">
             {reviews.map((review) => (
-              <li key={review.id} className="rounded-2xl bg-peach/10 p-3 text-sm text-slate-600">
+              <li key={review.id} className="rounded-sm border border-ink/20 p-3 text-sm text-mist">
                 {review.content}
               </li>
             ))}
