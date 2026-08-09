@@ -11,6 +11,7 @@ export type ProjectStatus =
 export interface ProjectSummary {
   projectId: number;
   title: string;
+  summary?: string | null;
   status: ProjectStatus;
   categoryId: number;
   goalAmount: number;
@@ -34,4 +35,21 @@ export interface Reward {
   price: number;
   totalQuantity: number | null;
   remainingQuantity: number | null;
+}
+
+export interface CreateProjectRequest {
+  title: string;
+  categoryId: number;
+  summary: string;
+  description: string;
+  goalAmount: number;
+  startAt: string;
+  endAt: string;
+}
+
+export interface CreateRewardRequest {
+  name: string;
+  description: string;
+  price: number;
+  totalQuantity?: number | null;
 }

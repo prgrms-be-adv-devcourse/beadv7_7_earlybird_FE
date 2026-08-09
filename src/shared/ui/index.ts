@@ -13,3 +13,5 @@ export * from "./DropdownMenu";
 export * from "./Select";
 export * from "./Skeleton";
 export * from "./Mascot";
+export * from "./FlappingBird";
+export * from "./SupportButton";

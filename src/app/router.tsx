@@ -5,6 +5,8 @@ import { SignupPage } from "../features/auth/pages/SignupPage";
 import { HomePage } from "../features/home/pages/HomePage";
 import { ProjectListPage } from "../features/projects/pages/ProjectListPage";
 import { ProjectDetailPage } from "../features/projects/pages/ProjectDetailPage";
+import { ProjectCreatePage } from "../features/projects/pages/ProjectCreatePage";
+import { MyProjectsPage } from "../features/projects/pages/MyProjectsPage";
 import { ProtectedRoute } from "../shared/auth/ProtectedRoute";
 import { CartPage } from "../features/cart/pages/CartPage";
 import { OrderListPage } from "../features/orders/pages/OrderListPage";
@@ -14,6 +16,8 @@ import { SettlementDashboardPage } from "../features/settlements/pages/Settlemen
 import { NotificationListPage } from "../features/notifications/pages/NotificationListPage";
 import { CategoryAdminPage } from "../features/admin/pages/CategoryAdminPage";
 import { ProjectApprovalPage } from "../features/admin/pages/ProjectApprovalPage";
+import { SupportButtonPreview } from "../dev/SupportButtonPreview";
+import { HomePreview } from "../dev/HomePreview";
 
 export function AppRoutes() {
   return (
@@ -22,9 +26,13 @@ export function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/projects" element={<ProjectListPage />} />
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
+        <Route path="/dev/support-button-preview" element={<SupportButtonPreview />} />
+        <Route path="/dev/home-preview" element={<HomePreview />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route element={<ProtectedRoute />}>
+          <Route path="/projects/new" element={<ProjectCreatePage />} />
+          <Route path="/projects/me" element={<MyProjectsPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/orders" element={<OrderListPage />} />
           <Route path="/orders/:id" element={<OrderDetailPage />} />
