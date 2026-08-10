@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
   fetchProjects,
   fetchProject,
@@ -21,6 +21,7 @@ export function useProjects(params?: FetchProjectsParams) {
   return useQuery({
     queryKey: ["projects", "list", params],
     queryFn: () => fetchProjects(params),
+    placeholderData: keepPreviousData,
   });
 }
 
