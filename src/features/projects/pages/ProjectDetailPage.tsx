@@ -32,7 +32,7 @@ import {
   useDeactivateReward,
 } from "../../admin/hooks";
 import type { ProjectDetail, Reward } from "../types";
-import { getStatusLabel, getStatusBadgeTone, formatDateKorean, getCreatorDisplayName } from "../utils";
+import { getStatusLabel, getStatusBadgeTone, getOrderClosedMessage, formatDateKorean, getCreatorDisplayName } from "../utils";
 
 function daysLeft(endAt: string): number {
   const end = new Date(`${endAt}T23:59:59`);
@@ -66,6 +66,7 @@ function FundingPanel({
   isAddingToCart,
   flightTrigger,
   feedback,
+  isOrderable,
 }: {
   project: ProjectDetail;
   rewards: Reward[] | undefined;
@@ -76,6 +77,7 @@ function FundingPanel({
   isAddingToCart: boolean;
   flightTrigger: number;
   feedback: string | null;
+  isOrderable: boolean;
 }) {
   const percent = fundedPercent(project.fundedAmount, project.goalAmount);
   const remaining = daysLeft(project.endAt);
@@ -127,10 +129,15 @@ function FundingPanel({
                 <li key={reward.rewardId}>
                   <button
                     type="button"
-                    onClick={() => onSelectReward(reward.rewardId)}
+                    onClick={() => isOrderable && onSelectReward(reward.rewardId)}
+                    disabled={!isOrderable}
                     aria-pressed={selected}
                     className={`flex w-full items-center justify-between gap-3 rounded-sm border-2 p-3 text-left transition-colors ${
-                      selected ? "border-brand bg-brand/5" : "border-ink/20 hover:border-ink/40"
+                      !isOrderable
+                        ? "cursor-not-allowed border-ink/10 opacity-50"
+                        : selected
+                          ? "border-brand bg-brand/5"
+                          : "border-ink/20 hover:border-ink/40"
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -160,13 +167,15 @@ function FundingPanel({
 
       <SupportButton
         label={
-          isAddingToCart
-            ? "장바구니에 담는 중..."
-            : selectedReward
-              ? "장바구니에 담기 (후원하기)"
-              : "리워드를 선택해주세요"
+          !isOrderable
+            ? getOrderClosedMessage(project.status)
+            : isAddingToCart
+              ? "장바구니에 담는 중..."
+              : selectedReward
+                ? "장바구니에 담기 (후원하기)"
+                : "리워드를 선택해주세요"
         }
-        disabled={!selectedReward || isAddingToCart}
+        disabled={!isOrderable || !selectedReward || isAddingToCart}
         onClick={onAddToCart}
         trigger={flightTrigger}
       />
@@ -221,7 +230,7 @@ export function ProjectDetailPage() {
   }, [rewards, selectedRewardId]);
 
   function handleAddToCart(source: "panel" | "footer") {
-    if (!selectedReward) return;
+    if (!selectedReward || project?.status !== "IN_PROGRESS") return;
     if (!user) {
       navigate("/login");
       return;
@@ -459,6 +468,7 @@ export function ProjectDetailPage() {
           isAddingToCart={addCartItems.isPending}
           flightTrigger={panelFlight}
           feedback={feedback}
+          isOrderable={isPublished}
         />
       </div>
 
@@ -529,8 +539,14 @@ export function ProjectDetailPage() {
         <div className="tabular-nums text-sm font-bold text-ink">{Math.round(percent)}% 달성</div>
         <div className="max-w-[220px] flex-1">
           <SupportButton
-            label={addCartItems.isPending ? "담는 중..." : "후원하기"}
-            disabled={!selectedReward || addCartItems.isPending}
+            label={
+              !isPublished
+                ? getOrderClosedMessage(project.status)
+                : addCartItems.isPending
+                  ? "담는 중..."
+                  : "후원하기"
+            }
+            disabled={!isPublished || !selectedReward || addCartItems.isPending}
             onClick={() => handleAddToCart("footer")}
             trigger={footerFlight}
             compact

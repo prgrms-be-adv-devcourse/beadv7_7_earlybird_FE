@@ -19,6 +19,7 @@ import {
   useRejectProject,
   useExtendProjectDeadline,
   useTriggerCloseExpired,
+  useReindexProjects,
 } from "../hooks";
 import { formatDateKorean, getStatusLabel, getCreatorDisplayName } from "../../projects/utils";
 
@@ -109,6 +110,7 @@ export function ProjectApprovalPage() {
   const { data: projects, isPending, isError } = usePendingProjects();
   const approveMutation = useApproveProject();
   const triggerCloseExpiredMutation = useTriggerCloseExpired();
+  const reindexMutation = useReindexProjects();
 
   if (isPending) {
     return (
@@ -130,14 +132,34 @@ export function ProjectApprovalPage() {
           <h1 className="font-display text-2xl font-bold text-ink">🛡️ 프로젝트 심사 및 관리 (관리자)</h1>
           <p className="text-sm text-mist">등록된 펀딩 심사를 승인/반려하거나 마감 프로젝트 일괄 정산을 트리거합니다.</p>
         </div>
-        <Button
-          variant="secondary"
-          className="border-brand text-brand hover:bg-brand/10 text-xs font-bold"
-          onClick={() => triggerCloseExpiredMutation.mutate()}
-          disabled={triggerCloseExpiredMutation.isPending}
-        >
-          {triggerCloseExpiredMutation.isPending ? "정산 배치 실행 중..." : "⚡ 만료 프로젝트 일괄 정산"}
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              className="border-brand text-brand hover:bg-brand/10 text-xs font-bold"
+              onClick={() => triggerCloseExpiredMutation.mutate()}
+              disabled={triggerCloseExpiredMutation.isPending}
+            >
+              {triggerCloseExpiredMutation.isPending ? "정산 배치 실행 중..." : "⚡ 만료 프로젝트 일괄 정산"}
+            </Button>
+            <Button
+              variant="secondary"
+              className="border-brand text-brand hover:bg-brand/10 text-xs font-bold"
+              onClick={() => reindexMutation.mutate()}
+              disabled={reindexMutation.isPending}
+            >
+              {reindexMutation.isPending ? "재색인 요청 중..." : "🔎 검색 인덱스 재색인"}
+            </Button>
+          </div>
+          {reindexMutation.isSuccess && (
+            <span className="text-xs font-semibold text-brand">
+              재색인 요청 완료 — 임베딩은 비동기로 채워지므로 잠시 후 검색에 반영됩니다.
+            </span>
+          )}
+          {reindexMutation.isError && (
+            <span className="text-xs font-semibold text-red-600">재색인 요청에 실패했습니다.</span>
+          )}
+        </div>
       </div>
 
       {projects.length === 0 ? (

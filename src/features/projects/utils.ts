@@ -28,6 +28,23 @@ export function getStatusLabel(status: string): string {
   }
 }
 
+export function getOrderClosedMessage(status: string): string {
+  switch (status) {
+    case "SUCCEEDED":
+      return "🎉 펀딩이 목표를 달성하고 종료됐어요";
+    case "FAILED":
+      return "😭 목표 금액 미달로 종료됐어요";
+    case "CANCELLED":
+      return "🚫 취소된 프로젝트예요";
+    case "PENDING_REVIEW":
+      return "⌛ 아직 심사 중이라 후원할 수 없어요";
+    case "REJECTED":
+      return "❌ 심사 반려로 후원할 수 없어요";
+    default:
+      return "지금은 후원할 수 없어요";
+  }
+}
+
 export function getStatusBadgeTone(status: string): "mint" | "peach" | "lavender" {
   switch (status) {
     case "IN_PROGRESS":

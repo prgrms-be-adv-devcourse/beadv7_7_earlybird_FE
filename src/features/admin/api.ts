@@ -55,6 +55,10 @@ export async function triggerCloseExpiredProjects(): Promise<void> {
   await apiClient.post<ApiResponse<null>>(`${PROJECT_SERVICE.projects}/close-expired`, {}, ADMIN_HEADER);
 }
 
+export async function reindexAllProjects(): Promise<void> {
+  await apiClient.post<ApiResponse<null>>(`${PROJECT_SERVICE.projects}/reindex`, {}, ADMIN_HEADER);
+}
+
 export async function cancelProjectByAdmin(id: number): Promise<void> {
   await apiClient.post<ApiResponse<null>>(`${PROJECT_SERVICE.project(id)}/cancel`, {}, ADMIN_HEADER);
 }

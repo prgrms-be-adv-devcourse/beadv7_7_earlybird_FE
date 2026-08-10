@@ -92,15 +92,10 @@ export function ProjectListPage() {
   const filteredAndSorted = useMemo(() => {
     if (!projects) return [];
 
+    // Keyword filtering happens server-side (hybrid keyword + semantic search) via useProjects'
+    // `keyword` param — re-filtering by literal substring here would drop semantic-only matches
+    // (e.g. "냥이" matching "고양이 자동 급식기" via embedding similarity, not literal text).
     let list = projects;
-
-    if (keyword.trim()) {
-      const terms = keyword.trim().toLowerCase().split(/\s+/).filter(Boolean);
-      list = list.filter((project) => {
-        const fullText = `${project.title} ${project.summary || ""}`.toLowerCase();
-        return terms.every((term) => fullText.includes(term));
-      });
-    }
 
     if (status !== ALL) {
       list = list.filter((project) => project.status === status);
@@ -125,7 +120,7 @@ export function ProjectListPage() {
     }
 
     return list;
-  }, [projects, keyword, status, categoryId, creatorId, sort, categories]);
+  }, [projects, status, categoryId, creatorId, sort, categories]);
 
   const handleClearSearch = () => {
     setInputKeyword("");

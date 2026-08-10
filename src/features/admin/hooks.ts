@@ -9,6 +9,7 @@ import {
   rejectProject,
   extendProjectDeadline,
   triggerCloseExpiredProjects,
+  reindexAllProjects,
   cancelProjectByAdmin,
   decreaseRewardQuantityByAdmin,
   deactivateRewardByAdmin,
@@ -107,6 +108,16 @@ export function useTriggerCloseExpired() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => triggerCloseExpiredProjects(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}
+
+export function useReindexProjects() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => reindexAllProjects(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
     },

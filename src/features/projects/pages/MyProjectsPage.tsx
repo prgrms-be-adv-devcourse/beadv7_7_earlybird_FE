@@ -86,7 +86,7 @@ function MyProjectCard({ project }: { project: ProjectSummary }) {
           <span>{formatDateKorean(project.startAt)}</span>
         </div>
         <div>
-          <span className="block font-semibold text-ink">정확한 마감일</span>
+          <span className="block font-semibold text-ink">마감일</span>
           <span className="font-bold text-ink">{formatDateKorean(project.endAt)}</span>
         </div>
       </div>
