@@ -48,8 +48,8 @@ export function CheckoutPage() {
 
     try {
       const TossPaymentsSDK = await loadTossPaymentsScript();
-      // Toss Payments official public test client key
-      const clientKey = "test_ck_docs_OSEv28rgA4KEeCeQnX3o3182";
+      // Toss Payments user client key
+      const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || "test_sk_yZqmkKeP8g70J4ZaxlbB8bQRxB9l";
       const tossPayments = TossPaymentsSDK(clientKey);
 
       let method = "카드";
