@@ -16,7 +16,6 @@ import { useCategories } from "../../admin/hooks";
 import { ProjectCard } from "../components/ProjectCard";
 import {
   getCreatorDisplayName,
-  flattenCategories,
   getCategoryIdsIncludingChildren,
 } from "../utils";
 
@@ -84,8 +83,9 @@ export function ProjectListPage() {
 
   const { data: categories } = useCategories();
 
-  const flatCategoryOptions = useMemo(
-    () => flattenCategories(categories ?? []),
+  // Top-level categories only for clean dropdown selection
+  const topLevelCategories = useMemo(
+    () => (categories ?? []).filter((cat) => cat.parentProjectCategoryId === null || !cat.parentProjectCategoryId),
     [categories]
   );
 
@@ -111,10 +111,12 @@ export function ProjectListPage() {
     if (status !== ALL) {
       list = list.filter((project) => project.status === status);
     }
+
     if (categoryId !== ALL) {
       const validCategoryIds = getCategoryIdsIncludingChildren(categories ?? [], Number(categoryId));
       list = list.filter((project) => validCategoryIds.includes(project.categoryId));
     }
+
     if (creatorId !== ALL) {
       list = list.filter((project) => String(project.creatorId) === creatorId);
     }
@@ -147,7 +149,7 @@ export function ProjectListPage() {
       <div className="flex items-center justify-between border-b border-ink/10 pb-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-ink">🔍 프로젝트 탐색 및 검색</h1>
-          <p className="text-xs text-mist">원하는 키워드, 카테고리, 창작자, 정렬 기준으로 펀딩 프로젝트를 찾아보세요.</p>
+          <p className="text-xs text-mist">원하는 키워드, 최상위 카테고리, 창작자, 정렬 기준으로 펀딩 프로젝트를 찾아보세요.</p>
         </div>
         <Link
           to="/projects/new"
@@ -182,16 +184,16 @@ export function ProjectListPage() {
 
         {/* Dropdown Filters */}
         <div className="flex flex-wrap items-center gap-3 pt-1">
-          {/* Category Filter */}
+          {/* Category Filter - Top Level Only */}
           <Select value={categoryId} onValueChange={setCategoryId}>
-            <SelectTrigger className="w-52 bg-surface">
-              <SelectValue placeholder="카테고리 선택" />
+            <SelectTrigger className="w-48 bg-surface font-semibold">
+              <SelectValue placeholder="최상위 카테고리" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>📁 전체 카테고리</SelectItem>
-              {flatCategoryOptions.map((cat) => (
+              {topLevelCategories.map((cat) => (
                 <SelectItem key={cat.id} value={String(cat.id)}>
-                  {cat.displayName}
+                  {cat.name}
                 </SelectItem>
               ))}
             </SelectContent>

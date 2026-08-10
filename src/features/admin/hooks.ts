@@ -3,6 +3,7 @@ import {
   fetchCategories,
   createCategory,
   updateCategory,
+  deleteCategory,
   fetchPendingProjects,
   approveProject,
   rejectProject,
@@ -14,7 +15,12 @@ import {
 } from "./api";
 
 export function useCategories() {
-  return useQuery({ queryKey: ["admin", "categories"], queryFn: fetchCategories });
+  return useQuery({
+    queryKey: ["admin", "categories"],
+    queryFn: fetchCategories,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
 }
 
 export function useCreateCategory() {
@@ -23,7 +29,8 @@ export function useCreateCategory() {
     mutationFn: (data: { name: string; parentProjectCategoryId?: number | null }) => createCategory(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "categories"] });
-      queryClient.invalidateQueries({ queryKey: ["categories", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 }
@@ -35,7 +42,20 @@ export function useUpdateCategory() {
       updateCategory(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "categories"] });
-      queryClient.invalidateQueries({ queryKey: ["categories", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => deleteCategory(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "categories"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 }
@@ -55,7 +75,7 @@ export function useApproveProject() {
     mutationFn: (id: number) => approveProject(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "pendingProjects"] });
-      queryClient.invalidateQueries({ queryKey: ["projects", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 }
@@ -66,7 +86,7 @@ export function useRejectProject() {
     mutationFn: ({ id, reason }: { id: number; reason: string }) => rejectProject(id, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "pendingProjects"] });
-      queryClient.invalidateQueries({ queryKey: ["projects", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 }
@@ -75,9 +95,10 @@ export function useExtendProjectDeadline() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, endAt }: { id: number; endAt: string }) => extendProjectDeadline(id, endAt),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "pendingProjects"] });
-      queryClient.invalidateQueries({ queryKey: ["projects", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["projects", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 }
@@ -87,8 +108,7 @@ export function useTriggerCloseExpired() {
   return useMutation({
     mutationFn: () => triggerCloseExpiredProjects(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "pendingProjects"] });
-      queryClient.invalidateQueries({ queryKey: ["projects", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 }
@@ -97,9 +117,10 @@ export function useCancelProjectByAdmin() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => cancelProjectByAdmin(id),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "pendingProjects"] });
-      queryClient.invalidateQueries({ queryKey: ["projects", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["projects", id] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 }

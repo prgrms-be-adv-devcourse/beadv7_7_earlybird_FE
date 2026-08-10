@@ -27,6 +27,10 @@ export async function updateCategory(
   return response.data.data as ProjectCategory;
 }
 
+export async function deleteCategory(id: number): Promise<void> {
+  await apiClient.delete<ApiResponse<null>>(`${PROJECT_SERVICE.categories}/${id}`, ADMIN_HEADER);
+}
+
 export async function fetchPendingProjects(): Promise<ProjectSummary[]> {
   const response = await apiClient.get<ApiResponse<ProjectSummary[]>>(
     `${PROJECT_SERVICE.projects}?status=PENDING_REVIEW`,
