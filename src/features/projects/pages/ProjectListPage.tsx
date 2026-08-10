@@ -83,7 +83,7 @@ export function ProjectListPage() {
     if (keyword.trim()) {
       const terms = keyword.trim().toLowerCase().split(/\s+/).filter(Boolean);
       list = list.filter((project) => {
-        const fullText = `${project.title} ${project.summary || ""} ${project.description || ""}`.toLowerCase();
+        const fullText = `${project.title} ${project.summary || ""}`.toLowerCase();
         return terms.every((term) => fullText.includes(term));
       });
     }
@@ -237,7 +237,7 @@ export function ProjectListPage() {
       </div>
 
       {/* Grid Content / Skeletons / Error / Empty */}
-      {isPending && (!projects || projects.length === 0) ? (
+      {isPending && (!projects || (projects as any[]).length === 0) ? (
         <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, index) => (
             <CardSkeleton key={index} />
@@ -256,5 +256,4 @@ export function ProjectListPage() {
       )}
     </div>
   );
-}
 }
