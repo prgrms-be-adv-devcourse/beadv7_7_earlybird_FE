@@ -102,7 +102,7 @@ export function CartPage() {
       {
         onSuccess: (createdOrder) => {
           setSelectedProject(null);
-          navigate(`/orders/${createdOrder.id}`);
+          navigate(`/checkout/${createdOrder.id}`);
         },
         onError: (err: any) => {
           const msg = err.response?.data?.error?.message || err.message || "주문 생성에 실패했습니다.";

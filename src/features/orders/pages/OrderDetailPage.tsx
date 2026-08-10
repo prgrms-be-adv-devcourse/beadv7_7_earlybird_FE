@@ -1,4 +1,4 @@
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 import {
   AlertDialog,
@@ -21,6 +21,7 @@ import { getOrderStatusLabel, getOrderStatusBadgeTone } from "../utils";
 export function OrderDetailPage() {
   const { id } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const orderId = Number(id);
   const { data: order, isPending, isError } = useOrder(orderId);
   const cancelMutation = useCancelOrder(orderId);
@@ -82,29 +83,41 @@ export function OrderDetailPage() {
           </div>
         </div>
 
-        {order.status !== "CANCELLED" && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="secondary" disabled={cancelMutation.isPending}>
-                {cancelMutation.isPending ? "취소 중..." : "주문 취소"}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogTitle>주문을 취소할까요?</AlertDialogTitle>
-              <AlertDialogDescription className="mt-1">
-                취소하면 되돌릴 수 없어요. 결제된 금액은 환불 절차에 따라 처리돼요.
-              </AlertDialogDescription>
-              <div className="mt-4 flex justify-end gap-2">
-                <AlertDialogCancel asChild>
-                  <Button variant="ghost">돌아가기</Button>
-                </AlertDialogCancel>
-                <AlertDialogAction asChild>
-                  <Button onClick={() => cancelMutation.mutate()}>취소하기</Button>
-                </AlertDialogAction>
-              </div>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+        <div className="flex flex-col sm:flex-row gap-2">
+          {order.status !== "PAID" && order.status !== "CANCELLED" && (
+            <Button
+              type="button"
+              onClick={() => navigate(`/checkout/${order.id}`)}
+              className="flex-1 py-3 text-sm font-bold text-white shadow-stamp hover:scale-[1.01] transition-transform"
+            >
+              💳 Toss로 {order.totalAmount.toLocaleString()}원 결제하기
+            </Button>
+          )}
+
+          {order.status !== "CANCELLED" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="secondary" disabled={cancelMutation.isPending} className="py-3">
+                  {cancelMutation.isPending ? "취소 중..." : "주문 취소"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogTitle>주문을 취소할까요?</AlertDialogTitle>
+                <AlertDialogDescription className="mt-1">
+                  취소하면 되돌릴 수 없어요. 결제된 금액은 환불 절차에 따라 처리돼요.
+                </AlertDialogDescription>
+                <div className="mt-4 flex justify-end gap-2">
+                  <AlertDialogCancel asChild>
+                    <Button variant="ghost">돌아가기</Button>
+                  </AlertDialogCancel>
+                  <AlertDialogAction asChild>
+                    <Button onClick={() => cancelMutation.mutate()}>취소하기</Button>
+                  </AlertDialogAction>
+                </div>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
       </Card>
     </div>
   );
