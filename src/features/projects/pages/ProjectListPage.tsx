@@ -14,6 +14,7 @@ import {
 import { useProjects } from "../hooks";
 import { useCategories } from "../../admin/hooks";
 import { ProjectCard } from "../components/ProjectCard";
+import { getCreatorDisplayName } from "../utils";
 
 const ALL = "ALL";
 
@@ -25,18 +26,29 @@ export function ProjectListPage() {
   const initialCategory = searchParams.get("category") || ALL;
   const initialStatus = searchParams.get("status") || ALL;
   const initialSort = searchParams.get("sort") || "LATEST";
+  const initialCreatorId = searchParams.get("creatorId") || ALL;
 
   const [inputKeyword, setInputKeyword] = useState(urlKeyword);
   const [keyword, setKeyword] = useState(urlKeyword);
   const [status, setStatus] = useState(initialStatus);
   const [categoryId, setCategoryId] = useState(initialCategory);
   const [sort, setSort] = useState(initialSort);
+  const [creatorId, setCreatorId] = useState(initialCreatorId);
 
-  // Sync state if URL searchParams change externally (e.g. navigation from header search bar)
+  // Sync state if URL searchParams change externally
   useEffect(() => {
     const currentUrlKeyword = searchParams.get("keyword") || "";
+    const currentCreatorId = searchParams.get("creatorId") || ALL;
+    const currentCategory = searchParams.get("category") || ALL;
+    const currentStatus = searchParams.get("status") || ALL;
+    const currentSort = searchParams.get("sort") || "LATEST";
+
     setInputKeyword(currentUrlKeyword);
     setKeyword(currentUrlKeyword);
+    setCreatorId(currentCreatorId);
+    setCategoryId(currentCategory);
+    setStatus(currentStatus);
+    setSort(currentSort);
   }, [searchParams]);
 
   // Debounce inputKeyword changes into active query keyword
@@ -54,8 +66,9 @@ export function ProjectListPage() {
     if (categoryId !== ALL) params.category = categoryId;
     if (status !== ALL) params.status = status;
     if (sort !== "LATEST") params.sort = sort;
+    if (creatorId !== ALL) params.creatorId = creatorId;
     setSearchParams(params, { replace: true });
-  }, [keyword, categoryId, status, sort, setSearchParams]);
+  }, [keyword, categoryId, status, sort, creatorId, setSearchParams]);
 
   // Fetch projects passing params
   const { data: projects, isPending, isError, error } = useProjects({
@@ -78,8 +91,6 @@ export function ProjectListPage() {
 
     let list = projects;
 
-    // Tokenized keyword search fallback (if server search is fallback or client filtering is needed)
-    // Checks that all tokens in multi-word search (e.g. "고양이", "밥") match anywhere in project text
     if (keyword.trim()) {
       const terms = keyword.trim().toLowerCase().split(/\s+/).filter(Boolean);
       list = list.filter((project) => {
@@ -94,6 +105,9 @@ export function ProjectListPage() {
     if (categoryId !== ALL) {
       list = list.filter((project) => String(project.categoryId) === categoryId);
     }
+    if (creatorId !== ALL) {
+      list = list.filter((project) => String(project.creatorId) === creatorId);
+    }
 
     // Client-side sort fallback
     if (sort === "DEADLINE") {
@@ -105,31 +119,25 @@ export function ProjectListPage() {
     }
 
     return list;
-  }, [projects, keyword, status, categoryId, sort]);
+  }, [projects, keyword, status, categoryId, sort, creatorId]);
 
   const handleClearSearch = () => {
     setInputKeyword("");
     setKeyword("");
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setKeyword(inputKeyword);
-  };
-
-  const errorMsg = isError
-    ? (error as any)?.response?.data?.error?.message ||
-      (error as any)?.response?.data?.message ||
-      (error as Error)?.message ||
-      "프로젝트 목록을 불러오지 못했습니다."
-    : null;
+  const errorMsg =
+    (error as any)?.response?.data?.error?.message ||
+    (error as any)?.response?.data?.message ||
+    (error as Error)?.message ||
+    "프로젝트 목록을 불러오지 못했습니다.";
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between border-b border-ink/10 pb-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-ink">🔍 프로젝트 탐색 및 검색</h1>
-          <p className="text-xs text-mist">원하는 키워드, 카테고리, 정렬 기준으로 펀딩 프로젝트를 찾아보세요.</p>
+          <p className="text-xs text-mist">원하는 키워드, 카테고리, 창작자, 정렬 기준으로 펀딩 프로젝트를 찾아보세요.</p>
         </div>
         <Link
           to="/projects/new"
@@ -142,7 +150,7 @@ export function ProjectListPage() {
       {/* Search Bar & Filter Controls */}
       <div className="flex flex-col gap-3 rounded-lg border border-ink/15 bg-paper/60 p-4 shadow-sm">
         {/* Search Bar */}
-        <form onSubmit={handleSearchSubmit} className="relative flex items-center w-full">
+        <div className="relative flex items-center w-full">
           <Search className="absolute left-3.5 h-4 w-4 text-mist" />
           <input
             type="text"
@@ -160,7 +168,7 @@ export function ProjectListPage() {
               <X className="h-3 w-3" />
             </button>
           )}
-        </form>
+        </div>
 
         {/* Dropdown Filters */}
         <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -206,7 +214,7 @@ export function ProjectListPage() {
             </SelectContent>
           </Select>
 
-          {(inputKeyword || categoryId !== ALL || status !== ALL || sort !== "LATEST") && (
+          {(keyword || categoryId !== ALL || status !== ALL || sort !== "LATEST" || creatorId !== ALL) && (
             <button
               type="button"
               onClick={() => {
@@ -215,6 +223,7 @@ export function ProjectListPage() {
                 setCategoryId(ALL);
                 setStatus(ALL);
                 setSort("LATEST");
+                setCreatorId(ALL);
               }}
               className="text-xs font-semibold text-brand hover:underline ml-auto"
             >
@@ -222,6 +231,22 @@ export function ProjectListPage() {
             </button>
           )}
         </div>
+
+        {/* Active Creator Filter Banner */}
+        {creatorId !== ALL && (
+          <div className="mt-1 rounded-sm bg-brand/10 border border-brand/20 p-2.5 text-xs flex items-center justify-between">
+            <span>
+              👤 <strong className="text-ink">{getCreatorDisplayName(Number(creatorId))}</strong> 창작자의 개설 프로젝트 목록을 보는 중입니다.
+            </span>
+            <button
+              type="button"
+              onClick={() => setCreatorId(ALL)}
+              className="text-brand font-bold hover:underline"
+            >
+              전체 창작자 보기 ✕
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Result Count Header */}

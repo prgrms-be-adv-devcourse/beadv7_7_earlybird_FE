@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import axios from "axios";
@@ -95,7 +95,19 @@ function FundingPanel({
         <div className="mt-3 flex flex-col gap-1 border-t border-ink/10 pt-2 text-xs text-mist">
           <div>🗓️ 시작일: <strong className="text-ink">{formatDateKorean(project.startAt)}</strong></div>
           <div>⏰ 마감일: <strong className="text-ink">{formatDateKorean(project.endAt)} ({remaining > 0 ? `${remaining}일 남음` : "마감"})</strong></div>
-          <div>👤 창작자: <strong className="text-ink">{getCreatorDisplayName(project.creatorId)}</strong></div>
+          <div>
+            👤 창작자:{" "}
+            {project.creatorId ? (
+              <Link
+                to={`/projects?creatorId=${project.creatorId}`}
+                className="font-bold text-brand hover:underline"
+              >
+                {getCreatorDisplayName(project.creatorId)}
+              </Link>
+            ) : (
+              <strong className="text-ink">{getCreatorDisplayName(project.creatorId)}</strong>
+            )}
+          </div>
         </div>
 
         <div className="mt-2">

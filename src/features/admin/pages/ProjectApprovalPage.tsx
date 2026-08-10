@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Button,
   Card,
@@ -153,7 +154,18 @@ export function ProjectApprovalPage() {
                   </span>
                 </div>
                 <span className="text-xs text-mist">
-                  창작자: <strong className="text-ink">{getCreatorDisplayName(project.creatorId)}</strong> | 시작일/생성일: {formatDateKorean(project.startAt)} | 마감일: <strong className="text-ink">{formatDateKorean(project.endAt)}</strong> | 목표: {project.goalAmount.toLocaleString()}원
+                  창작자:{" "}
+                  {project.creatorId ? (
+                    <Link
+                      to={`/projects?creatorId=${project.creatorId}`}
+                      className="font-bold text-brand hover:underline"
+                    >
+                      {getCreatorDisplayName(project.creatorId)}
+                    </Link>
+                  ) : (
+                    <strong className="text-ink">{getCreatorDisplayName(project.creatorId)}</strong>
+                  )}{" "}
+                  | 시작일/생성일: {formatDateKorean(project.startAt)} | 마감일: <strong className="text-ink">{formatDateKorean(project.endAt)}</strong> | 목표: {project.goalAmount.toLocaleString()}원
                 </span>
               </div>
               <div className="flex gap-2">
