@@ -235,8 +235,9 @@ export function ProjectDetailPage() {
       navigate("/login");
       return;
     }
+    const targetProjectId = selectedReward.projectId ?? projectId;
     addCartItems.mutate(
-      { projectId, items: [{ rewardId: selectedReward.rewardId, quantity: 1 }] },
+      { projectId: targetProjectId, items: [{ rewardId: selectedReward.rewardId, quantity: 1 }] },
       {
         onSuccess: () => {
           if (source === "panel") setPanelFlight((k) => k + 1);
