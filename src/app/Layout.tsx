@@ -13,11 +13,53 @@ import {
 import { useAuthStore } from "../shared/auth/authStore";
 import { FloatingCartBar } from "../features/cart/components/FloatingCartBar";
 import { useCategories } from "../features/admin/hooks";
+import type { ProjectCategory } from "../features/admin/types";
+
+function CategoryTreeItem({
+  category,
+  depth = 1,
+  onSelect,
+}: {
+  category: ProjectCategory;
+  depth?: number;
+  onSelect: (id: number) => void;
+}) {
+  const hasChildren = category.children && category.children.length > 0;
+  const prefix = depth === 1 ? "└ " : "• ";
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <button
+        type="button"
+        onClick={() => onSelect(category.id)}
+        className={`w-full text-left py-1 text-xs font-bold rounded transition-colors flex items-center justify-between ${
+          depth === 1
+            ? "px-2.5 text-ink hover:bg-paper/80 hover:text-brand"
+            : "px-2 text-mist hover:text-brand font-semibold"
+        }`}
+      >
+        <span>{prefix}{category.name}</span>
+      </button>
+
+      {hasChildren && (
+        <div className="ml-3 flex flex-col gap-0.5 border-l-2 border-brand/20 pl-2 my-0.5">
+          {category.children.map((child) => (
+            <CategoryTreeItem key={child.id} category={child} depth={depth + 1} onSelect={onSelect} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function HeaderCategoryNav() {
   const navigate = useNavigate();
   const { data: categories } = useCategories();
   const topCategories = categories ?? [];
+
+  const handleSelect = (catId: number) => {
+    navigate(`/projects?category=${catId}`);
+  };
 
   return (
     <div className="hidden lg:flex items-center gap-1 border-l-2 border-ink/15 pl-4 ml-1">
@@ -27,7 +69,7 @@ function HeaderCategoryNav() {
           <div key={topCat.id} className="group relative">
             <button
               type="button"
-              onClick={() => navigate(`/projects?category=${topCat.id}`)}
+              onClick={() => handleSelect(topCat.id)}
               className="flex items-center gap-1 px-2.5 py-1 text-sm font-bold text-ink rounded-md transition-colors hover:bg-brand/10 hover:text-brand whitespace-nowrap"
             >
               <span>{topCat.name}</span>
@@ -38,25 +80,23 @@ function HeaderCategoryNav() {
 
             {hasChildren && (
               <div className="invisible absolute left-0 top-full pt-1.5 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 z-50">
-                <div className="min-w-[180px] rounded-lg border-2 border-ink bg-surface p-2 shadow-stamp-lg flex flex-col gap-0.5">
+                <div className="min-w-[200px] rounded-lg border-2 border-ink bg-surface p-2.5 shadow-stamp-lg flex flex-col gap-0.5 max-h-[400px] overflow-y-auto">
                   <button
                     type="button"
-                    onClick={() => navigate(`/projects?category=${topCat.id}`)}
-                    className="w-full text-left px-3 py-1.5 text-xs font-extrabold text-brand hover:bg-brand/10 rounded transition-colors"
+                    onClick={() => handleSelect(topCat.id)}
+                    className="w-full text-left px-2.5 py-1.5 text-xs font-extrabold text-brand hover:bg-brand/10 rounded transition-colors"
                   >
                     전체 {topCat.name} 보기
                   </button>
                   <div className="my-1 h-px bg-ink/15" />
 
                   {topCat.children.map((subCat) => (
-                    <button
+                    <CategoryTreeItem
                       key={subCat.id}
-                      type="button"
-                      onClick={() => navigate(`/projects?category=${subCat.id}`)}
-                      className="w-full text-left px-3 py-1.5 text-xs font-bold text-ink hover:bg-paper/80 hover:text-brand rounded transition-colors"
-                    >
-                      └ {subCat.name}
-                    </button>
+                      category={subCat}
+                      depth={1}
+                      onSelect={handleSelect}
+                    />
                   ))}
                 </div>
               </div>
