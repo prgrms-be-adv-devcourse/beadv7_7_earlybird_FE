@@ -125,7 +125,7 @@ export function CartPage() {
         shippingAddress,
         zipCode,
         expectedItemsAmount: totalItemsAmount,
-        expectedTotalAmount: totalAmount,
+        expectedTotalAmount: totalItemsAmount,
       },
       {
         onSuccess: (createdOrder) => {
