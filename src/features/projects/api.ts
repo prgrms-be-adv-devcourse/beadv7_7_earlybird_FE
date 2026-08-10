@@ -40,6 +40,11 @@ export async function fetchProject(id: number): Promise<ProjectDetail> {
   return response.data.data as ProjectDetail;
 }
 
+export async function fetchMyProjects(): Promise<ProjectSummary[]> {
+  const response = await apiClient.get<ApiResponse<ProjectSummary[]>>(PROJECT_SERVICE.myProjects);
+  return response.data.data ?? [];
+}
+
 export async function fetchRewards(projectId: number): Promise<Reward[]> {
   const response = await apiClient.get<ApiResponse<Reward[]>>(PROJECT_SERVICE.rewards(projectId));
   return response.data.data ?? [];

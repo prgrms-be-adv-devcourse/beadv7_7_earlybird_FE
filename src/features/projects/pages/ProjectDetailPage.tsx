@@ -303,6 +303,12 @@ export function ProjectDetailPage() {
   return (
     <div className="flex flex-col gap-6 pb-24 lg:grid lg:grid-cols-[1fr_360px] lg:items-start lg:gap-8 lg:pb-0">
       <div className="flex flex-col gap-6">
+        {project.isOwnerPreview && (
+          <div className="rounded-sm border-2 border-amber-300 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
+            ⌛ 심사 대기 중인 프로젝트예요. 창작자 본인에게만 보이는 미리보기이며, 스토리(상세 설명)는 심사 승인 후 표시됩니다.
+          </div>
+        )}
+
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
           <Card className="!p-0">
             <Thumbnail className="aspect-[16/9] w-full" />

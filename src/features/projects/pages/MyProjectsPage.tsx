@@ -5,6 +5,7 @@ import { apiClient } from "../../../shared/api/client";
 import { PROJECT_SERVICE } from "../../../shared/api/endpoints";
 import type { ApiResponse } from "../../../shared/types/ApiResponse";
 import type { ProjectSummary, Reward } from "../types";
+import { fetchMyProjects } from "../api";
 import { useCreateReward, useDeleteProject, useRewards } from "../hooks";
 import { formatDateKorean } from "../utils";
 import { ProjectEditModal } from "../components/ProjectEditModal";
@@ -20,11 +21,6 @@ import {
   EmptyState,
   ErrorState,
 } from "../../../shared/ui";
-
-export async function fetchMyProjects(): Promise<ProjectSummary[]> {
-  const response = await apiClient.get<ApiResponse<ProjectSummary[]>>(PROJECT_SERVICE.myProjects);
-  return response.data.data ?? [];
-}
 
 export async function cancelMyProject(projectId: number): Promise<void> {
   await apiClient.post<ApiResponse<null>>(`${PROJECT_SERVICE.project(projectId)}/cancel`);
