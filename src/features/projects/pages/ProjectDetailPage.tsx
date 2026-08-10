@@ -236,7 +236,20 @@ export function ProjectDetailPage() {
             }
           }
 
-          setFeedback(serverMsg || "담기에 실패했어요. 다시 시도해주세요.");
+          let friendlyMsg = "담기에 실패했어요. 다시 시도해주세요.";
+          if (serverMsg) {
+            if (serverMsg.includes("does not belong to the project")) {
+              friendlyMsg = "장바구니 연동 정보를 확인 중입니다. 잠시 후 다시 시도해 주세요.";
+            } else if (serverMsg.includes("not orderable")) {
+              friendlyMsg = "현재 구매 신청할 수 없는 리워드입니다.";
+            } else if (serverMsg.includes("insufficient")) {
+              friendlyMsg = "리워드 재고가 부족합니다.";
+            } else {
+              friendlyMsg = serverMsg;
+            }
+          }
+
+          setFeedback(friendlyMsg);
           setTimeout(() => setFeedback(null), 5000);
         },
       },

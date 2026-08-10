@@ -41,7 +41,12 @@ export function useUpdateCategory() {
 }
 
 export function usePendingProjects() {
-  return useQuery({ queryKey: ["admin", "pendingProjects"], queryFn: fetchPendingProjects });
+  return useQuery({
+    queryKey: ["admin", "pendingProjects"],
+    queryFn: fetchPendingProjects,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
 }
 
 export function useApproveProject() {

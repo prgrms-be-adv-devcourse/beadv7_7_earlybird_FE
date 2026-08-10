@@ -21,17 +21,33 @@ export function ProjectListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Read initial filter values from URL params
-  const initialKeyword = searchParams.get("keyword") || "";
+  const urlKeyword = searchParams.get("keyword") || "";
   const initialCategory = searchParams.get("category") || ALL;
   const initialStatus = searchParams.get("status") || ALL;
   const initialSort = searchParams.get("sort") || "LATEST";
 
-  const [keyword, setKeyword] = useState(initialKeyword);
+  const [inputKeyword, setInputKeyword] = useState(urlKeyword);
+  const [keyword, setKeyword] = useState(urlKeyword);
   const [status, setStatus] = useState(initialStatus);
   const [categoryId, setCategoryId] = useState(initialCategory);
   const [sort, setSort] = useState(initialSort);
 
-  // Sync component state with URL params
+  // Sync state if URL searchParams change externally (e.g. navigation from header search bar)
+  useEffect(() => {
+    const currentUrlKeyword = searchParams.get("keyword") || "";
+    setInputKeyword(currentUrlKeyword);
+    setKeyword(currentUrlKeyword);
+  }, [searchParams]);
+
+  // Debounce inputKeyword changes into active query keyword
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setKeyword(inputKeyword);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [inputKeyword]);
+
+  // Sync URL query params with current filter state
   useEffect(() => {
     const params: Record<string, string> = {};
     if (keyword.trim()) params.keyword = keyword.trim();
@@ -56,21 +72,28 @@ export function ProjectListPage() {
     [projects]
   );
 
-  // Fallback client-side filter and sort to guarantee immediate responsiveness
+  // Fallback client-side filter & sort to guarantee immediate responsiveness
   const filteredAndSorted = useMemo(() => {
     if (!projects) return [];
 
-    let list = projects.filter((project) => {
-      const matchesKeyword =
-        !keyword.trim() ||
-        project.title.toLowerCase().includes(keyword.trim().toLowerCase()) ||
-        (project.summary && project.summary.toLowerCase().includes(keyword.trim().toLowerCase()));
+    let list = projects;
 
-      const matchesStatus = status === ALL || project.status === status;
-      const matchesCategory = categoryId === ALL || String(project.categoryId) === categoryId;
+    // Tokenized keyword search fallback (if server search is fallback or client filtering is needed)
+    // Checks that all tokens in multi-word search (e.g. "고양이", "밥") match anywhere in project text
+    if (keyword.trim()) {
+      const terms = keyword.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      list = list.filter((project) => {
+        const fullText = `${project.title} ${project.summary || ""}`.toLowerCase();
+        return terms.every((term) => fullText.includes(term));
+      });
+    }
 
-      return matchesKeyword && matchesStatus && matchesCategory;
-    });
+    if (status !== ALL) {
+      list = list.filter((project) => project.status === status);
+    }
+    if (categoryId !== ALL) {
+      list = list.filter((project) => String(project.categoryId) === categoryId);
+    }
 
     // Client-side sort fallback
     if (sort === "DEADLINE") {
@@ -85,38 +108,21 @@ export function ProjectListPage() {
   }, [projects, keyword, status, categoryId, sort]);
 
   const handleClearSearch = () => {
+    setInputKeyword("");
     setKeyword("");
   };
 
-  if (isPending) {
-    return (
-      <div className="flex flex-col gap-5">
-        <div className="flex items-center justify-between">
-          <h1 className="font-display text-2xl font-bold text-ink">전체 프로젝트</h1>
-          <Link
-            to="/projects/new"
-            className="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white shadow-stamp transition-transform hover:scale-105"
-          >
-            + 프로젝트 만들기
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <CardSkeleton key={index} />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setKeyword(inputKeyword);
+  };
 
-  if (isError) {
-    const errorMsg =
-      (error as any)?.response?.data?.error?.message ||
+  const errorMsg = isError
+    ? (error as any)?.response?.data?.error?.message ||
       (error as any)?.response?.data?.message ||
       (error as Error)?.message ||
-      "프로젝트 목록을 불러오지 못했습니다.";
-    return <ErrorState error={{ message: errorMsg, errors: null }} />;
-  }
+      "프로젝트 목록을 불러오지 못했습니다."
+    : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -136,16 +142,16 @@ export function ProjectListPage() {
       {/* Search Bar & Filter Controls */}
       <div className="flex flex-col gap-3 rounded-lg border border-ink/15 bg-paper/60 p-4 shadow-sm">
         {/* Search Bar */}
-        <div className="relative flex items-center w-full">
+        <form onSubmit={handleSearchSubmit} className="relative flex items-center w-full">
           <Search className="absolute left-3.5 h-4 w-4 text-mist" />
           <input
             type="text"
             placeholder="프로젝트 제목 또는 한 줄 요약으로 검색..."
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
+            value={inputKeyword}
+            onChange={(e) => setInputKeyword(e.target.value)}
             className="w-full rounded-full border border-ink/20 bg-surface pl-10 pr-10 py-2.5 text-sm text-ink outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
           />
-          {keyword && (
+          {inputKeyword && (
             <button
               type="button"
               onClick={handleClearSearch}
@@ -154,7 +160,7 @@ export function ProjectListPage() {
               <X className="h-3 w-3" />
             </button>
           )}
-        </div>
+        </form>
 
         {/* Dropdown Filters */}
         <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -200,10 +206,11 @@ export function ProjectListPage() {
             </SelectContent>
           </Select>
 
-          {(keyword || categoryId !== ALL || status !== ALL || sort !== "LATEST") && (
+          {(inputKeyword || categoryId !== ALL || status !== ALL || sort !== "LATEST") && (
             <button
               type="button"
               onClick={() => {
+                setInputKeyword("");
                 setKeyword("");
                 setCategoryId(ALL);
                 setStatus(ALL);
@@ -229,7 +236,16 @@ export function ProjectListPage() {
         )}
       </div>
 
-      {filteredAndSorted.length === 0 ? (
+      {/* Grid Content / Skeletons / Error / Empty */}
+      {isPending && (!projects || (projects as any[]).length === 0) ? (
+        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <CardSkeleton key={index} />
+          ))}
+        </div>
+      ) : isError ? (
+        <ErrorState error={{ message: errorMsg!, errors: null }} />
+      ) : filteredAndSorted.length === 0 ? (
         <EmptyState message="조건에 맞는 프로젝트가 없어요. 다른 키워드나 필터로 검색해 보세요." />
       ) : (
         <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
