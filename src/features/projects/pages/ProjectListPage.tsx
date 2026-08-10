@@ -14,7 +14,11 @@ import {
 import { useProjects } from "../hooks";
 import { useCategories } from "../../admin/hooks";
 import { ProjectCard } from "../components/ProjectCard";
-import { getCreatorDisplayName } from "../utils";
+import {
+  getCreatorDisplayName,
+  flattenCategories,
+  getCategoryIdsIncludingChildren,
+} from "../utils";
 
 const ALL = "ALL";
 
@@ -80,12 +84,17 @@ export function ProjectListPage() {
 
   const { data: categories } = useCategories();
 
+  const flatCategoryOptions = useMemo(
+    () => flattenCategories(categories ?? []),
+    [categories]
+  );
+
   const statusOptions = useMemo(
     () => Array.from(new Set((projects ?? []).map((project) => project.status))),
     [projects]
   );
 
-  // Fallback client-side filter & sort to guarantee immediate responsiveness
+  // Fallback client-side filter & sort to guarantee immediate responsiveness and subcategory tree matching
   const filteredAndSorted = useMemo(() => {
     if (!projects) return [];
 
@@ -103,7 +112,8 @@ export function ProjectListPage() {
       list = list.filter((project) => project.status === status);
     }
     if (categoryId !== ALL) {
-      list = list.filter((project) => String(project.categoryId) === categoryId);
+      const validCategoryIds = getCategoryIdsIncludingChildren(categories ?? [], Number(categoryId));
+      list = list.filter((project) => validCategoryIds.includes(project.categoryId));
     }
     if (creatorId !== ALL) {
       list = list.filter((project) => String(project.creatorId) === creatorId);
@@ -119,7 +129,7 @@ export function ProjectListPage() {
     }
 
     return list;
-  }, [projects, keyword, status, categoryId, sort, creatorId]);
+  }, [projects, keyword, status, categoryId, creatorId, sort, categories]);
 
   const handleClearSearch = () => {
     setInputKeyword("");
@@ -174,14 +184,14 @@ export function ProjectListPage() {
         <div className="flex flex-wrap items-center gap-3 pt-1">
           {/* Category Filter */}
           <Select value={categoryId} onValueChange={setCategoryId}>
-            <SelectTrigger className="w-44 bg-surface">
-              <SelectValue placeholder="카테고리" />
+            <SelectTrigger className="w-52 bg-surface">
+              <SelectValue placeholder="카테고리 선택" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>📁 전체 카테고리</SelectItem>
-              {(categories ?? []).map((category) => (
-                <SelectItem key={category.id} value={String(category.id)}>
-                  {category.name}
+              {flatCategoryOptions.map((cat) => (
+                <SelectItem key={cat.id} value={String(cat.id)}>
+                  {cat.displayName}
                 </SelectItem>
               ))}
             </SelectContent>

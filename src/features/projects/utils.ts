@@ -1,3 +1,5 @@
+import type { ProjectCategory } from "../admin/types";
+
 export function fundedPercent(fundedAmount: number, goalAmount: number) {
   return goalAmount > 0 ? (fundedAmount / goalAmount) * 100 : 0;
 }
@@ -70,4 +72,55 @@ export function getCreatorDisplayName(
   };
 
   return knownCreators[creatorId] || (currentUser?.name ? currentUser.name : "강대혁");
+}
+
+export interface FlatCategory {
+  id: number;
+  name: string;
+  displayName: string;
+  level: number;
+}
+
+export function flattenCategories(categories: ProjectCategory[], level = 0): FlatCategory[] {
+  const result: FlatCategory[] = [];
+  for (const cat of categories) {
+    const indent = level > 0 ? `${"  ".repeat(level)}└ ` : "";
+    result.push({
+      id: cat.id,
+      name: cat.name,
+      displayName: `${indent}${cat.name}`,
+      level,
+    });
+    if (cat.children && cat.children.length > 0) {
+      result.push(...flattenCategories(cat.children, level + 1));
+    }
+  }
+  return result;
+}
+
+export function getCategoryIdsIncludingChildren(categories: ProjectCategory[], targetId: number): number[] {
+  const foundNode = findCategoryNode(categories, targetId);
+  if (!foundNode) return [targetId];
+  return collectAllNodeIds(foundNode);
+}
+
+function findCategoryNode(categories: ProjectCategory[], targetId: number): ProjectCategory | null {
+  for (const cat of categories) {
+    if (cat.id === targetId) return cat;
+    if (cat.children && cat.children.length > 0) {
+      const childMatch = findCategoryNode(cat.children, targetId);
+      if (childMatch) return childMatch;
+    }
+  }
+  return null;
+}
+
+function collectAllNodeIds(node: ProjectCategory): number[] {
+  const ids = [node.id];
+  if (node.children && node.children.length > 0) {
+    for (const child of node.children) {
+      ids.push(...collectAllNodeIds(child));
+    }
+  }
+  return ids;
 }
