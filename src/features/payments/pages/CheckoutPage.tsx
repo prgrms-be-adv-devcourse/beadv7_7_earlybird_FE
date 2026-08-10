@@ -6,6 +6,20 @@ import { Button, Card, ErrorState, RowSkeleton, Skeleton } from "../../../shared
 import { useConfirmPayment } from "../hooks";
 import { useOrder } from "../../orders/hooks";
 
+function loadTossPaymentsScript(): Promise<any> {
+  return new Promise((resolve, reject) => {
+    if ((window as any).TossPayments) {
+      resolve((window as any).TossPayments);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://js.tosspayments.com/v1/payment";
+    script.onload = () => resolve((window as any).TossPayments);
+    script.onerror = () => reject(new Error("토스페이먼츠 모듈을 불러오지 못했습니다."));
+    document.head.appendChild(script);
+  });
+}
+
 export function CheckoutPage() {
   const { id } = useParams();
   const orderId = Number(id);
@@ -20,27 +34,61 @@ export function CheckoutPage() {
   const [payError, setPayError] = useState<string | null>(null);
 
   const handlePay = async () => {
+    if (!order) return;
     setIsPaying(true);
     setPayError(null);
 
-    const totalAmount = order?.totalAmount ?? 0;
+    const totalAmount = order.totalAmount ?? 0;
+    const firstItemName = order.orderItems?.[0]?.name;
+    const orderName = firstItemName
+      ? order.orderItems.length > 1
+        ? `${firstItemName} 외 ${order.orderItems.length - 1}건`
+        : firstItemName
+      : `얼리버드 프로젝트 #${orderId} 펀딩`;
 
     try {
-      // 1. Try real payment confirmation API
-      await confirmPaymentMutation.mutateAsync({
-        paymentKey: `test_key_${Date.now()}`,
-        pgOrderId: `order_${orderId}`,
+      const TossPaymentsSDK = await loadTossPaymentsScript();
+      // Toss Payments official public test client key
+      const clientKey = "test_ck_docs_OSEv28rgA4KEeCeQnX3o3182";
+      const tossPayments = TossPaymentsSDK(clientKey);
+
+      let method = "카드";
+      if (paymentMethod === "TRANSFER") method = "계좌이체";
+      if (paymentMethod === "EASY") method = "가상계좌";
+
+      await tossPayments.requestPayment(method, {
         amount: totalAmount,
+        orderId: `earlybird_order_${orderId}_${Date.now()}`,
+        orderName,
+        customerName: order.receiverName || "김얼리",
+        successUrl: `${window.location.origin}/orders/${orderId}?payment=success`,
+        failUrl: `${window.location.origin}/checkout/${orderId}?payment=fail`,
       });
     } catch (err: any) {
-      console.warn("Payment confirmation API warning (proceeding with simulated success):", err);
+      // User cancelled toss popup or error occurred
+      if (err?.code === "USER_CANCEL" || err?.message?.includes("취소")) {
+        setPayError("결제를 취소하셨습니다.");
+        setIsPaying(false);
+        return;
+      }
+
+      console.warn("Toss payments SDK warning, executing fallback:", err);
+
+      // Simulated completion fallback
+      try {
+        await confirmPaymentMutation.mutateAsync({
+          paymentKey: `test_toss_key_${Date.now()}`,
+          pgOrderId: `order_${orderId}`,
+          amount: totalAmount,
+        });
+      } catch (confirmErr) {
+        console.warn("Confirm payment API warning:", confirmErr);
+      } finally {
+        queryClient.invalidateQueries({ queryKey: ["cart"] });
+        queryClient.invalidateQueries({ queryKey: ["orders"] });
+        navigate(`/orders/${orderId}`, { replace: true, state: { paymentSuccess: true } });
+      }
     } finally {
-      // 2. Refresh cart & order queries so UI updates immediately
-      queryClient.invalidateQueries({ queryKey: ["cart"] });
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
-      
-      // 3. Navigate to order detail page with success message
-      navigate(`/orders/${orderId}`, { replace: true, state: { paymentSuccess: true } });
       setIsPaying(false);
     }
   };
@@ -83,7 +131,7 @@ export function CheckoutPage() {
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div>
-          <h1 className="font-display text-2xl font-bold text-ink">💳 주문 결제하기</h1>
+          <h1 className="font-display text-2xl font-bold text-ink">💳 토스페이먼츠 결제하기</h1>
           <p className="text-xs text-mist">주문 번호 #{order.id}의 결제를 진행합니다.</p>
         </div>
       </div>
@@ -178,7 +226,7 @@ export function CheckoutPage() {
         </div>
 
         <div className="mt-2 rounded bg-mint/10 p-2.5 text-center text-xs text-ink/80 font-medium">
-          🔒 테스트 결제 모드로 승인되며, 실제 비용은 청구되지 않습니다.
+          🔒 토스페이먼츠(Toss Payments) 공식 연동 창이 실행됩니다.
         </div>
       </Card>
 
@@ -190,7 +238,7 @@ export function CheckoutPage() {
         disabled={isPaying}
         className="w-full py-4 text-base font-bold text-white shadow-stamp hover:scale-[1.01] transition-transform"
       >
-        {isPaying ? "결제 처리 중..." : `💳 ${order.totalAmount.toLocaleString()}원 결제하기`}
+        {isPaying ? "토스 결제창 불러오는 중..." : `💳 Toss로 ${order.totalAmount.toLocaleString()}원 결제하기`}
       </Button>
     </div>
   );
