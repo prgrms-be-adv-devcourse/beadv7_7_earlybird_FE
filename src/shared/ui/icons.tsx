@@ -21,6 +21,18 @@ export function BirdIcon(props: IconProps) {
   );
 }
 
+export function CaterpillarIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="5.6" cy="16.4" r="2.8" />
+      <circle cx="11.6" cy="15.2" r="3.2" />
+      <circle cx="18" cy="13.6" r="3.6" />
+      <path d="M19.5 10.3c.3-1 1-1.6 1.8-1.9M20.7 11c.6-.8 1.4-1 2.1-1.1" />
+      <circle cx="18.9" cy="12.5" r=".45" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function TicketStubIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>

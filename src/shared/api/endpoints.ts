@@ -9,17 +9,20 @@ export const USER_SERVICE = {
 export const PROJECT_SERVICE = {
   projects: "/api/v1/projects",
   project: (id: number | string) => `/api/v1/projects/${id}`,
+  approve: (projectId: number | string) => `/api/v1/projects/${projectId}/approve`,
   myProjects: "/api/v1/projects/me",
   categories: "/api/v1/project-categories",
   rewards: (projectId: number | string) => `/api/v1/projects/${projectId}/rewards`,
   reward: (rewardId: number | string) => `/api/v1/rewards/${rewardId}`,
 };
 
+
 export const CART_SERVICE = {
-  // GET 응답 DTO는 cart-service CartResponse(presentation/dto/CartResponse.java)로 확인 완료.
-  // src/features/cart/types.ts 참고 (cartId/itemCount/items/projects 등).
   cart: (userId: number | string) => `/api/v1/users/${userId}/cart`,
+  items: (userId: number | string) => `/api/v1/users/${userId}/cart/items`,
+  item: (userId: number | string, rewardId: number | string) => `/api/v1/users/${userId}/cart/items/${rewardId}`,
 };
+
 
 export const ORDER_SERVICE = {
   orders: "/api/v1/orders",
@@ -49,10 +52,9 @@ export const SETTLEMENT_SERVICE = {
 // 팀 컨벤션(2026-07-16 확정, /api/v1/{svc}/xxx) 기준으로 여기서는 있다고 가정만 했다 — 배포 서버가
 // 켜지면 curl로 실제 라우트를 확인하고 아래 값만 고치면 된다(다른 파일에는 영향 없음).
 export const BOARD_SERVICE = {
-  notices: (projectId: number | string) => `/api/v1/projects/${projectId}/notices`,
-  notice: (projectId: number | string, noticeId: number | string) =>
-    `/api/v1/projects/${projectId}/notices/${noticeId}`,
-  reviews: (projectId: number | string) => `/api/v1/projects/${projectId}/reviews`,
+  notices: (projectId: number | string) => `/api/v1/notices?projectId=${projectId}`,
+  notice: (noticeId: number | string) => `/api/v1/notices/${noticeId}`,
+  reviews: (projectId: number | string) => `/api/v1/reviews?projectId=${projectId}`,
   comment: (commentId: number | string) => `/api/v1/comments/${commentId}`,
 };
 

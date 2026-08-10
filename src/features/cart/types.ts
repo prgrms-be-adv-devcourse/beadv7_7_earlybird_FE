@@ -36,3 +36,9 @@ export interface Cart {
   totalShippingFee: number;
   totalAmount: number;
 }
+
+// cart-service AddCartItemsRequest(presentation/dto/AddCartItemsRequest.java)와 동일한 shape.
+export interface AddCartItemsPayload {
+  projectId: number;
+  items: { rewardId: number; quantity: number }[];
+}

@@ -28,7 +28,7 @@
 - **board-service / notification-service의 `/api/v1` 프리픽스가 미확인 상태다.** 두 서비스 컨트롤러 코드엔 실제로 `/api/v1`이 없다(`ProjectNoticeController`/`ReviewController`/`CommentController`/`NotificationController` 전부 클래스 레벨 `@RequestMapping` 없음). 팀 컨벤션(2026-07-16 확정, `/api/v1/{svc}/xxx`) 기준으로 있다고 가정만 하고 `src/shared/api/endpoints.ts`에 TODO로 표시해뒀다. 배포 서버가 켜지면 curl로 실제 라우트를 확인하고 그 파일의 `BOARD_SERVICE`/`NOTIFICATION_SERVICE` 상수만 고치면 된다(다른 파일엔 영향 없음).
 - **살아있는 백엔드에 붙여서 눈으로 확인한 적이 없다.** 이번 작업은 유닛테스트(axios 모킹) + 빌드/타입체크 통과까지만 확인했다. 실제 게이트웨이에 연결해서 화면으로 확인하는 건 아직 안 했다.
 - **settlement-service가 게이트웨이의 `X-User-Id` 헤더 패턴이 아니라 JWT를 자체적으로 디코드한다** (`CreatorProjectSettlementQueryController`가 `@AuthenticationPrincipal Jwt` 사용). 다른 서비스들과 다른 패턴이라 아키텍처 일관성 관점에서 팀에 공유할 가치가 있다. FE 쪽엔 영향 없음(`Authorization: Bearer` 헤더는 이미 매 요청에 붙어 나감).
-- **장바구니에 담기/빼기 뮤테이션이 아직 없다.** 조회만 구현돼 있고 실제로 리워드를 담는 액션은 이번 범위 밖.
+- **장바구니 담기는 구현됨(2026-08-06), 빼기/수량변경 뮤테이션은 아직 없다.** 프로젝트 상세 페이지 "후원하기" 버튼이 `POST /api/v1/users/{userId}/cart/items`를 호출해 장바구니에 담는다(`src/features/cart/{api,hooks}.ts`). 담은 뒤에는 그 자리에 머물며 성공/실패 피드백만 보여준다(장바구니 페이지로 이동하지 않음). 카트 아이템 삭제/수량 변경은 여전히 범위 밖.
 - **관리자 라우트(`/admin/**`)는 로그인만 되면 접근 가능하다.** ADMIN 역할 체크는 아직 라우트 가드에 없음(로그인 여부만 확인하는 `ProtectedRoute`만 걸려 있음).
 
 ## 다음에 하면 좋은 것

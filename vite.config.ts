@@ -5,6 +5,22 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      "^/api/v1/users/[^/]+/cart": {
+        target: "http://localhost:8085",
+        changeOrigin: true,
+      },
+      "^/api/v1/carts": {
+        target: "http://localhost:8085",
+        changeOrigin: true,
+      },
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
+  },
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",

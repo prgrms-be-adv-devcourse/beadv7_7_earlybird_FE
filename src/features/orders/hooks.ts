@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../../shared/auth/authStore";
-import { fetchOrders, fetchOrder, cancelOrder } from "./api";
+import { fetchOrders, fetchOrder, cancelOrder, placeOrder } from "./api";
+import type { PlaceOrderRequest } from "./types";
 
 export function useOrders() {
   const userId = useAuthStore((state) => state.user?.id);
@@ -25,3 +26,15 @@ export function useCancelOrder(id: number) {
     },
   });
 }
+
+export function usePlaceOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: PlaceOrderRequest) => placeOrder(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["cart"] });
+    },
+  });
+}
+

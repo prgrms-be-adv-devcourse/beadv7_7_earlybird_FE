@@ -18,3 +18,9 @@ export async function fetchOrder(id: number): Promise<Order> {
 export async function cancelOrder(id: number): Promise<void> {
   await apiClient.post<ApiResponse<null>>(ORDER_SERVICE.cancel(id));
 }
+
+export async function placeOrder(data: import("./types").PlaceOrderRequest): Promise<Order> {
+  const response = await apiClient.post<ApiResponse<Order>>(ORDER_SERVICE.orders, data);
+  return response.data.data as Order;
+}
+

@@ -1,6 +1,7 @@
-import { Link, Outlet } from "react-router-dom";
+import { useState } from "react";
+import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Menu } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import {
   ChevronDownIcon,
   DropdownMenu,
@@ -11,17 +12,14 @@ import {
   Mascot,
 } from "../shared/ui";
 import { useAuthStore } from "../shared/auth/authStore";
-
-const navLinks = [
-  { to: "/", label: "홈" },
-  { to: "/projects", label: "전체 프로젝트" },
-  { to: "/cart", label: "장바구니" },
-  { to: "/orders", label: "주문" },
-  { to: "/notifications", label: "알림" },
-];
+import { FloatingCartBar } from "../features/cart/components/FloatingCartBar";
 
 export function Layout() {
+  const navigate = useNavigate();
+  const [headerSearch, setHeaderSearch] = useState("");
+
   const user = useAuthStore((state) => state.user);
+  const setRole = useAuthStore((state) => state.setRole);
   const logout = useAuthStore((state) => state.logout);
   const queryClient = useQueryClient();
 
@@ -30,46 +28,139 @@ export function Layout() {
     queryClient.clear();
   };
 
+  const handleHeaderSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (headerSearch.trim()) {
+      navigate(`/projects?keyword=${encodeURIComponent(headerSearch.trim())}`);
+    } else {
+      navigate("/projects");
+    }
+  };
+
+  const getRoleBadge = (role?: string) => {
+    switch (role) {
+      case "CREATOR":
+        return <span className="rounded bg-peach px-1.5 py-0.5 text-[10px] font-extrabold text-ink">CREATOR</span>;
+      case "ADMIN":
+        return <span className="rounded bg-mint px-1.5 py-0.5 text-[10px] font-extrabold text-ink">ADMIN</span>;
+      default:
+        return <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-extrabold text-mist">BACKER</span>;
+    }
+  };
+
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b-2 border-ink bg-surface px-6 py-4">
-        <Link to="/" className="flex items-center gap-2 font-display text-xl font-extrabold tracking-tight text-ink">
+    <div className="min-h-screen pb-16">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b-2 border-ink bg-surface px-6 py-4 gap-4">
+        <Link to="/" className="flex items-center gap-2 font-display text-xl font-extrabold tracking-tight text-ink shrink-0">
           <Mascot variant="face" className="h-8 w-8" />
           Earlybird
         </Link>
 
+        {/* Global Header Search Bar */}
+        <form onSubmit={handleHeaderSearchSubmit} className="hidden sm:flex flex-1 max-w-xs items-center relative">
+          <Search className="absolute left-3 h-4 w-4 text-mist" />
+          <input
+            type="text"
+            placeholder="프로젝트 검색..."
+            value={headerSearch}
+            onChange={(e) => setHeaderSearch(e.target.value)}
+            className="w-full rounded-full border border-ink/20 bg-paper pl-9 pr-3 py-1.5 text-xs text-ink outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
+          />
+        </form>
+
         <nav className="hidden items-center gap-5 text-sm font-medium text-ink/80 md:flex">
-          {navLinks.map((link) => (
-            <Link key={link.to} to={link.to} className="transition-colors hover:text-brand">
-              {link.label}
-            </Link>
-          ))}
+          <Link to="/" className="transition-colors hover:text-brand">
+            홈
+          </Link>
+          <Link to="/projects" className="transition-colors hover:text-brand">
+            전체 프로젝트
+          </Link>
+
+          {/* Role-specific Nav Links */}
+          {user?.role === "CREATOR" && (
+            <>
+              <Link to="/projects/new" className="font-semibold text-brand transition-colors hover:underline">
+                + 프로젝트 만들기
+              </Link>
+              <Link to="/projects/me" className="transition-colors hover:text-brand">
+                내 프로젝트
+              </Link>
+              <Link to="/settlements" className="transition-colors hover:text-brand">
+                정산 관리
+              </Link>
+            </>
+          )}
+
+          {user?.role === "ADMIN" && (
+            <>
+              <Link to="/admin/categories" className="font-semibold text-brand transition-colors hover:underline">
+                📁 카테고리 관리
+              </Link>
+              <Link to="/admin/approvals" className="font-semibold text-brand transition-colors hover:underline">
+                🛡️ 프로젝트 심사
+              </Link>
+            </>
+          )}
+
+          <Link to="/cart" className="transition-colors hover:text-brand">
+            장바구니
+          </Link>
+          <Link to="/orders" className="transition-colors hover:text-brand">
+            주문
+          </Link>
+          <Link to="/notifications" className="transition-colors hover:text-brand">
+            알림
+          </Link>
+
           {user ? (
             <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1 outline-none transition-colors hover:text-brand">
-                {user.name}님
+              <DropdownMenuTrigger className="flex items-center gap-1.5 outline-none transition-colors hover:text-brand">
+                {getRoleBadge(user.role)}
+                <span className="font-bold text-ink">{user.name}님</span>
                 <ChevronDownIcon className="h-4 w-4" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {user.role === "CREATOR" && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/settlements">정산</Link>
-                  </DropdownMenuItem>
-                )}
-                {user.role === "ADMIN" && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/admin/categories">관리자</Link>
-                  </DropdownMenuItem>
-                )}
+              <DropdownMenuContent align="end" className="w-48">
+                <div className="px-2 py-1.5 text-xs text-mist">
+                  역할: <strong className="text-ink">{user.role}</strong>
+                </div>
                 <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
-                <DropdownMenuItem onSelect={handleLogout}>로그아웃</DropdownMenuItem>
+
+                <DropdownMenuItem asChild>
+                  <Link to="/projects/me">내 프로젝트 목록</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/orders">내 주문 내역</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/settlements">정산 현황</Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
+                <div className="px-2 py-1 text-[11px] font-semibold text-mist">역할 즉시 전환 (테스트용)</div>
+                <DropdownMenuItem onSelect={() => setRole("BACKER")}>
+                  후원자(BACKER)로 전환
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setRole("CREATOR")}>
+                  창작자(CREATOR)로 전환
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setRole("ADMIN")}>
+                  관리자(ADMIN)로 전환
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
+                <DropdownMenuItem onSelect={handleLogout} className="text-red-600">
+                  로그아웃
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Link to="/login" className="transition-colors hover:text-brand">로그인</Link>
+            <Link to="/login" className="transition-colors hover:text-brand font-bold">
+              로그인
+            </Link>
           )}
         </nav>
 
+        {/* Mobile Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger
             aria-label="메뉴 열기"
@@ -77,28 +168,48 @@ export function Layout() {
           >
             <Menu className="h-5 w-5" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[12rem]">
-            {navLinks.map((link) => (
-              <DropdownMenuItem key={link.to} asChild>
-                <Link to={link.to}>{link.label}</Link>
-              </DropdownMenuItem>
-            ))}
-            {user ? (
+          <DropdownMenuContent align="end" className="min-w-[14rem]">
+            <DropdownMenuItem asChild>
+              <Link to="/">홈</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/projects">전체 프로젝트 / 검색</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/cart">장바구니</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/orders">주문 내역</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/notifications">알림</Link>
+            </DropdownMenuItem>
+
+            {user && (
               <>
                 <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
-                {user.role === "CREATOR" && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/settlements">정산</Link>
-                  </DropdownMenuItem>
-                )}
-                {user.role === "ADMIN" && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/admin/categories">관리자</Link>
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onSelect={handleLogout}>{user.name}님 로그아웃</DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/projects/new">+ 프로젝트 만들기</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/projects/me">내 프로젝트 관리</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/admin/categories">📁 카테고리 관리</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/admin/approvals">🛡️ 프로젝트 심사</Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
+                <DropdownMenuItem onSelect={() => setRole(user.role === "ADMIN" ? "CREATOR" : user.role === "CREATOR" ? "BACKER" : "ADMIN")}>
+                  역할 전환 ({user.role} ➔ 토글)
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleLogout} className="text-red-600">
+                  {user.name}님 로그아웃
+                </DropdownMenuItem>
               </>
-            ) : (
+            )}
+            {!user && (
               <DropdownMenuItem asChild>
                 <Link to="/login">로그인</Link>
               </DropdownMenuItem>
@@ -109,6 +220,7 @@ export function Layout() {
       <main className="mx-auto max-w-6xl px-6 py-8">
         <Outlet />
       </main>
+      <FloatingCartBar />
     </div>
   );
 }

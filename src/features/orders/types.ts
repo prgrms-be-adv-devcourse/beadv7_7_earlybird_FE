@@ -53,3 +53,22 @@ export interface Order {
   zipCode: string;
   orderItems: OrderItem[];
 }
+
+export interface OrderItemRequest {
+  rewardId: number;
+  quantity: number;
+  expectedUnitPrice: number;
+}
+
+export interface PlaceOrderRequest {
+  userId: number;
+  projectId?: number;
+  requests: OrderItemRequest[];
+  receiverName: string;
+  receiverPhone: string;
+  shippingAddress: string;
+  zipCode: string;
+  expectedItemsAmount: number;
+  expectedTotalAmount: number;
+}
+

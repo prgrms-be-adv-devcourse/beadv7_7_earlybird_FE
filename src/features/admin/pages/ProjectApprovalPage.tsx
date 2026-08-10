@@ -12,7 +12,13 @@ import {
   ErrorState,
   RowSkeleton,
 } from "../../../shared/ui";
-import { usePendingProjects, useApproveProject, useRejectProject } from "../hooks";
+import {
+  usePendingProjects,
+  useApproveProject,
+  useRejectProject,
+  useExtendProjectDeadline,
+  useTriggerCloseExpired,
+} from "../hooks";
 
 function RejectButton({ projectId }: { projectId: number }) {
   const [open, setOpen] = useState(false);
@@ -29,7 +35,9 @@ function RejectButton({ projectId }: { projectId: number }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="secondary">반려</Button>
+        <Button variant="secondary" className="border-red-300 text-red-600 hover:bg-red-50">
+          반려
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogTitle>프로젝트 반려</DialogTitle>
@@ -43,7 +51,7 @@ function RejectButton({ projectId }: { projectId: number }) {
         />
         <div className="mt-4 flex justify-end gap-2">
           <DialogClose asChild>
-            <Button variant="ghost">취소</Button>
+            <Button variant="secondary">취소</Button>
           </DialogClose>
           <Button onClick={handleReject} disabled={rejectMutation.isPending}>
             {rejectMutation.isPending ? "반려 중..." : "반려하기"}
@@ -54,35 +62,103 @@ function RejectButton({ projectId }: { projectId: number }) {
   );
 }
 
+function ExtendDeadlineButton({ projectId, currentEndAt }: { projectId: number; currentEndAt: string }) {
+  const [open, setOpen] = useState(false);
+  const [newEndAt, setNewEndAt] = useState(currentEndAt || "2026-12-31");
+  const extendMutation = useExtendProjectDeadline();
+
+  function handleExtend() {
+    extendMutation.mutate(
+      { id: projectId, endAt: newEndAt },
+      { onSuccess: () => setOpen(false) }
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="secondary" className="text-xs">
+          마감 연장
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogTitle>프로젝트 마감일 연장</DialogTitle>
+        <DialogDescription>새로운 마감 날짜를 지정해 주세요.</DialogDescription>
+        <input
+          type="date"
+          value={newEndAt}
+          onChange={(e) => setNewEndAt(e.target.value)}
+          className="mt-3 w-full rounded-sm border border-ink/30 px-3 py-2 text-ink"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <DialogClose asChild>
+            <Button variant="secondary">취소</Button>
+          </DialogClose>
+          <Button onClick={handleExtend} disabled={extendMutation.isPending}>
+            {extendMutation.isPending ? "연장 중..." : "마감일 연장 완료"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function ProjectApprovalPage() {
   const { data: projects, isPending, isError } = usePendingProjects();
   const approveMutation = useApproveProject();
+  const triggerCloseExpiredMutation = useTriggerCloseExpired();
 
   if (isPending) {
     return (
       <div className="flex flex-col gap-3">
-        <h1 className="font-display text-2xl font-bold text-ink">프로젝트 승인</h1>
+        <h1 className="font-display text-2xl font-bold text-ink">🛡️ 프로젝트 심사 및 관리 (관리자)</h1>
         {Array.from({ length: 4 }).map((_, index) => (
           <RowSkeleton key={index} />
         ))}
       </div>
     );
   }
+
   if (isError) return <ErrorState error={{ message: "목록을 불러오지 못했습니다.", errors: null }} />;
-  if (projects.length === 0) return <EmptyState message="심사 대기 중인 프로젝트가 없어요." />;
 
   return (
-    <div className="flex flex-col gap-3">
-      <h1 className="font-display text-2xl font-bold text-ink">프로젝트 승인</h1>
-      {projects.map((project) => (
-        <Card key={project.projectId} className="flex items-center justify-between">
-          <span>{project.title}</span>
-          <div className="flex gap-2">
-            <Button onClick={() => approveMutation.mutate(project.projectId)}>승인</Button>
-            <RejectButton projectId={project.projectId} />
-          </div>
-        </Card>
-      ))}
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between border-b border-ink/10 pb-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-ink">🛡️ 프로젝트 심사 및 관리 (관리자)</h1>
+          <p className="text-sm text-mist">등록된 펀딩 심사를 승인/반려하거나 마감 프로젝트 일괄 정산을 트리거합니다.</p>
+        </div>
+        <Button
+          variant="secondary"
+          className="border-brand text-brand hover:bg-brand/10 text-xs font-bold"
+          onClick={() => triggerCloseExpiredMutation.mutate()}
+          disabled={triggerCloseExpiredMutation.isPending}
+        >
+          {triggerCloseExpiredMutation.isPending ? "정산 배치 실행 중..." : "⚡ 만료 프로젝트 일괄 정산"}
+        </Button>
+      </div>
+
+      {projects.length === 0 ? (
+        <EmptyState message="현재 심사 대기 중인 프로젝트가 없습니다." />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {projects.map((project) => (
+            <Card key={project.projectId} className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="font-display font-bold text-ink text-base">{project.title}</span>
+                <span className="text-xs text-mist">
+                  목표 금액: {project.goalAmount.toLocaleString()}원 | 마감일: {project.endAt}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <ExtendDeadlineButton projectId={project.projectId} currentEndAt={project.endAt} />
+                <Button onClick={() => approveMutation.mutate(project.projectId)}>승인</Button>
+                <RejectButton projectId={project.projectId} />
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

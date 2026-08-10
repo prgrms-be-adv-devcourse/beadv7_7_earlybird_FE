@@ -28,7 +28,7 @@ export function ProjectCard({ project, categoryName, className = "" }: ProjectCa
           {categoryName && <span className="text-xs text-mist">{categoryName}</span>}
         </div>
 
-        <h3 className="mb-2 line-clamp-2 text-sm font-semibold leading-snug text-ink group-hover:text-brand">
+        <h3 className="mb-2 line-clamp-2 break-keep text-sm font-semibold leading-snug text-ink group-hover:text-brand">
           {project.title}
         </h3>
 

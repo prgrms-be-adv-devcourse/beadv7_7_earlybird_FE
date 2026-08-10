@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { CardSkeleton, EmptyState, ErrorState, Mascot, Skeleton, buttonClassName } from "../../../shared/ui";
+import { CardSkeleton, EmptyState, ErrorState, Mascot, Skeleton } from "../../../shared/ui";
 import { useProjects } from "../../projects/hooks";
 import { useCategories } from "../../admin/hooks";
 import { ProjectCard } from "../../projects/components/ProjectCard";
@@ -33,16 +33,25 @@ function Rail({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-5"
     >
-      <h2 className="font-display text-xl font-bold text-ink">{title}</h2>
-      <div className="flex gap-5 overflow-x-auto pb-2">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="font-display text-2xl font-bold tracking-tight text-ink">{title}</h2>
+        <Link
+          to="/projects"
+          className="flex shrink-0 items-center gap-1 text-sm font-semibold text-mist transition-colors hover:text-brand"
+        >
+          전체보기
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+      <div className="flex snap-x snap-mandatory gap-5 overflow-x-auto pb-2">
         {projects.map((project) => (
           <ProjectCard
             key={project.projectId}
             project={project}
             categoryName={categoryNames.get(project.categoryId)}
-            className="w-64 shrink-0"
+            className="w-64 shrink-0 snap-start"
           />
         ))}
       </div>
@@ -51,12 +60,12 @@ function Rail({
 }
 
 export function HomePage() {
-  const { data: projects, isPending, isError } = useProjects();
+  const { data: projects, isPending, isError, error } = useProjects();
   const { data: categories } = useCategories();
 
   const categoryNames = useMemo(() => flattenCategoryNames(categories ?? []), [categories]);
 
-  const { endingSoon, popular, freshest, successStories } = useMemo(() => {
+  const { endingSoon, popular, freshest, successStories, inProgressCount } = useMemo(() => {
     const list = projects ?? [];
     const inProgress = list.filter((project) => project.status === "IN_PROGRESS");
     return {
@@ -68,6 +77,7 @@ export function HomePage() {
         .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime())
         .slice(0, 8),
       successStories: list.filter((project) => project.status === "SUCCEEDED").slice(0, 8),
+      inProgressCount: inProgress.length,
     };
   }, [projects]);
 
@@ -92,29 +102,60 @@ export function HomePage() {
     );
   }
   if (isError || !projects) {
-    return <ErrorState error={{ message: "프로젝트 목록을 불러오지 못했습니다.", errors: null }} />;
+    const errorMsg =
+      (error as any)?.response?.data?.error?.message ||
+      (error as any)?.response?.data?.message ||
+      (error as Error)?.message ||
+      "프로젝트 목록을 불러오지 못했습니다.";
+    return <ErrorState error={{ message: errorMsg, errors: null }} />;
   }
 
   return (
-    <div className="flex flex-col gap-16">
+    <div className="flex flex-col gap-20 sm:gap-24">
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="relative overflow-hidden rounded-sm border-2 border-ink bg-surface px-8 py-16 shadow-stamp sm:px-14"
+        className="relative overflow-hidden rounded-sm border-2 border-ink bg-[linear-gradient(135deg,#FF7A45_0%,#FF9A56_45%,#FFC169_100%)] px-6 py-14 shadow-stamp sm:px-12 sm:py-20 lg:px-16"
       >
-        <Mascot className="pointer-events-none absolute -right-4 -top-4 h-24 w-24 rotate-6 sm:h-32 sm:w-32" />
-        <p className="relative mb-3 text-sm font-bold uppercase tracking-widest text-brand">Early Bird</p>
-        <h1 className="relative max-w-2xl font-display text-4xl font-bold leading-tight text-ink sm:text-5xl">
-          새로운 아이디어를 누구보다 먼저 발견하고, 함께 성장시켜요
-        </h1>
-        <p className="relative mt-4 max-w-xl text-base text-mist">
-          IT・디자인・라이프스타일, 아직 세상에 나오지 않은 프로젝트를 가장 먼저 만나는 감성 크라우드펀딩.
-        </p>
-        <Link to="/projects" className={buttonClassName("primary", "relative mt-8 gap-2")}>
-          프로젝트 둘러보기
-          <ArrowRight className="h-4 w-4" />
-        </Link>
+        <div className="relative grid gap-12 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+          <div className="relative z-10 max-w-xl">
+            <h1 className="font-display text-5xl font-bold leading-[1.05] tracking-tight text-ink sm:text-6xl">
+              새로운 아이디어를
+              <br />
+              누구보다 먼저
+              <br />
+              발견해요
+            </h1>
+            <p className="mt-5 max-w-lg break-keep text-base leading-relaxed text-ink/75 sm:text-lg">
+              IT・디자인・라이프스타일, 아직 세상에 나오지 않은 프로젝트를 가장 먼저 만나는 감성 크라우드펀딩.
+            </p>
+            <div className="mt-9 flex flex-wrap items-center gap-5">
+              <Link
+                to="/projects"
+                className="inline-flex items-center gap-2 rounded-sm border-2 border-ink bg-ink px-7 py-3.5 text-base font-bold text-white shadow-stamp-sm transition-transform duration-100 ease-out hover:-translate-y-0.5 active:translate-y-0"
+              >
+                프로젝트 둘러보기
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              {inProgressCount > 0 && (
+                <span className="text-sm font-semibold text-ink/75">
+                  지금 <span className="tabular-nums text-ink">{inProgressCount}개</span> 프로젝트가 진행 중이에요
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="relative mx-auto flex h-64 w-64 items-center justify-center sm:h-80 sm:w-80 lg:ml-auto lg:h-[26rem] lg:w-[26rem]">
+            <div className="absolute inset-4 rounded-full bg-white/30 blur-3xl" aria-hidden />
+            <img
+              src="/character-crop.png"
+              alt=""
+              aria-hidden
+              className="relative h-full w-full rotate-3 object-contain drop-shadow-[0_20px_32px_rgba(43,36,24,0.35)]"
+            />
+          </div>
+        </div>
       </motion.section>
 
       {categories && categories.length > 0 && (
@@ -123,9 +164,9 @@ export function HomePage() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className="flex flex-col gap-4"
+          className="flex flex-col gap-5"
         >
-          <h2 className="font-display text-xl font-bold text-ink">카테고리로 둘러보기</h2>
+          <h2 className="font-display text-2xl font-bold tracking-tight text-ink">카테고리로 둘러보기</h2>
           <div className="flex flex-wrap gap-3">
             {categories.map((category) => (
               <Link
@@ -140,10 +181,12 @@ export function HomePage() {
         </motion.section>
       )}
 
-      <Rail title="마감임박" projects={endingSoon} categoryNames={categoryNames} />
-      <Rail title="인기 프로젝트" projects={popular} categoryNames={categoryNames} />
-      <Rail title="신규 프로젝트" projects={freshest} categoryNames={categoryNames} />
-      <Rail title="성공 사례" projects={successStories} categoryNames={categoryNames} />
+      <div className="flex flex-col gap-16 sm:gap-20">
+        <Rail title="마감임박" projects={endingSoon} categoryNames={categoryNames} />
+        <Rail title="인기 프로젝트" projects={popular} categoryNames={categoryNames} />
+        <Rail title="신규 프로젝트" projects={freshest} categoryNames={categoryNames} />
+        <Rail title="성공 사례" projects={successStories} categoryNames={categoryNames} />
+      </div>
 
       {projects.length === 0 && <EmptyState message="아직 등록된 프로젝트가 없어요." />}
 

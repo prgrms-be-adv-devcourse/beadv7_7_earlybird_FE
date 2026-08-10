@@ -1,94 +1,59 @@
-import { useState } from "react";
-import { useParams } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import { Clock } from "lucide-react";
+import axios from "axios";
 import {
   Badge,
+  Button,
   Card,
-  EmptyState,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
   ErrorState,
-  Mascot,
   ProgressMeter,
   Skeleton,
+  SupportButton,
   Thumbnail,
   TicketStubIcon,
+  EmptyState,
 } from "../../../shared/ui";
-import { ProjectBoardTabs } from "../../board/components/ProjectBoardTabs";
 import { useProject, useRewards } from "../hooks";
-import { daysLeft, fundedPercent } from "../utils";
+import { useAddCartItems } from "../../cart/hooks";
+import { useAuthStore } from "../../../shared/auth/authStore";
+import { ProjectBoardTabs } from "../../board/components/ProjectBoardTabs";
+import {
+  useApproveProject,
+  useRejectProject,
+  useExtendProjectDeadline,
+  useCancelProjectByAdmin,
+  useDecreaseRewardQuantity,
+  useDeactivateReward,
+} from "../../admin/hooks";
+import type { ProjectDetail, Reward } from "../types";
 
-function NestStatus({ percent }: { percent: number }) {
-  const stage = percent >= 200 ? "chick" : percent >= 100 ? "hatched" : "egg";
-  const emoji = stage === "chick" ? "🐤" : stage === "hatched" ? "🐣" : "🥚";
-  const label =
-    stage === "chick" ? "새끼가 자라고 있어요" : stage === "hatched" ? "방금 부화했어요" : "알을 품고 있어요";
-
-  return (
-    <div className="flex items-center gap-1.5 text-xs text-mist">
-      <span aria-hidden>{emoji}</span>
-      둥지 상태: {label}
-    </div>
-  );
+function daysLeft(endAt: string): number {
+  const end = new Date(`${endAt}T23:59:59`);
+  const now = new Date();
+  const diff = end.getTime() - now.getTime();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
-function MascotPreview() {
-  const [playing, setPlaying] = useState(false);
+function fundedPercent(funded: number, goal: number): number {
+  if (!goal) return 0;
+  return (funded / goal) * 100;
+}
 
-  function play() {
-    if (playing) return;
-    setPlaying(true);
-    setTimeout(() => setPlaying(false), 2300);
-  }
+function NestStatus({ percent }: { percent: number }) {
+  let statusText = "🪺 알 준비 단계 (0%)";
+  if (percent >= 100) statusText = "🐣 부화 성공! (100% 이상)";
+  else if (percent >= 75) statusText = "🪺 알 깨어나는 중 (75%+)";
+  else if (percent >= 50) statusText = "🪺 알 온기 가득 (50%+)";
+  else if (percent >= 25) statusText = "🪺 알 품기 시작 (25%+)";
 
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={play}
-        disabled={playing}
-        className="w-full rounded-sm border-2 border-ink/20 px-3 py-2 text-xs font-semibold text-mist transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60"
-      >
-        🎬 후원 연출 미리보기 (데모)
-      </button>
-
-      <AnimatePresence>
-        {playing && (
-          <div className="pointer-events-none absolute inset-x-0 -top-3 z-10 h-10">
-            <motion.span
-              initial={{ opacity: 1 }}
-              animate={{ opacity: [1, 1, 0] }}
-              transition={{ duration: 0.9, times: [0, 0.45, 0.55] }}
-              className="absolute left-8 top-1 text-lg"
-            >
-              🐛
-            </motion.span>
-            <motion.div
-              initial={{ x: "110%", y: 0, opacity: 0 }}
-              animate={{ x: ["110%", "40%", "-120%"], y: [0, -14, 6], opacity: [0, 1, 1] }}
-              transition={{ duration: 0.9, ease: "easeInOut", times: [0, 0.5, 1] }}
-              className="absolute top-0"
-            >
-              <Mascot className="h-10 w-10" />
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {playing && (
-          <motion.p
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ delay: 0.9, duration: 0.3 }}
-            className="mt-2 text-center text-xs font-semibold text-brand"
-          >
-            둥지에 먹이를 가져다줬어요! (미리보기)
-          </motion.p>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+  return <div className="text-xs font-semibold text-brand">{statusText}</div>;
 }
 
 function FundingPanel({
@@ -96,15 +61,24 @@ function FundingPanel({
   rewards,
   selectedRewardId,
   onSelectReward,
+  selectedReward,
+  onAddToCart,
+  isAddingToCart,
+  flightTrigger,
+  feedback,
 }: {
-  project: NonNullable<ReturnType<typeof useProject>["data"]>;
-  rewards: ReturnType<typeof useRewards>["data"];
+  project: ProjectDetail;
+  rewards: Reward[] | undefined;
   selectedRewardId: number | null;
   onSelectReward: (id: number) => void;
+  selectedReward: Reward | undefined;
+  onAddToCart: () => void;
+  isAddingToCart: boolean;
+  flightTrigger: number;
+  feedback: string | null;
 }) {
   const percent = fundedPercent(project.fundedAmount, project.goalAmount);
   const remaining = daysLeft(project.endAt);
-  const selectedReward = rewards?.find((reward) => reward.rewardId === selectedRewardId);
 
   return (
     <Card className="flex flex-col gap-4">
@@ -161,16 +135,19 @@ function FundingPanel({
         )}
       </div>
 
-      <button
-        type="button"
-        disabled
-        title="장바구니・결제 연동 준비 중입니다"
-        className="w-full cursor-not-allowed rounded-sm border-2 border-ink bg-brand px-4 py-3 text-sm font-bold text-white opacity-40"
-      >
-        {selectedReward ? `${selectedReward.name} 후원하기` : "리워드를 선택해주세요"}
-      </button>
-
-      <MascotPreview />
+      <SupportButton
+        label={
+          isAddingToCart
+            ? "담는 중..."
+            : selectedReward
+              ? `${selectedReward.name} 후원하기`
+              : "리워드를 선택해주세요"
+        }
+        disabled={!selectedReward || isAddingToCart}
+        onClick={onAddToCart}
+        trigger={flightTrigger}
+      />
+      {feedback && <p className="text-center text-xs font-semibold text-brand">{feedback}</p>}
     </Card>
   );
 }
@@ -178,9 +155,93 @@ function FundingPanel({
 export function ProjectDetailPage() {
   const { id } = useParams();
   const projectId = Number(id);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
+
   const { data: project, isPending, isError } = useProject(projectId);
   const { data: rewards } = useRewards(projectId);
+
   const [selectedRewardId, setSelectedRewardId] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [panelFlight, setPanelFlight] = useState(0);
+  const [footerFlight, setFooterFlight] = useState(0);
+
+  // Admin / Creator permission mutations
+  const approveMutation = useApproveProject();
+  const rejectMutation = useRejectProject();
+  const extendDeadlineMutation = useExtendProjectDeadline();
+  const adminCancelMutation = useCancelProjectByAdmin();
+  const decreaseRewardQtyMutation = useDecreaseRewardQuantity();
+  const deactivateRewardMutation = useDeactivateReward();
+
+  // Admin decrease reward modal
+  const [targetRewardId, setTargetRewardId] = useState<number | null>(null);
+  const [decreaseAmount, setDecreaseAmount] = useState<number>(10);
+
+  // Admin extend deadline modal
+  const [extendModalOpen, setExtendModalOpen] = useState(false);
+  const [newEndAt, setNewEndAt] = useState("2026-12-31");
+
+  const addCartItems = useAddCartItems();
+  const selectedReward = rewards?.find((reward) => reward.rewardId === selectedRewardId);
+
+  useEffect(() => {
+    if (rewards && selectedRewardId !== null) {
+      const exists = rewards.some((r) => r.rewardId === selectedRewardId);
+      if (!exists) {
+        setSelectedRewardId(null);
+      }
+    }
+  }, [rewards, selectedRewardId]);
+
+  function handleAddToCart(source: "panel" | "footer") {
+    if (!selectedReward) return;
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    addCartItems.mutate(
+      { projectId, items: [{ rewardId: selectedReward.rewardId, quantity: 1 }] },
+      {
+        onSuccess: () => {
+          if (source === "panel") setPanelFlight((k) => k + 1);
+          else setFooterFlight((k) => k + 1);
+          setTimeout(() => {
+            setFeedback("장바구니에 담았어요!");
+            setTimeout(() => setFeedback(null), 2500);
+          }, 900);
+        },
+        onError: (error) => {
+          console.error("Cart add error:", error);
+          queryClient.invalidateQueries({ queryKey: ["rewards", "list", projectId] });
+
+          if (axios.isAxiosError(error) && error.response?.status === 401) {
+            logout();
+            navigate("/login");
+            return;
+          }
+
+          let serverMsg: string | null = null;
+          if (axios.isAxiosError(error)) {
+            const data = error.response?.data;
+            if (data?.error?.message) {
+              serverMsg = data.error.message;
+            } else if (data?.message) {
+              serverMsg = data.message;
+            } else if (error.message) {
+              serverMsg = error.message;
+            }
+          }
+
+          setFeedback(serverMsg || "담기에 실패했어요. 다시 시도해주세요.");
+          setTimeout(() => setFeedback(null), 5000);
+        },
+      },
+    );
+  }
 
   if (isPending) {
     return (
@@ -194,9 +255,14 @@ export function ProjectDetailPage() {
       </div>
     );
   }
+
   if (isError || !project) return <ErrorState error={{ message: "프로젝트를 불러오지 못했습니다.", errors: null }} />;
 
   const percent = fundedPercent(project.fundedAmount, project.goalAmount);
+  const isAdmin = user?.role === "ADMIN";
+  const isCreator = user?.role === "CREATOR";
+  const isPublished = project.status === "IN_PROGRESS";
+  const isPendingReview = project.status === "PENDING_REVIEW";
 
   return (
     <div className="flex flex-col gap-6 pb-24 lg:grid lg:grid-cols-[1fr_360px] lg:items-start lg:gap-8 lg:pb-0">
@@ -213,6 +279,108 @@ export function ProjectDetailPage() {
             </div>
           </Card>
         </motion.div>
+
+        {/* ADMIN Control Panel */}
+        {isAdmin && (
+          <Card className="border-2 border-brand/40 bg-brand/5 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-sm text-ink">🛡️ 관리자(ADMIN) 운영 패널</span>
+              <span className="text-xs text-mist font-mono">Status: {project.status}</span>
+            </div>
+            <p className="text-xs text-mist">
+              공개 후 리워드 수량 축소 및 비활성화, 마감일 연장, 프로젝트 취소는 관리자 전용 권한입니다.
+            </p>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              {isPendingReview && (
+                <>
+                  <Button
+                    onClick={() => approveMutation.mutate(projectId)}
+                    disabled={approveMutation.isPending}
+                    className="py-1 px-3 text-xs"
+                  >
+                    심사 승인
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="py-1 px-3 text-xs border-red-300 text-red-600 hover:bg-red-50"
+                    onClick={() => rejectMutation.mutate({ id: projectId, reason: "관리자 심사 반려" })}
+                    disabled={rejectMutation.isPending}
+                  >
+                    심사 반려
+                  </Button>
+                </>
+              )}
+
+              {isPublished && (
+                <>
+                  <Button
+                    variant="secondary"
+                    className="py-1 px-3 text-xs border-brand text-brand hover:bg-brand/10"
+                    onClick={() => setExtendModalOpen(true)}
+                  >
+                    마감일 연장
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="py-1 px-3 text-xs border-red-300 text-red-600 hover:bg-red-50"
+                    onClick={() => adminCancelMutation.mutate(projectId)}
+                    disabled={adminCancelMutation.isPending}
+                  >
+                    프로젝트 강제 취소
+                  </Button>
+                </>
+              )}
+            </div>
+
+            {/* Admin Reward Management */}
+            {rewards && rewards.length > 0 && isPublished && (
+              <div className="mt-2 border-t border-brand/20 pt-3 flex flex-col gap-2">
+                <span className="text-xs font-bold text-ink">리워드 관리 (수량 축소 / 비활성화)</span>
+                <ul className="flex flex-col gap-1.5">
+                  {rewards.map((r) => (
+                    <li key={r.rewardId} className="flex items-center justify-between rounded border border-ink/10 bg-surface p-2 text-xs">
+                      <span>{r.name} (남은 수량: {r.remainingQuantity ?? "무제한"})</span>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="secondary"
+                          className="py-0.5 px-2 text-[11px]"
+                          onClick={() => setTargetRewardId(r.rewardId)}
+                        >
+                          수량 축소
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          className="py-0.5 px-2 text-[11px] border-red-300 text-red-600 hover:bg-red-50"
+                          onClick={() => deactivateRewardMutation.mutate(r.rewardId)}
+                          disabled={deactivateRewardMutation.isPending}
+                        >
+                          비활성화
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* CREATOR Control Panel */}
+        {isCreator && (
+          <Card className="border-2 border-peach/40 bg-peach/5 flex flex-col gap-2">
+            <span className="font-bold text-sm text-ink">🛠️ 창작자(CREATOR) 전용 패널</span>
+            {isPublished ? (
+              <p className="text-xs text-mist">
+                공개 후에는 후원자 보호를 위해 **수량 증가만** 가능합니다. (수량 축소 및 비활성화는 관리자에게 문의하세요)
+              </p>
+            ) : (
+              <p className="text-xs text-mist">
+                공개 전 상태이므로 프로젝트 및 리워드를 자유롭게 수정/삭제할 수 있습니다.
+              </p>
+            )}
+          </Card>
+        )}
 
         {project.description && (
           <motion.div
@@ -244,19 +412,88 @@ export function ProjectDetailPage() {
           rewards={rewards}
           selectedRewardId={selectedRewardId}
           onSelectReward={setSelectedRewardId}
+          selectedReward={selectedReward}
+          onAddToCart={() => handleAddToCart("panel")}
+          isAddingToCart={addCartItems.isPending}
+          flightTrigger={panelFlight}
+          feedback={feedback}
         />
       </div>
 
+      {/* Admin extend deadline dialog */}
+      <Dialog open={extendModalOpen} onOpenChange={setExtendModalOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle>마감일 연장 (관리자 전용)</DialogTitle>
+          <DialogDescription>새로운 마감 날짜를 지정하세요.</DialogDescription>
+          <input
+            type="date"
+            value={newEndAt}
+            onChange={(e) => setNewEndAt(e.target.value)}
+            className="mt-3 w-full rounded-sm border border-ink/30 px-3 py-2 text-ink"
+          />
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setExtendModalOpen(false)}>
+              취소
+            </Button>
+            <Button
+              onClick={() => {
+                extendDeadlineMutation.mutate(
+                  { id: projectId, endAt: newEndAt },
+                  { onSuccess: () => setExtendModalOpen(false) }
+                );
+              }}
+              disabled={extendDeadlineMutation.isPending}
+            >
+              {extendDeadlineMutation.isPending ? "연장 중..." : "마감일 연장 적용"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin decrease reward quantity dialog */}
+      <Dialog open={!!targetRewardId} onOpenChange={(open) => !open && setTargetRewardId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle>리워드 수량 축소 (관리자 전용)</DialogTitle>
+          <DialogDescription>축소할 수량을 입력하세요 (이미 판매된 수량 밑으로는 축소 불가).</DialogDescription>
+          <input
+            type="number"
+            min={1}
+            value={decreaseAmount}
+            onChange={(e) => setDecreaseAmount(Number(e.target.value))}
+            className="mt-3 w-full rounded-sm border border-ink/30 px-3 py-2 text-ink tabular-nums"
+          />
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setTargetRewardId(null)}>
+              취소
+            </Button>
+            <Button
+              onClick={() => {
+                if (targetRewardId) {
+                  decreaseRewardQtyMutation.mutate(
+                    { rewardId: targetRewardId, amount: decreaseAmount },
+                    { onSuccess: () => setTargetRewardId(null) }
+                  );
+                }
+              }}
+              disabled={decreaseRewardQtyMutation.isPending}
+            >
+              {decreaseRewardQtyMutation.isPending ? "축소 중..." : "수량 축소 적용"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-4 border-t-2 border-ink bg-surface px-4 py-3 lg:hidden">
         <div className="tabular-nums text-sm font-bold text-ink">{Math.round(percent)}% 달성</div>
-        <button
-          type="button"
-          disabled
-          title="장바구니・결제 연동 준비 중입니다"
-          className="flex-1 max-w-[220px] cursor-not-allowed rounded-sm border-2 border-ink bg-brand px-4 py-2 text-sm font-bold text-white opacity-40"
-        >
-          후원하기
-        </button>
+        <div className="max-w-[220px] flex-1">
+          <SupportButton
+            label={addCartItems.isPending ? "담는 중..." : "후원하기"}
+            disabled={!selectedReward || addCartItems.isPending}
+            onClick={() => handleAddToCart("footer")}
+            trigger={footerFlight}
+            compact
+          />
+        </div>
       </div>
     </div>
   );

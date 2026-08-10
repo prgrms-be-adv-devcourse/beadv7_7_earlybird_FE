@@ -10,6 +10,13 @@ export function attachAuthHeader(
   if (accessToken) {
     config.headers.set("Authorization", `Bearer ${accessToken}`);
   }
+  const user = useAuthStore.getState().user;
+  if (user?.id) {
+    config.headers.set("X-User-Id", String(user.id));
+    if (user.role) {
+      config.headers.set("X-User-Role", user.role);
+    }
+  }
   return config;
 }
 
