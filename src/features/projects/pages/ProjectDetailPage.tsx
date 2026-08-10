@@ -108,7 +108,7 @@ function FundingPanel({
         {!rewards || rewards.length === 0 ? (
           <EmptyState message="등록된 리워드가 없어요." />
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-2.5">
             {rewards.map((reward) => {
               const selected = reward.rewardId === selectedRewardId;
               return (
@@ -121,15 +121,16 @@ function FundingPanel({
                       selected ? "border-brand bg-brand/5" : "border-ink/20 hover:border-ink/40"
                     }`}
                   >
-                    <span className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <TicketStubIcon
                         className={`h-5 w-5 shrink-0 ${selected ? "text-brand" : "text-ink/40"}`}
                       />
-                      {reward.name}
-                    </span>
-                    <span className="tabular-nums text-sm font-semibold text-ink">
-                      {reward.price.toLocaleString()}원 (남은 {reward.remainingQuantity ?? "무제한"})
-                    </span>
+                      <span className="font-semibold text-ink text-sm leading-snug break-keep">{reward.name}</span>
+                    </div>
+                    <div className="shrink-0 text-right whitespace-nowrap">
+                      <span className="tabular-nums text-sm font-bold text-ink">{reward.price.toLocaleString()}원</span>
+                      <span className="ml-1 text-xs text-mist font-medium">(남은 {reward.remainingQuantity ?? "무제한"})</span>
+                    </div>
                   </button>
                 </li>
               );
@@ -138,12 +139,19 @@ function FundingPanel({
         )}
       </div>
 
+      {selectedReward && (
+        <div className="rounded-sm bg-brand/5 border border-brand/20 p-2.5 text-xs flex items-center justify-between">
+          <span className="font-bold text-brand shrink-0">선택된 리워드:</span>
+          <span className="font-bold text-ink truncate ml-2">{selectedReward.name}</span>
+        </div>
+      )}
+
       <SupportButton
         label={
           isAddingToCart
-            ? "담는 중..."
+            ? "장바구니에 담는 중..."
             : selectedReward
-              ? `${selectedReward.name} 후원하기`
+              ? "장바구니에 담기 (후원하기)"
               : "리워드를 선택해주세요"
         }
         disabled={!selectedReward || isAddingToCart}
