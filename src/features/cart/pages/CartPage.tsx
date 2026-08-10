@@ -1,52 +1,32 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart, useRemoveCartItem, useClearCart } from "../hooks";
-import { useReward } from "../../projects/hooks";
 import { usePlaceOrder } from "../../orders/hooks";
+import { Card, Button, Skeleton, Dialog, DialogContent, DialogTitle, DialogDescription } from "../../../shared/ui";
+import { ErrorState } from "../../../shared/ui/ErrorState";
+import { EmptyState } from "../../../shared/ui/EmptyState";
+import type { CartProject, CartReward } from "../types";
 import { useAuthStore } from "../../../shared/auth/authStore";
-import {
-  Button,
-  Card,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-  EmptyState,
-  ErrorState,
-  RowSkeleton,
-} from "../../../shared/ui";
 
 function CartRewardRow({
   reward,
   onRemove,
   isRemoving,
 }: {
-  reward: {
-    cartItemId: number;
-    rewardId: number;
-    rewardName?: string | null;
-    quantity: number;
-    unitPrice: number;
-    totalPrice: number;
-  };
+  reward: CartReward;
   onRemove: () => void;
   isRemoving: boolean;
 }) {
-  const { data: rewardDetail } = useReward(reward.rewardId);
-
-  const name = reward.rewardName || rewardDetail?.name || `리워드 #${reward.rewardId}`;
-  const price = reward.unitPrice > 0 ? reward.unitPrice : rewardDetail?.price || 0;
-  const totalPrice = reward.totalPrice > 0 ? reward.totalPrice : price * reward.quantity;
+  const unitPrice = reward.unitPrice > 0 ? reward.unitPrice : reward.totalPrice / (reward.quantity || 1);
+  const totalPrice = reward.totalPrice > 0 ? reward.totalPrice : unitPrice * reward.quantity;
 
   return (
-    <li className="flex items-center justify-between rounded-sm border border-ink/20 p-3">
-      <div className="flex flex-col">
-        <span className="font-medium text-ink">
-          {name} x {reward.quantity}
+    <li className="flex items-center justify-between border-b border-ink/5 py-3 last:border-none">
+      <div className="flex flex-col gap-0.5">
+        <span className="font-semibold text-ink">{reward.rewardName}</span>
+        <span className="text-xs text-mist">
+          수량: {reward.quantity}개 · 단가: {unitPrice.toLocaleString()}원
         </span>
-        {price > 0 && (
-          <span className="text-xs text-mist">{price.toLocaleString()}원 / 개</span>
-        )}
       </div>
       <div className="flex items-center gap-3">
         <span className="tabular-nums text-sm font-semibold text-ink">
@@ -73,7 +53,7 @@ export function CartPage() {
   const placeOrderMutation = usePlaceOrder();
   const userId = useAuthStore((state) => state.user?.id);
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<CartProject | null>(null);
   const [receiverName, setReceiverName] = useState("김얼리");
   const [receiverPhone, setReceiverPhone] = useState("010-1234-5678");
   const [shippingAddress, setShippingAddress] = useState("서울특별시 강남구 테헤란로 123");
@@ -85,7 +65,7 @@ export function CartPage() {
       <div className="flex flex-col gap-3">
         <h1 className="font-display text-2xl font-bold text-ink">장바구니</h1>
         {Array.from({ length: 3 }).map((_, index) => (
-          <RowSkeleton key={index} />
+          <Skeleton key={index} className="h-24 w-full" />
         ))}
       </div>
     );
@@ -93,43 +73,35 @@ export function CartPage() {
   if (isError || !cart) return <ErrorState error={{ message: "장바구니를 불러오지 못했습니다.", errors: null }} />;
   if (cart.itemCount === 0 || cart.projects.length === 0) return <EmptyState message="장바구니가 비어있어요." />;
 
-  // Calculate actual total items amount considering enriched pricing
-  const totalItemsAmount = cart.totalItemsAmount > 0
-    ? cart.totalItemsAmount
-    : cart.projects.reduce((acc, p) => acc + p.itemsAmount, 0);
-
-  const shippingFee = totalItemsAmount >= 50000 ? 0 : (cart.totalShippingFee > 0 ? cart.totalShippingFee : 3000);
-  const totalAmount = totalItemsAmount + shippingFee;
-
   const handlePlaceOrder = () => {
     setOrderError(null);
-    if (!userId) return;
+    if (!userId || !selectedProject) return;
 
-    const requests = cart.projects.flatMap((project) =>
-      project.rewards.map((reward) => ({
-        rewardId: reward.rewardId,
-        quantity: reward.quantity,
-        expectedUnitPrice: reward.unitPrice > 0 ? reward.unitPrice : reward.totalPrice / (reward.quantity || 1),
-      }))
-    );
+    const requests = selectedProject.rewards.map((reward) => ({
+      rewardId: reward.rewardId,
+      quantity: reward.quantity,
+      expectedUnitPrice: reward.unitPrice > 0 ? reward.unitPrice : reward.totalPrice / (reward.quantity || 1),
+    }));
 
-    const firstProjectId = cart.projects[0]?.projectId ?? undefined;
+    const projectItemsAmount = selectedProject.itemsAmount > 0
+      ? selectedProject.itemsAmount
+      : selectedProject.rewards.reduce((sum, r) => sum + (r.totalPrice > 0 ? r.totalPrice : r.unitPrice * r.quantity), 0);
 
     placeOrderMutation.mutate(
       {
         userId,
-        projectId: firstProjectId ? Number(firstProjectId) : undefined,
+        projectId: Number(selectedProject.projectId),
         requests,
         receiverName,
         receiverPhone,
         shippingAddress,
         zipCode,
-        expectedItemsAmount: totalItemsAmount,
-        expectedTotalAmount: totalItemsAmount,
+        expectedItemsAmount: projectItemsAmount,
+        expectedTotalAmount: projectItemsAmount,
       },
       {
         onSuccess: (createdOrder) => {
-          setIsDialogOpen(false);
+          setSelectedProject(null);
           navigate(`/orders/${createdOrder.id}`);
         },
         onError: (err: any) => {
@@ -143,7 +115,12 @@ export function CartPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold text-ink">장바구니</h1>
+        <div>
+          <h1 className="font-display text-2xl font-bold text-ink">장바구니</h1>
+          <p className="mt-1 text-xs text-mist">
+            💡 펀딩 결제 정책에 따라 동일 프로젝트의 리워드 단위로 프로젝트별 개별 주문이 진행됩니다.
+          </p>
+        </div>
         <Button
           variant="secondary"
           onClick={() => clearCartMutation.mutate()}
@@ -154,60 +131,61 @@ export function CartPage() {
         </Button>
       </div>
 
-      {cart.projects.map((project) => (
-        <Card key={project.projectId}>
-          <h2 className="mb-3 font-display text-lg font-semibold text-ink">
-            {project.projectName || `프로젝트 #${project.projectId}`}
-          </h2>
-          <ul className="flex flex-col gap-2">
-            {project.rewards.map((reward) => (
-              <CartRewardRow
-                key={reward.cartItemId}
-                reward={reward}
-                onRemove={() => removeCartItemMutation.mutate(reward.rewardId)}
-                isRemoving={removeCartItemMutation.isPending}
-              />
-            ))}
-          </ul>
-          <div className="mt-3 flex flex-col gap-1 border-t-2 border-ink/10 pt-3 text-sm text-mist">
-            <div className="flex justify-between">
-              <span>상품 금액</span>
-              <span className="tabular-nums">{project.itemsAmount.toLocaleString()}원</span>
-            </div>
-            <div className="flex justify-between">
-              <span>배송비</span>
-              <span className="tabular-nums">{project.shippingFee.toLocaleString()}원</span>
-            </div>
-          </div>
-        </Card>
-      ))}
+      {cart.projects.map((project) => {
+        const projectItemsAmount = project.itemsAmount > 0
+          ? project.itemsAmount
+          : project.rewards.reduce((sum, r) => sum + (r.totalPrice > 0 ? r.totalPrice : r.unitPrice * r.quantity), 0);
 
-      <Card className="flex flex-col gap-2">
-        <div className="flex justify-between text-sm text-mist">
-          <span>상품 금액 합계</span>
-          <span className="tabular-nums">{totalItemsAmount.toLocaleString()}원</span>
-        </div>
-        <div className="flex justify-between text-sm text-mist">
-          <span>배송비 합계</span>
-          <span className="tabular-nums">{shippingFee.toLocaleString()}원</span>
-        </div>
-        <div className="flex justify-between border-t-2 border-ink/10 pt-2 font-display text-lg font-bold text-ink">
-          <span>총 결제 금액</span>
-          <span className="tabular-nums">{totalAmount.toLocaleString()}원</span>
-        </div>
-        <Button
-          type="button"
-          onClick={() => setIsDialogOpen(true)}
-          className="mt-2 w-full py-3 text-sm font-bold text-white"
-        >
-          결제하기
-        </Button>
-      </Card>
+        return (
+          <Card key={project.projectId} className="flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b border-ink/10 pb-3">
+              <h2 className="font-display text-lg font-bold text-ink">
+                {project.projectName || `프로젝트 #${project.projectId}`}
+              </h2>
+              <span className="rounded-full bg-mint/15 px-3 py-1 text-xs font-semibold text-brand">
+                {project.rewards.length}개 리워드 선택됨
+              </span>
+            </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <ul className="flex flex-col gap-2">
+              {project.rewards.map((reward) => (
+                <CartRewardRow
+                  key={reward.cartItemId}
+                  reward={reward}
+                  onRemove={() => removeCartItemMutation.mutate(reward.rewardId)}
+                  isRemoving={removeCartItemMutation.isPending}
+                />
+              ))}
+            </ul>
+
+            <div className="flex items-center justify-between border-t border-ink/10 pt-3 text-sm">
+              <div className="flex flex-col">
+                <span className="text-xs text-mist">이 프로젝트 상품 금액</span>
+                <span className="tabular-nums text-lg font-bold text-ink">
+                  {projectItemsAmount.toLocaleString()}원
+                </span>
+              </div>
+              <Button
+                type="button"
+                onClick={() => {
+                  setSelectedProject(project);
+                  setOrderError(null);
+                }}
+                className="px-6 py-2.5 text-sm font-bold text-white"
+              >
+                이 프로젝트 결제하기
+              </Button>
+            </div>
+          </Card>
+        );
+      })}
+
+      <Dialog open={selectedProject !== null} onOpenChange={(open) => !open && setSelectedProject(null)}>
         <DialogContent className="max-w-md">
           <DialogTitle>주문 / 결제 정보 확인</DialogTitle>
-          <DialogDescription>배송지 정보를 확인하고 주문을 완료하세요.</DialogDescription>
+          <DialogDescription>
+            {selectedProject?.projectName ? `[${selectedProject.projectName}] ` : ""}배송지 정보를 확인하고 주문을 완료하세요.
+          </DialogDescription>
 
           <div className="my-4 flex flex-col gap-3 text-sm">
             <div>
@@ -250,7 +228,16 @@ export function CartPage() {
             <div className="mt-2 rounded-sm bg-mint/10 p-3 text-ink">
               <div className="flex justify-between font-bold">
                 <span>최종 결제 금액:</span>
-                <span>{totalAmount.toLocaleString()}원</span>
+                <span className="tabular-nums">
+                  {(
+                    selectedProject
+                      ? selectedProject.itemsAmount > 0
+                        ? selectedProject.itemsAmount
+                        : selectedProject.rewards.reduce((s, r) => s + (r.totalPrice > 0 ? r.totalPrice : r.unitPrice * r.quantity), 0)
+                      : 0
+                  ).toLocaleString()}
+                  원
+                </span>
               </div>
             </div>
 
@@ -258,7 +245,7 @@ export function CartPage() {
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setIsDialogOpen(false)}>
+            <Button variant="secondary" onClick={() => setSelectedProject(null)}>
               취소
             </Button>
             <Button onClick={handlePlaceOrder} disabled={placeOrderMutation.isPending}>
