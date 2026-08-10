@@ -7,13 +7,15 @@ export function attachAuthHeader(
   config: InternalAxiosRequestConfig,
   accessToken: string | null,
 ): InternalAxiosRequestConfig {
-  if (accessToken) {
+  if (accessToken && !config.headers.has("Authorization")) {
     config.headers.set("Authorization", `Bearer ${accessToken}`);
   }
   const user = useAuthStore.getState().user;
   if (user?.id) {
-    config.headers.set("X-User-Id", String(user.id));
-    if (user.role) {
+    if (!config.headers.has("X-User-Id")) {
+      config.headers.set("X-User-Id", String(user.id));
+    }
+    if (user.role && !config.headers.has("X-User-Role")) {
       config.headers.set("X-User-Role", user.role);
     }
   }
