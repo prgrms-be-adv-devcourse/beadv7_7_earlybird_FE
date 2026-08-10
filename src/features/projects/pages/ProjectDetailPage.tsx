@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Clock } from "lucide-react";
 import axios from "axios";
 import {
   Badge,
@@ -33,6 +32,7 @@ import {
   useDeactivateReward,
 } from "../../admin/hooks";
 import type { ProjectDetail, Reward } from "../types";
+import { getStatusLabel, getStatusBadgeTone, getOrderClosedMessage, formatDateKorean, getCreatorDisplayName } from "../utils";
 
 function daysLeft(endAt: string): number {
   const end = new Date(`${endAt}T23:59:59`);
@@ -66,6 +66,7 @@ function FundingPanel({
   isAddingToCart,
   flightTrigger,
   feedback,
+  isOrderable,
 }: {
   project: ProjectDetail;
   rewards: Reward[] | undefined;
@@ -76,6 +77,7 @@ function FundingPanel({
   isAddingToCart: boolean;
   flightTrigger: number;
   feedback: string | null;
+  isOrderable: boolean;
 }) {
   const percent = fundedPercent(project.fundedAmount, project.goalAmount);
   const remaining = daysLeft(project.endAt);
@@ -91,11 +93,26 @@ function FundingPanel({
           <span className="tabular-nums">{project.fundedAmount.toLocaleString()}원</span>
         </div>
         <div className="tabular-nums text-xs text-mist">목표 {project.goalAmount.toLocaleString()}원</div>
-        <div className="mt-2 flex items-center gap-1 text-xs text-mist">
-          <Clock className="h-3.5 w-3.5" />
-          {remaining > 0 ? `${remaining}일 남음` : "마감"}
+
+        <div className="mt-3 flex flex-col gap-1 border-t border-ink/10 pt-2 text-xs text-mist">
+          <div>🗓️ 시작일: <strong className="text-ink">{formatDateKorean(project.startAt)}</strong></div>
+          <div>⏰ 마감일: <strong className="text-ink">{formatDateKorean(project.endAt)} ({remaining > 0 ? `${remaining}일 남음` : "마감"})</strong></div>
+          <div>
+            👤 창작자:{" "}
+            {project.creatorId ? (
+              <Link
+                to={`/projects?creatorId=${project.creatorId}`}
+                className="font-bold text-brand hover:underline"
+              >
+                {getCreatorDisplayName(project.creatorId)}
+              </Link>
+            ) : (
+              <strong className="text-ink">{getCreatorDisplayName(project.creatorId)}</strong>
+            )}
+          </div>
         </div>
-        <div className="mt-1">
+
+        <div className="mt-2">
           <NestStatus percent={percent} />
         </div>
       </div>
@@ -105,28 +122,34 @@ function FundingPanel({
         {!rewards || rewards.length === 0 ? (
           <EmptyState message="등록된 리워드가 없어요." />
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-2.5">
             {rewards.map((reward) => {
               const selected = reward.rewardId === selectedRewardId;
               return (
                 <li key={reward.rewardId}>
                   <button
                     type="button"
-                    onClick={() => onSelectReward(reward.rewardId)}
+                    onClick={() => isOrderable && onSelectReward(reward.rewardId)}
+                    disabled={!isOrderable}
                     aria-pressed={selected}
                     className={`flex w-full items-center justify-between gap-3 rounded-sm border-2 p-3 text-left transition-colors ${
-                      selected ? "border-brand bg-brand/5" : "border-ink/20 hover:border-ink/40"
+                      !isOrderable
+                        ? "cursor-not-allowed border-ink/10 opacity-50"
+                        : selected
+                          ? "border-brand bg-brand/5"
+                          : "border-ink/20 hover:border-ink/40"
                     }`}
                   >
-                    <span className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <TicketStubIcon
                         className={`h-5 w-5 shrink-0 ${selected ? "text-brand" : "text-ink/40"}`}
                       />
-                      {reward.name}
-                    </span>
-                    <span className="tabular-nums text-sm font-semibold text-ink">
-                      {reward.price.toLocaleString()}원 (남은 {reward.remainingQuantity ?? "무제한"})
-                    </span>
+                      <span className="font-semibold text-ink text-sm leading-snug break-keep">{reward.name}</span>
+                    </div>
+                    <div className="shrink-0 text-right whitespace-nowrap">
+                      <span className="tabular-nums text-sm font-bold text-ink">{reward.price.toLocaleString()}원</span>
+                      <span className="ml-1 text-xs text-mist font-medium">(남은 {reward.remainingQuantity ?? "무제한"})</span>
+                    </div>
                   </button>
                 </li>
               );
@@ -135,15 +158,24 @@ function FundingPanel({
         )}
       </div>
 
+      {selectedReward && (
+        <div className="rounded-sm bg-brand/5 border border-brand/20 p-2.5 text-xs flex items-center justify-between">
+          <span className="font-bold text-brand shrink-0">선택된 리워드:</span>
+          <span className="font-bold text-ink truncate ml-2">{selectedReward.name}</span>
+        </div>
+      )}
+
       <SupportButton
         label={
-          isAddingToCart
-            ? "담는 중..."
-            : selectedReward
-              ? `${selectedReward.name} 후원하기`
-              : "리워드를 선택해주세요"
+          !isOrderable
+            ? getOrderClosedMessage(project.status)
+            : isAddingToCart
+              ? "장바구니에 담는 중..."
+              : selectedReward
+                ? "장바구니에 담기 (후원하기)"
+                : "리워드를 선택해주세요"
         }
-        disabled={!selectedReward || isAddingToCart}
+        disabled={!isOrderable || !selectedReward || isAddingToCart}
         onClick={onAddToCart}
         trigger={flightTrigger}
       />
@@ -198,13 +230,14 @@ export function ProjectDetailPage() {
   }, [rewards, selectedRewardId]);
 
   function handleAddToCart(source: "panel" | "footer") {
-    if (!selectedReward) return;
+    if (!selectedReward || project?.status !== "IN_PROGRESS") return;
     if (!user) {
       navigate("/login");
       return;
     }
+    const targetProjectId = selectedReward.projectId ?? projectId;
     addCartItems.mutate(
-      { projectId, items: [{ rewardId: selectedReward.rewardId, quantity: 1 }] },
+      { projectId: targetProjectId, items: [{ rewardId: selectedReward.rewardId, quantity: 1 }] },
       {
         onSuccess: () => {
           if (source === "panel") setPanelFlight((k) => k + 1);
@@ -280,13 +313,19 @@ export function ProjectDetailPage() {
   return (
     <div className="flex flex-col gap-6 pb-24 lg:grid lg:grid-cols-[1fr_360px] lg:items-start lg:gap-8 lg:pb-0">
       <div className="flex flex-col gap-6">
+        {project.isOwnerPreview && (
+          <div className="rounded-sm border-2 border-amber-300 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
+            ⌛ 심사 대기 중인 프로젝트예요. 창작자 본인에게만 보이는 미리보기이며, 스토리(상세 설명)는 심사 승인 후 표시됩니다.
+          </div>
+        )}
+
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
           <Card className="!p-0">
             <Thumbnail className="aspect-[16/9] w-full" />
             <div className="p-6">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <h1 className="font-display text-2xl font-bold text-ink">{project.title}</h1>
-                <Badge tone="mint">{project.status}</Badge>
+                <Badge tone={getStatusBadgeTone(project.status)}>{getStatusLabel(project.status)}</Badge>
               </div>
               <p className="text-mist">{project.summary}</p>
             </div>
@@ -430,6 +469,7 @@ export function ProjectDetailPage() {
           isAddingToCart={addCartItems.isPending}
           flightTrigger={panelFlight}
           feedback={feedback}
+          isOrderable={isPublished}
         />
       </div>
 
@@ -500,8 +540,14 @@ export function ProjectDetailPage() {
         <div className="tabular-nums text-sm font-bold text-ink">{Math.round(percent)}% 달성</div>
         <div className="max-w-[220px] flex-1">
           <SupportButton
-            label={addCartItems.isPending ? "담는 중..." : "후원하기"}
-            disabled={!selectedReward || addCartItems.isPending}
+            label={
+              !isPublished
+                ? getOrderClosedMessage(project.status)
+                : addCartItems.isPending
+                  ? "담는 중..."
+                  : "후원하기"
+            }
+            disabled={!isPublished || !selectedReward || addCartItems.isPending}
             onClick={() => handleAddToCart("footer")}
             trigger={footerFlight}
             compact

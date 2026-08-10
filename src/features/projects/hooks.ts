@@ -1,7 +1,9 @@
+import axios from "axios";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
   fetchProjects,
   fetchProject,
+  fetchMyProjects,
   fetchRewards,
   fetchReward,
   fetchCategories,
@@ -15,7 +17,8 @@ import {
   closeProjectEarly,
   type FetchProjectsParams,
 } from "./api";
-import type { CreateProjectRequest, CreateRewardRequest } from "./types";
+import type { CreateProjectRequest, CreateRewardRequest, ProjectDetail } from "./types";
+import { useAuthStore } from "../../shared/auth/authStore";
 
 export function useProjects(params?: FetchProjectsParams) {
   return useQuery({
@@ -26,7 +29,28 @@ export function useProjects(params?: FetchProjectsParams) {
 }
 
 export function useProject(id: number) {
-  return useQuery({ queryKey: ["projects", "detail", id], queryFn: () => fetchProject(id) });
+  return useQuery({
+    queryKey: ["projects", "detail", id],
+    queryFn: async (): Promise<ProjectDetail> => {
+      try {
+        return await fetchProject(id);
+      } catch (error) {
+        // Backend only serves single-project detail for publicly viewable statuses
+        // (e.g. IN_PROGRESS), so an owner viewing their own PENDING_REVIEW/REJECTED
+        // project 404s here. Fall back to their "my projects" list, which has no
+        // such status restriction, so they can still see their own project.
+        const accessToken = useAuthStore.getState().accessToken;
+        if (axios.isAxiosError(error) && error.response?.status === 404 && accessToken) {
+          const mine = await fetchMyProjects();
+          const found = mine.find((project) => project.projectId === id);
+          if (found) {
+            return { ...found, summary: found.summary ?? null, description: null, isOwnerPreview: true };
+          }
+        }
+        throw error;
+      }
+    },
+  });
 }
 
 export function useRewards(projectId: number) {

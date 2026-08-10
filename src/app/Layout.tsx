@@ -1,7 +1,6 @@
-import { useState } from "react";
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Menu, Search } from "lucide-react";
+import { Menu } from "lucide-react";
 import {
   ChevronDownIcon,
   DropdownMenu,
@@ -13,11 +12,103 @@ import {
 } from "../shared/ui";
 import { useAuthStore } from "../shared/auth/authStore";
 import { FloatingCartBar } from "../features/cart/components/FloatingCartBar";
+import { useCategories } from "../features/admin/hooks";
+import type { ProjectCategory } from "../features/admin/types";
+
+function CategoryTreeItem({
+  category,
+  depth = 1,
+  onSelect,
+}: {
+  category: ProjectCategory;
+  depth?: number;
+  onSelect: (id: number) => void;
+}) {
+  const hasChildren = category.children && category.children.length > 0;
+  const prefix = depth === 1 ? "└ " : "• ";
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <button
+        type="button"
+        onClick={() => onSelect(category.id)}
+        className={`w-full text-left py-1 text-xs font-bold rounded transition-colors flex items-center justify-between ${
+          depth === 1
+            ? "px-2.5 text-ink hover:bg-paper/80 hover:text-brand"
+            : "px-2 text-mist hover:text-brand font-semibold"
+        }`}
+      >
+        <span>{prefix}{category.name}</span>
+      </button>
+
+      {hasChildren && (
+        <div className="ml-3 flex flex-col gap-0.5 border-l-2 border-brand/20 pl-2 my-0.5">
+          {category.children.map((child) => (
+            <CategoryTreeItem key={child.id} category={child} depth={depth + 1} onSelect={onSelect} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HeaderCategoryNav() {
+  const navigate = useNavigate();
+  const { data: categories } = useCategories();
+  const topCategories = categories ?? [];
+
+  const handleSelect = (catId: number) => {
+    navigate(`/projects?category=${catId}`);
+  };
+
+  return (
+    <div className="hidden lg:flex items-center gap-1 border-l-2 border-ink/15 pl-4 ml-1">
+      {topCategories.map((topCat) => {
+        const hasChildren = topCat.children && topCat.children.length > 0;
+        return (
+          <div key={topCat.id} className="group relative">
+            <button
+              type="button"
+              onClick={() => handleSelect(topCat.id)}
+              className="flex items-center gap-1 px-2.5 py-1 text-sm font-bold text-ink rounded-md transition-colors hover:bg-brand/10 hover:text-brand whitespace-nowrap"
+            >
+              <span>{topCat.name}</span>
+              {hasChildren && (
+                <ChevronDownIcon className="h-3.5 w-3.5 transition-transform duration-200 group-hover:rotate-180 text-mist" />
+              )}
+            </button>
+
+            {hasChildren && (
+              <div className="invisible absolute left-0 top-full pt-1.5 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 z-50">
+                <div className="min-w-[200px] rounded-lg border-2 border-ink bg-surface p-2.5 shadow-stamp-lg flex flex-col gap-0.5 max-h-[400px] overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleSelect(topCat.id)}
+                    className="w-full text-left px-2.5 py-1.5 text-xs font-extrabold text-brand hover:bg-brand/10 rounded transition-colors"
+                  >
+                    전체 {topCat.name} 보기
+                  </button>
+                  <div className="my-1 h-px bg-ink/15" />
+
+                  {topCat.children.map((subCat) => (
+                    <CategoryTreeItem
+                      key={subCat.id}
+                      category={subCat}
+                      depth={1}
+                      onSelect={handleSelect}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function Layout() {
-  const navigate = useNavigate();
-  const [headerSearch, setHeaderSearch] = useState("");
-
   const user = useAuthStore((state) => state.user);
   const setRole = useAuthStore((state) => state.setRole);
   const logout = useAuthStore((state) => state.logout);
@@ -26,15 +117,6 @@ export function Layout() {
   const handleLogout = () => {
     logout();
     queryClient.clear();
-  };
-
-  const handleHeaderSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (headerSearch.trim()) {
-      navigate(`/projects?keyword=${encodeURIComponent(headerSearch.trim())}`);
-    } else {
-      navigate("/projects");
-    }
   };
 
   const getRoleBadge = (role?: string) => {
@@ -50,42 +132,37 @@ export function Layout() {
 
   return (
     <div className="min-h-screen pb-16">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b-2 border-ink bg-surface px-6 py-4 gap-4">
-        <Link to="/" className="flex items-center gap-2 font-display text-xl font-extrabold tracking-tight text-ink shrink-0">
-          <Mascot variant="face" className="h-8 w-8" />
-          Earlybird
-        </Link>
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b-2 border-ink bg-surface px-6 py-3.5 gap-4">
+        {/* Left Section: Earlybird Logo Mark & Categories Dropdown Navigation */}
+        <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-2 font-display text-xl font-extrabold tracking-tight text-ink shrink-0">
+            <Mascot variant="face" className="h-8 w-8" />
+            Earlybird
+          </Link>
 
-        {/* Global Header Search Bar */}
-        <form onSubmit={handleHeaderSearchSubmit} className="hidden sm:flex flex-1 max-w-xs items-center relative">
-          <Search className="absolute left-3 h-4 w-4 text-mist" />
-          <input
-            type="text"
-            placeholder="프로젝트 검색..."
-            value={headerSearch}
-            onChange={(e) => setHeaderSearch(e.target.value)}
-            className="w-full rounded-full border border-ink/20 bg-paper pl-9 pr-3 py-1.5 text-xs text-ink outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
-          />
-        </form>
+          {/* Top Categories with Hover Menus (Placed BETWEEN Earlybird Logo and Home) */}
+          <HeaderCategoryNav />
+        </div>
 
-        <nav className="hidden items-center gap-5 text-sm font-medium text-ink/80 md:flex">
-          <Link to="/" className="transition-colors hover:text-brand">
+        {/* Right Section Navigation: Home, Projects, Cart, Orders, Notifications, User Menu */}
+        <nav className="hidden items-center gap-4 text-sm font-medium text-ink/80 md:flex">
+          <Link to="/" className="font-bold transition-colors hover:text-brand">
             홈
           </Link>
-          <Link to="/projects" className="transition-colors hover:text-brand">
+          <Link to="/projects" className="font-bold transition-colors hover:text-brand">
             전체 프로젝트
           </Link>
 
           {/* Role-specific Nav Links */}
           {user?.role === "CREATOR" && (
             <>
-              <Link to="/projects/new" className="font-semibold text-brand transition-colors hover:underline">
+              <Link to="/projects/new" className="font-bold text-brand transition-colors hover:underline">
                 + 프로젝트 만들기
               </Link>
-              <Link to="/projects/me" className="transition-colors hover:text-brand">
+              <Link to="/projects/me" className="font-bold transition-colors hover:text-brand">
                 내 프로젝트
               </Link>
-              <Link to="/settlements" className="transition-colors hover:text-brand">
+              <Link to="/settlements" className="font-bold transition-colors hover:text-brand">
                 정산 관리
               </Link>
             </>
@@ -93,28 +170,28 @@ export function Layout() {
 
           {user?.role === "ADMIN" && (
             <>
-              <Link to="/admin/categories" className="font-semibold text-brand transition-colors hover:underline">
+              <Link to="/admin/categories" className="font-bold text-brand transition-colors hover:underline">
                 📁 카테고리 관리
               </Link>
-              <Link to="/admin/approvals" className="font-semibold text-brand transition-colors hover:underline">
+              <Link to="/admin/approvals" className="font-bold text-brand transition-colors hover:underline">
                 🛡️ 프로젝트 심사
               </Link>
             </>
           )}
 
-          <Link to="/cart" className="transition-colors hover:text-brand">
+          <Link to="/cart" className="font-bold transition-colors hover:text-brand">
             장바구니
           </Link>
-          <Link to="/orders" className="transition-colors hover:text-brand">
+          <Link to="/orders" className="font-bold transition-colors hover:text-brand">
             주문
           </Link>
-          <Link to="/notifications" className="transition-colors hover:text-brand">
+          <Link to="/notifications" className="font-bold transition-colors hover:text-brand">
             알림
           </Link>
 
           {user ? (
             <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1.5 outline-none transition-colors hover:text-brand">
+              <DropdownMenuTrigger className="flex items-center gap-1.5 outline-none transition-colors hover:text-brand ml-2">
                 {getRoleBadge(user.role)}
                 <span className="font-bold text-ink">{user.name}님</span>
                 <ChevronDownIcon className="h-4 w-4" />
@@ -154,7 +231,7 @@ export function Layout() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Link to="/login" className="transition-colors hover:text-brand font-bold">
+            <Link to="/login" className="transition-colors hover:text-brand font-bold ml-2">
               로그인
             </Link>
           )}
@@ -217,6 +294,7 @@ export function Layout() {
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
+
       <main className="mx-auto max-w-6xl px-6 py-8">
         <Outlet />
       </main>

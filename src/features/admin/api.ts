@@ -27,6 +27,10 @@ export async function updateCategory(
   return response.data.data as ProjectCategory;
 }
 
+export async function deleteCategory(id: number): Promise<void> {
+  await apiClient.delete<ApiResponse<null>>(`${PROJECT_SERVICE.categories}/${id}`, ADMIN_HEADER);
+}
+
 export async function fetchPendingProjects(): Promise<ProjectSummary[]> {
   const response = await apiClient.get<ApiResponse<ProjectSummary[]>>(
     `${PROJECT_SERVICE.projects}?status=PENDING_REVIEW`,
@@ -49,6 +53,10 @@ export async function extendProjectDeadline(id: number, endAt: string): Promise<
 
 export async function triggerCloseExpiredProjects(): Promise<void> {
   await apiClient.post<ApiResponse<null>>(`${PROJECT_SERVICE.projects}/close-expired`, {}, ADMIN_HEADER);
+}
+
+export async function reindexAllProjects(): Promise<void> {
+  await apiClient.post<ApiResponse<null>>(`${PROJECT_SERVICE.projects}/reindex`, {}, ADMIN_HEADER);
 }
 
 export async function cancelProjectByAdmin(id: number): Promise<void> {

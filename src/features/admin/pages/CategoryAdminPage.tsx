@@ -10,17 +10,19 @@ import {
   ErrorState,
   RowSkeleton,
 } from "../../../shared/ui";
-import { useCategories, useCreateCategory, useUpdateCategory } from "../hooks";
+import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "../hooks";
 import type { ProjectCategory } from "../types";
 
 function CategoryTreeNode({
   category,
   allCategories,
   onEdit,
+  onDelete,
 }: {
   category: ProjectCategory;
   allCategories: ProjectCategory[];
   onEdit: (category: ProjectCategory) => void;
+  onDelete: (id: number) => void;
 }) {
   const [isOpen, setIsOpen] = useState(true);
   const hasChildren = category.children && category.children.length > 0;
@@ -46,13 +48,24 @@ function CategoryTreeNode({
             </span>
           )}
         </div>
-        <Button
-          variant="secondary"
-          className="py-1 px-2.5 text-xs border-ink/20 hover:border-brand hover:text-brand"
-          onClick={() => onEdit(category)}
-        >
-          수정
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            className="py-1 px-2.5 text-xs border-ink/20 hover:border-brand hover:text-brand"
+            onClick={() => onEdit(category)}
+          >
+            수정
+          </Button>
+          {!hasChildren && (
+            <Button
+              variant="secondary"
+              className="py-1 px-2 text-xs border-red-200 text-red-600 hover:bg-red-50"
+              onClick={() => onDelete(category.id)}
+            >
+              삭제
+            </Button>
+          )}
+        </div>
       </div>
 
       {hasChildren && isOpen && (
@@ -63,6 +76,7 @@ function CategoryTreeNode({
               category={child}
               allCategories={allCategories}
               onEdit={onEdit}
+              onDelete={onDelete}
             />
           ))}
         </ul>
@@ -75,6 +89,7 @@ export function CategoryAdminPage() {
   const { data: categories, isPending, isError } = useCategories();
   const createCategoryMutation = useCreateCategory();
   const updateCategoryMutation = useUpdateCategory();
+  const deleteCategoryMutation = useDeleteCategory();
 
   // Create Modal state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -107,7 +122,7 @@ export function CategoryAdminPage() {
           setCreateParentId(null);
         },
         onError: (err: any) => {
-          const msg = err.response?.data?.error?.message || err.message || "카테고리 생합에 실패했습니다.";
+          const msg = err.response?.data?.error?.message || err.message || "카테고리 생성에 실패했습니다.";
           setErrorMsg(msg);
         },
       }
@@ -150,6 +165,15 @@ export function CategoryAdminPage() {
     );
   };
 
+  const handleDelete = (id: number) => {
+    if (!window.confirm("이 카테고리를 삭제할까요?")) return;
+    deleteCategoryMutation.mutate(id, {
+      onError: (err: any) => {
+        alert(err.response?.data?.error?.message || err.message || "카테고리 삭제에 실패했습니다.");
+      },
+    });
+  };
+
   // Helper to flatten all categories for parent selector dropdown
   const flattenCategories = (list: ProjectCategory[], depth = 0): { id: number; name: string; depth: number }[] => {
     return list.flatMap((c) => [
@@ -180,7 +204,7 @@ export function CategoryAdminPage() {
       <div className="flex items-center justify-between border-b border-ink/10 pb-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-ink">📁 카테고리 관리 (관리자)</h1>
-          <p className="text-sm text-mist">서비스 전체 카테고리 트리를 생성, 조회, 수정합니다.</p>
+          <p className="text-sm text-mist">서비스 전체 카테고리 트리를 생성, 조회, 수정, 삭제합니다.</p>
         </div>
         <Button onClick={() => setIsCreateOpen(true)} className="py-2 px-4 text-sm font-bold text-white">
           + 카테고리 추가
@@ -197,6 +221,7 @@ export function CategoryAdminPage() {
               category={category}
               allCategories={categories}
               onEdit={handleOpenEdit}
+              onDelete={handleDelete}
             />
           ))}
         </ul>

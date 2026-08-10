@@ -5,7 +5,9 @@ import { apiClient } from "../../../shared/api/client";
 import { PROJECT_SERVICE } from "../../../shared/api/endpoints";
 import type { ApiResponse } from "../../../shared/types/ApiResponse";
 import type { ProjectSummary, Reward } from "../types";
+import { fetchMyProjects } from "../api";
 import { useCreateReward, useDeleteProject, useRewards } from "../hooks";
+import { formatDateKorean } from "../utils";
 import { ProjectEditModal } from "../components/ProjectEditModal";
 import { RewardEditModal } from "../components/RewardEditModal";
 import {
@@ -19,11 +21,6 @@ import {
   EmptyState,
   ErrorState,
 } from "../../../shared/ui";
-
-export async function fetchMyProjects(): Promise<ProjectSummary[]> {
-  const response = await apiClient.get<ApiResponse<ProjectSummary[]>>(PROJECT_SERVICE.myProjects);
-  return response.data.data ?? [];
-}
 
 export async function cancelMyProject(projectId: number): Promise<void> {
   await apiClient.post<ApiResponse<null>>(`${PROJECT_SERVICE.project(projectId)}/cancel`);
@@ -85,12 +82,12 @@ function MyProjectCard({ project }: { project: ProjectSummary }) {
           <span className="tabular-nums font-bold text-brand">{project.fundedAmount.toLocaleString()}원</span>
         </div>
         <div>
-          <span className="block font-semibold text-ink">시작일</span>
-          <span>{new Date(project.startAt).toLocaleDateString()}</span>
+          <span className="block font-semibold text-ink">시작일 / 생성일</span>
+          <span>{formatDateKorean(project.startAt)}</span>
         </div>
         <div>
-          <span className="block font-semibold text-ink">종료일</span>
-          <span>{project.endAt}</span>
+          <span className="block font-semibold text-ink">마감일</span>
+          <span className="font-bold text-ink">{formatDateKorean(project.endAt)}</span>
         </div>
       </div>
 

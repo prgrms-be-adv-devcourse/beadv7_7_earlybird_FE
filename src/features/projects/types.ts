@@ -10,6 +10,7 @@ export type ProjectStatus =
 // (project/project/presentation/dto/response/ProjectResponse.java), whose field is `projectId`.
 export interface ProjectSummary {
   projectId: number;
+  creatorId?: number | null;
   title: string;
   summary?: string | null;
   status: ProjectStatus;
@@ -24,6 +25,9 @@ export interface ProjectSummary {
 export interface ProjectDetail extends ProjectSummary {
   summary: string | null;
   description: string | null;
+  // true when the backend rejected a direct single-project fetch (e.g. PENDING_REVIEW
+  // is not publicly viewable) and this was reconstructed from the owner's "my projects" list instead.
+  isOwnerPreview?: boolean;
 }
 
 // rewardId (not "id") — cross-checked against project-service RewardResponse

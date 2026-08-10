@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
-import { Clock } from "lucide-react";
+import { Clock, Calendar } from "lucide-react";
 import { Badge, ProgressMeter, Thumbnail, buttonClassName } from "../../../shared/ui";
 import type { ProjectSummary } from "../types";
-import { daysLeft, fundedPercent } from "../utils";
+import { daysLeft, fundedPercent, getStatusLabel, getStatusBadgeTone, formatDateKorean } from "../utils";
 
 interface ProjectCardProps {
   project: ProjectSummary;
@@ -13,6 +13,8 @@ interface ProjectCardProps {
 export function ProjectCard({ project, categoryName, className = "" }: ProjectCardProps) {
   const percent = fundedPercent(project.fundedAmount, project.goalAmount);
   const remaining = daysLeft(project.endAt);
+  const statusLabel = getStatusLabel(project.status);
+  const badgeTone = getStatusBadgeTone(project.status);
 
   return (
     <div
@@ -24,7 +26,7 @@ export function ProjectCard({ project, categoryName, className = "" }: ProjectCa
 
       <div className="flex flex-1 flex-col p-4">
         <div className="mb-1.5 flex items-center justify-between gap-2">
-          <Badge tone="mint">{project.status}</Badge>
+          <Badge tone={badgeTone}>{statusLabel}</Badge>
           {categoryName && <span className="text-xs text-mist">{categoryName}</span>}
         </div>
 
@@ -39,9 +41,16 @@ export function ProjectCard({ project, categoryName, className = "" }: ProjectCa
         </div>
         <div className="tabular-nums text-xs text-mist">목표 {project.goalAmount.toLocaleString()}원</div>
 
-        <div className="mt-2 flex items-center gap-1 text-xs text-mist">
-          <Clock className="h-3.5 w-3.5" />
-          {remaining > 0 ? `${remaining}일 남음` : "마감"}
+        {/* Creation Date & Deadline */}
+        <div className="mt-3 flex flex-col gap-1 border-t border-ink/10 pt-2 text-xs text-mist">
+          <div className="flex items-center gap-1">
+            <Calendar className="h-3.5 w-3.5" />
+            <span>마감일: {formatDateKorean(project.endAt)}</span>
+          </div>
+          <div className="flex items-center gap-1 font-semibold text-ink">
+            <Clock className="h-3.5 w-3.5 text-brand" />
+            <span>{remaining > 0 ? `${remaining}일 남음` : "마감됨"}</span>
+          </div>
         </div>
 
         <Link
