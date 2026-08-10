@@ -19,7 +19,7 @@ import {
   useExtendProjectDeadline,
   useTriggerCloseExpired,
 } from "../hooks";
-import { formatDateKorean, getStatusLabel } from "../../projects/utils";
+import { formatDateKorean, getStatusLabel, getCreatorDisplayName } from "../../projects/utils";
 
 function RejectButton({ projectId }: { projectId: number }) {
   const [open, setOpen] = useState(false);
@@ -153,7 +153,7 @@ export function ProjectApprovalPage() {
                   </span>
                 </div>
                 <span className="text-xs text-mist">
-                  창작자 ID: #{project.creatorId} | 시작일/생성일: {formatDateKorean(project.startAt)} | 마감일: <strong className="text-ink">{formatDateKorean(project.endAt)}</strong> | 목표: {project.goalAmount.toLocaleString()}원
+                  창작자: <strong className="text-ink">{getCreatorDisplayName(project.creatorId)}</strong> | 시작일/생성일: {formatDateKorean(project.startAt)} | 마감일: <strong className="text-ink">{formatDateKorean(project.endAt)}</strong> | 목표: {project.goalAmount.toLocaleString()}원
                 </span>
               </div>
               <div className="flex gap-2">

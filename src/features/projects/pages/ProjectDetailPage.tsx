@@ -32,7 +32,7 @@ import {
   useDeactivateReward,
 } from "../../admin/hooks";
 import type { ProjectDetail, Reward } from "../types";
-import { getStatusLabel, getStatusBadgeTone, formatDateKorean } from "../utils";
+import { getStatusLabel, getStatusBadgeTone, formatDateKorean, getCreatorDisplayName } from "../utils";
 
 function daysLeft(endAt: string): number {
   const end = new Date(`${endAt}T23:59:59`);
@@ -95,7 +95,7 @@ function FundingPanel({
         <div className="mt-3 flex flex-col gap-1 border-t border-ink/10 pt-2 text-xs text-mist">
           <div>🗓️ 시작일: <strong className="text-ink">{formatDateKorean(project.startAt)}</strong></div>
           <div>⏰ 마감일: <strong className="text-ink">{formatDateKorean(project.endAt)} ({remaining > 0 ? `${remaining}일 남음` : "마감"})</strong></div>
-          <div>👤 창작자: <strong className="text-ink">{project.creatorId ? `창작자 #${project.creatorId}` : "공식 창작자"}</strong></div>
+          <div>👤 창작자: <strong className="text-ink">{getCreatorDisplayName(project.creatorId)}</strong></div>
         </div>
 
         <div className="mt-2">

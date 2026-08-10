@@ -52,3 +52,22 @@ export function formatDateKorean(dateStr?: string | null): string {
     return dateStr;
   }
 }
+
+export function getCreatorDisplayName(
+  creatorId?: number | null,
+  currentUser?: { id?: number; name?: string } | null
+): string {
+  if (!creatorId) return "Earlybird 공식 메이커";
+
+  if (currentUser && (currentUser.id === creatorId || String(currentUser.id) === String(creatorId))) {
+    return currentUser.name || "강대혁";
+  }
+
+  const knownCreators: Record<number, string> = {
+    1: "어리버리 팀",
+    2: "펫하우스 메이커",
+    8: "강대혁",
+  };
+
+  return knownCreators[creatorId] || (currentUser?.name ? currentUser.name : "강대혁");
+}
