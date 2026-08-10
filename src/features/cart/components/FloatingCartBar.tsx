@@ -8,8 +8,14 @@ export function FloatingCartBar() {
   const navigate = useNavigate();
   const { data: cart } = useCart();
 
-  // Do not show floating bar if cart is empty or user is already on the Cart page
-  if (!cart || cart.itemCount === 0 || location.pathname === "/cart") {
+  // Do not show floating bar if cart is empty or user is on Cart, Orders, or Checkout pages
+  if (
+    !cart ||
+    cart.itemCount === 0 ||
+    location.pathname === "/cart" ||
+    location.pathname.startsWith("/orders") ||
+    location.pathname.startsWith("/checkout")
+  ) {
     return null;
   }
 
