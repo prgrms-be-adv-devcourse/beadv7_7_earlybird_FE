@@ -15,6 +15,7 @@ import {
   Skeleton,
 } from "../../../shared/ui";
 import { useOrder, useCancelOrder } from "../hooks";
+import { getOrderStatusLabel, getOrderStatusBadgeTone } from "../utils";
 
 export function OrderDetailPage() {
   const { id } = useParams();
@@ -36,23 +37,35 @@ export function OrderDetailPage() {
 
   return (
     <Card>
-      <div className="mb-3 flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold text-ink">주문 #{order.id}</h1>
-        <Badge tone="peach">{order.status}</Badge>
+      <div className="mb-4 flex items-center justify-between border-b border-ink/10 pb-3">
+        <h1 className="font-display text-2xl font-bold text-ink">주문 상세 정보 #{order.id}</h1>
+        <Badge tone={getOrderStatusBadgeTone(order.status)}>{getOrderStatusLabel(order.status)}</Badge>
       </div>
-      <ul className="mb-3 flex flex-col gap-2">
+
+      <div className="mb-4 flex flex-col gap-1 rounded-sm bg-surface p-3 text-xs text-mist">
+        <div>받는 분: <strong className="text-ink">{order.receiverName}</strong> ({order.receiverPhone})</div>
+        <div>배송지 주소: <strong className="text-ink">[{order.zipCode}] {order.shippingAddress}</strong></div>
+      </div>
+
+      <h2 className="mb-2 font-display text-base font-bold text-ink">주문한 리워드 항목</h2>
+      <ul className="mb-4 flex flex-col gap-2">
         {order.orderItems.map((item) => (
           <li key={item.id} className="flex justify-between rounded-sm border border-ink/20 p-3">
-            <span>
-              {item.name} x {item.quantity}
+            <span className="font-medium text-ink">
+              {item.name} <span className="text-mist">x {item.quantity}개</span>
             </span>
-            <span className="tabular-nums text-sm">{item.subtotal.toLocaleString()}원</span>
+            <span className="tabular-nums font-bold text-ink">{item.subtotal.toLocaleString()}원</span>
           </li>
         ))}
       </ul>
-      <p className="mb-3 tabular-nums text-lg font-semibold text-ink">
-        총 {order.totalAmount.toLocaleString()}원
-      </p>
+
+      <div className="mb-6 flex flex-col gap-1 border-t border-ink/10 pt-3 text-right">
+        <div className="text-xs text-mist">상품 금액: {order.itemsAmount.toLocaleString()}원 | 배송비: {order.shippingFee.toLocaleString()}원</div>
+        <div className="tabular-nums text-xl font-bold text-brand">
+          총 결제 금액: {order.totalAmount.toLocaleString()}원
+        </div>
+      </div>
+
       {order.status !== "CANCELLED" && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
