@@ -27,7 +27,6 @@ export function OrderDetailPage() {
   const cancelMutation = useCancelOrder(orderId);
 
   const isPaymentSuccess = (location.state as any)?.paymentSuccess || location.search.includes("payment=success");
-  const effectiveStatus = isPaymentSuccess ? "PAID" : order?.status;
 
   if (isPending) {
     return (
@@ -57,8 +56,8 @@ export function OrderDetailPage() {
       <Card>
         <div className="mb-4 flex items-center justify-between border-b border-ink/10 pb-3">
           <h1 className="font-display text-2xl font-bold text-ink">주문 상세 정보 #{order.id}</h1>
-          <Badge tone={getOrderStatusBadgeTone(effectiveStatus || order.status)}>
-            {getOrderStatusLabel(effectiveStatus || order.status)}
+          <Badge tone={getOrderStatusBadgeTone(order.status)}>
+            {getOrderStatusLabel(order.status)}
           </Badge>
         </div>
 
@@ -87,7 +86,7 @@ export function OrderDetailPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2">
-          {effectiveStatus !== "PAID" && effectiveStatus !== "CANCELLED" && (
+          {order.status !== "PAID" && order.status !== "CANCELLED" && (
             <Button
               type="button"
               onClick={() => navigate(`/checkout/${order.id}`)}
