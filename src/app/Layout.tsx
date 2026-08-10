@@ -20,7 +20,7 @@ function HeaderCategoryNav() {
   const topCategories = categories ?? [];
 
   return (
-    <div className="hidden lg:flex items-center gap-1">
+    <div className="hidden lg:flex items-center gap-1 border-l-2 border-ink/15 pl-4 ml-1">
       {topCategories.map((topCat) => {
         const hasChildren = topCat.children && topCat.children.length > 0;
         return (
@@ -93,12 +93,18 @@ export function Layout() {
   return (
     <div className="min-h-screen pb-16">
       <header className="sticky top-0 z-40 flex items-center justify-between border-b-2 border-ink bg-surface px-6 py-3.5 gap-4">
-        <Link to="/" className="flex items-center gap-2 font-display text-xl font-extrabold tracking-tight text-ink shrink-0">
-          <Mascot variant="face" className="h-8 w-8" />
-          Earlybird
-        </Link>
+        {/* Left Section: Earlybird Logo Mark & Categories Dropdown Navigation */}
+        <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-2 font-display text-xl font-extrabold tracking-tight text-ink shrink-0">
+            <Mascot variant="face" className="h-8 w-8" />
+            Earlybird
+          </Link>
 
-        {/* Top Header Line Navigation: Home, Projects, Top Categories with Hover Menus, Cart, Orders */}
+          {/* Top Categories with Hover Menus (Placed BETWEEN Earlybird Logo and Home) */}
+          <HeaderCategoryNav />
+        </div>
+
+        {/* Right Section Navigation: Home, Projects, Cart, Orders, Notifications, User Menu */}
         <nav className="hidden items-center gap-4 text-sm font-medium text-ink/80 md:flex">
           <Link to="/" className="font-bold transition-colors hover:text-brand">
             홈
@@ -106,9 +112,6 @@ export function Layout() {
           <Link to="/projects" className="font-bold transition-colors hover:text-brand">
             전체 프로젝트
           </Link>
-
-          {/* Top Categories with Hover Dropdown Menus (Replacing old search bar) */}
-          <HeaderCategoryNav />
 
           {/* Role-specific Nav Links */}
           {user?.role === "CREATOR" && (
