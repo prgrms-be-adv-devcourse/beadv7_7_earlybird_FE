@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCategories, useCreateProject, useCreateReward, useApproveProject } from "../hooks";
+import { useCreateProject, useCreateReward, useApproveProject } from "../hooks";
+import { useCategories } from "../../admin/hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
 import { Button, Card, ErrorState } from "../../../shared/ui";
 import type { CreateRewardRequest } from "../types";
+import { flattenCategories } from "../utils";
 
 export function ProjectCreatePage() {
   const navigate = useNavigate();
@@ -121,6 +123,11 @@ export function ProjectCreatePage() {
     }
   };
 
+  const flatCategoryOptions = useMemo(
+    () => flattenCategories(categories ?? []),
+    [categories]
+  );
+
   return (
     <div className="mx-auto max-w-3xl flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -156,21 +163,11 @@ export function ProjectCreatePage() {
               onChange={(e) => setCategoryId(Number(e.target.value))}
               className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink focus:border-brand focus:outline-none bg-surface"
             >
-              {categories && categories.length > 0 ? (
-                categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))
-              ) : (
-                <>
-                  <option value={1}>테크 / 가전</option>
-                  <option value={2}>패션 / 잡화</option>
-                  <option value={3}>푸드</option>
-                  <option value={4}>홈 / 리빙</option>
-                  <option value={5}>뷰티</option>
-                </>
-              )}
+              {flatCategoryOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.displayName}
+                </option>
+              ))}
             </select>
           </div>
 

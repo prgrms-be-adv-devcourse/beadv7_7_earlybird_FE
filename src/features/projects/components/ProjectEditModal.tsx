@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Button,
   Dialog,
@@ -7,8 +7,10 @@ import {
   DialogTitle,
   ErrorState,
 } from "../../../shared/ui";
-import { useCategories, useUpdateProject } from "../hooks";
+import { useUpdateProject } from "../hooks";
+import { useCategories } from "../../admin/hooks";
 import type { ProjectDetail } from "../types";
+import { flattenCategories } from "../utils";
 
 export function ProjectEditModal({
   project,
@@ -21,6 +23,11 @@ export function ProjectEditModal({
 }) {
   const { data: categories } = useCategories();
   const updateProjectMutation = useUpdateProject();
+
+  const flatCategoryOptions = useMemo(
+    () => flattenCategories(categories ?? []),
+    [categories]
+  );
 
   const isPublished = project.status !== "PENDING_REVIEW" && project.status !== "REJECTED";
 
@@ -97,9 +104,9 @@ export function ProjectEditModal({
               onChange={(e) => setCategoryId(Number(e.target.value))}
               className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none bg-surface"
             >
-              {categories?.map((c) => (
+              {flatCategoryOptions.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {c.displayName}
                 </option>
               ))}
             </select>
