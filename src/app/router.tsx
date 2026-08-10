@@ -37,6 +37,7 @@ export function AppRoutes() {
           <Route path="/orders" element={<OrderListPage />} />
           <Route path="/orders/:id" element={<OrderDetailPage />} />
           <Route path="/orders/:id/checkout" element={<CheckoutPage />} />
+          <Route path="/checkout/:id" element={<CheckoutPage />} />
           <Route path="/settlements" element={<SettlementDashboardPage />} />
           <Route path="/notifications" element={<NotificationListPage />} />
           <Route path="/admin/categories" element={<CategoryAdminPage />} />
