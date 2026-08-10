@@ -10,6 +10,7 @@ export type ProjectStatus =
 // (project/project/presentation/dto/response/ProjectResponse.java), whose field is `projectId`.
 export interface ProjectSummary {
   projectId: number;
+  creatorId?: number | null;
   title: string;
   summary?: string | null;
   status: ProjectStatus;

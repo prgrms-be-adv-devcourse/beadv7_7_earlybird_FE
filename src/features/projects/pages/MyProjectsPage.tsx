@@ -6,6 +6,7 @@ import { PROJECT_SERVICE } from "../../../shared/api/endpoints";
 import type { ApiResponse } from "../../../shared/types/ApiResponse";
 import type { ProjectSummary, Reward } from "../types";
 import { useCreateReward, useDeleteProject, useRewards } from "../hooks";
+import { formatDateKorean } from "../utils";
 import { ProjectEditModal } from "../components/ProjectEditModal";
 import { RewardEditModal } from "../components/RewardEditModal";
 import {
@@ -85,12 +86,12 @@ function MyProjectCard({ project }: { project: ProjectSummary }) {
           <span className="tabular-nums font-bold text-brand">{project.fundedAmount.toLocaleString()}원</span>
         </div>
         <div>
-          <span className="block font-semibold text-ink">시작일</span>
-          <span>{new Date(project.startAt).toLocaleDateString()}</span>
+          <span className="block font-semibold text-ink">시작일 / 생성일</span>
+          <span>{formatDateKorean(project.startAt)}</span>
         </div>
         <div>
-          <span className="block font-semibold text-ink">종료일</span>
-          <span>{project.endAt}</span>
+          <span className="block font-semibold text-ink">정확한 마감일</span>
+          <span className="font-bold text-ink">{formatDateKorean(project.endAt)}</span>
         </div>
       </div>
 

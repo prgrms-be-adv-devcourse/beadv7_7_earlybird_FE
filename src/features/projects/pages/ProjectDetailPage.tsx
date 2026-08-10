@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Clock } from "lucide-react";
 import axios from "axios";
 import {
   Badge,
@@ -33,6 +32,7 @@ import {
   useDeactivateReward,
 } from "../../admin/hooks";
 import type { ProjectDetail, Reward } from "../types";
+import { getStatusLabel, getStatusBadgeTone, formatDateKorean } from "../utils";
 
 function daysLeft(endAt: string): number {
   const end = new Date(`${endAt}T23:59:59`);
@@ -91,11 +91,14 @@ function FundingPanel({
           <span className="tabular-nums">{project.fundedAmount.toLocaleString()}원</span>
         </div>
         <div className="tabular-nums text-xs text-mist">목표 {project.goalAmount.toLocaleString()}원</div>
-        <div className="mt-2 flex items-center gap-1 text-xs text-mist">
-          <Clock className="h-3.5 w-3.5" />
-          {remaining > 0 ? `${remaining}일 남음` : "마감"}
+
+        <div className="mt-3 flex flex-col gap-1 border-t border-ink/10 pt-2 text-xs text-mist">
+          <div>🗓️ 시작일: <strong className="text-ink">{formatDateKorean(project.startAt)}</strong></div>
+          <div>⏰ 마감일: <strong className="text-ink">{formatDateKorean(project.endAt)} ({remaining > 0 ? `${remaining}일 남음` : "마감"})</strong></div>
+          <div>👤 창작자: <strong className="text-ink">{project.creatorId ? `창작자 #${project.creatorId}` : "공식 창작자"}</strong></div>
         </div>
-        <div className="mt-1">
+
+        <div className="mt-2">
           <NestStatus percent={percent} />
         </div>
       </div>
@@ -286,7 +289,7 @@ export function ProjectDetailPage() {
             <div className="p-6">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <h1 className="font-display text-2xl font-bold text-ink">{project.title}</h1>
-                <Badge tone="mint">{project.status}</Badge>
+                <Badge tone={getStatusBadgeTone(project.status)}>{getStatusLabel(project.status)}</Badge>
               </div>
               <p className="text-mist">{project.summary}</p>
             </div>

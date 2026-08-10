@@ -19,6 +19,7 @@ import {
   useExtendProjectDeadline,
   useTriggerCloseExpired,
 } from "../hooks";
+import { formatDateKorean, getStatusLabel } from "../../projects/utils";
 
 function RejectButton({ projectId }: { projectId: number }) {
   const [open, setOpen] = useState(false);
@@ -144,10 +145,15 @@ export function ProjectApprovalPage() {
         <div className="flex flex-col gap-3">
           {projects.map((project) => (
             <Card key={project.projectId} className="flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="font-display font-bold text-ink text-base">{project.title}</span>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-display font-bold text-ink text-base">{project.title}</span>
+                  <span className="text-xs font-bold text-brand bg-brand/10 px-2 py-0.5 rounded">
+                    {getStatusLabel(project.status)}
+                  </span>
+                </div>
                 <span className="text-xs text-mist">
-                  목표 금액: {project.goalAmount.toLocaleString()}원 | 마감일: {project.endAt}
+                  창작자 ID: #{project.creatorId} | 시작일/생성일: {formatDateKorean(project.startAt)} | 마감일: <strong className="text-ink">{formatDateKorean(project.endAt)}</strong> | 목표: {project.goalAmount.toLocaleString()}원
                 </span>
               </div>
               <div className="flex gap-2">
