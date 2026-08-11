@@ -62,6 +62,8 @@ function FundingPanel({
   selectedRewardId,
   onSelectReward,
   selectedReward,
+  selectedQuantity,
+  onChangeQuantity,
   onAddToCart,
   isAddingToCart,
   flightTrigger,
@@ -73,6 +75,8 @@ function FundingPanel({
   selectedRewardId: number | null;
   onSelectReward: (id: number) => void;
   selectedReward: Reward | undefined;
+  selectedQuantity: number;
+  onChangeQuantity: (qty: number) => void;
   onAddToCart: () => void;
   isAddingToCart: boolean;
   flightTrigger: number;
@@ -159,9 +163,57 @@ function FundingPanel({
       </div>
 
       {selectedReward && (
-        <div className="rounded-sm bg-brand/5 border border-brand/20 p-2.5 text-xs flex items-center justify-between">
-          <span className="font-bold text-brand shrink-0">선택된 리워드:</span>
-          <span className="font-bold text-ink truncate ml-2">{selectedReward.name}</span>
+        <div className="flex flex-col gap-2 rounded-sm bg-brand/5 border border-brand/20 p-3">
+          <div className="text-xs flex items-center justify-between">
+            <span className="font-bold text-brand shrink-0">선택된 리워드:</span>
+            <span className="font-bold text-ink truncate ml-2">{selectedReward.name}</span>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-brand/10 pt-2 text-xs">
+            <span className="font-semibold text-ink">수량 선택:</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onChangeQuantity(Math.max(1, selectedQuantity - 1))}
+                disabled={selectedQuantity <= 1}
+                className="flex h-7 w-7 items-center justify-center rounded-sm border border-ink/20 font-bold text-ink hover:bg-ink/10 active:scale-95 disabled:opacity-30"
+              >
+                -
+              </button>
+              <input
+                type="number"
+                min={1}
+                max={selectedReward.remainingQuantity ?? 999}
+                value={selectedQuantity}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  const max = selectedReward.remainingQuantity ?? 999;
+                  if (!isNaN(val) && val >= 1) {
+                    onChangeQuantity(Math.min(val, max));
+                  }
+                }}
+                className="h-7 w-12 text-center font-bold tabular-nums text-ink border border-ink/20 rounded-sm focus:border-brand focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const max = selectedReward.remainingQuantity ?? 999;
+                  onChangeQuantity(Math.min(max, selectedQuantity + 1));
+                }}
+                disabled={selectedReward.remainingQuantity != null && selectedQuantity >= selectedReward.remainingQuantity}
+                className="flex h-7 w-7 items-center justify-center rounded-sm border border-ink/20 font-bold text-ink hover:bg-ink/10 active:scale-95 disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center text-xs font-bold text-ink border-t border-brand/10 pt-2 mt-1">
+            <span>총 후원 금액:</span>
+            <span className="text-sm font-extrabold text-brand tabular-nums">
+              {(selectedReward.price * selectedQuantity).toLocaleString()}원
+            </span>
+          </div>
         </div>
       )}
 
@@ -172,7 +224,7 @@ function FundingPanel({
             : isAddingToCart
               ? "장바구니에 담는 중..."
               : selectedReward
-                ? "장바구니에 담기 (후원하기)"
+                ? `장바구니에 담기 (${selectedQuantity}개)`
                 : "리워드를 선택해주세요"
         }
         disabled={!isOrderable || !selectedReward || isAddingToCart}
@@ -197,6 +249,7 @@ export function ProjectDetailPage() {
   const { data: rewards } = useRewards(projectId);
 
   const [selectedRewardId, setSelectedRewardId] = useState<number | null>(null);
+  const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [panelFlight, setPanelFlight] = useState(0);
   const [footerFlight, setFooterFlight] = useState(0);
@@ -218,6 +271,7 @@ export function ProjectDetailPage() {
   const [newEndAt, setNewEndAt] = useState("2026-12-31");
 
   const addCartItems = useAddCartItems();
+
   const selectedReward = rewards?.find((reward) => reward.rewardId === selectedRewardId);
 
   useEffect(() => {
@@ -225,9 +279,15 @@ export function ProjectDetailPage() {
       const exists = rewards.some((r) => r.rewardId === selectedRewardId);
       if (!exists) {
         setSelectedRewardId(null);
+        setSelectedQuantity(1);
       }
     }
   }, [rewards, selectedRewardId]);
+
+  const handleSelectReward = (rewardId: number) => {
+    setSelectedRewardId(rewardId);
+    setSelectedQuantity(1);
+  };
 
   function handleAddToCart(source: "panel" | "footer") {
     if (!selectedReward || project?.status !== "IN_PROGRESS") return;
@@ -237,13 +297,13 @@ export function ProjectDetailPage() {
     }
     const targetProjectId = selectedReward.projectId ?? projectId;
     addCartItems.mutate(
-      { projectId: targetProjectId, items: [{ rewardId: selectedReward.rewardId, quantity: 1 }] },
+      { projectId: targetProjectId, items: [{ rewardId: selectedReward.rewardId, quantity: selectedQuantity }] },
       {
         onSuccess: () => {
           if (source === "panel") setPanelFlight((k) => k + 1);
           else setFooterFlight((k) => k + 1);
           setTimeout(() => {
-            setFeedback("장바구니에 담았어요!");
+            setFeedback(`장바구니에 ${selectedQuantity}개 담았어요!`);
             setTimeout(() => setFeedback(null), 2500);
           }, 900);
         },
@@ -463,8 +523,10 @@ export function ProjectDetailPage() {
           project={project}
           rewards={rewards}
           selectedRewardId={selectedRewardId}
-          onSelectReward={setSelectedRewardId}
+          onSelectReward={handleSelectReward}
           selectedReward={selectedReward}
+          selectedQuantity={selectedQuantity}
+          onChangeQuantity={setSelectedQuantity}
           onAddToCart={() => handleAddToCart("panel")}
           isAddingToCart={addCartItems.isPending}
           flightTrigger={panelFlight}
