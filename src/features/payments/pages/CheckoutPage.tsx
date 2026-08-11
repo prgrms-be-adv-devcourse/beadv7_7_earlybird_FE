@@ -240,7 +240,7 @@ export function CheckoutPage() {
         disabled={isPaying}
         className="w-full py-4 text-base font-bold text-white shadow-stamp hover:scale-[1.01] transition-transform"
       >
-        {isPaying ? "토스 결제창 불러오는 중..." : `💳 Toss로 ${order.totalAmount.toLocaleString()}원 결제하기`}
+        {isPaying ? "결제창 불러오는 중..." : `💳 ${order.totalAmount.toLocaleString()}원 결제하기`}
       </Button>
     </div>
   );

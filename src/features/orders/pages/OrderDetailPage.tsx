@@ -92,7 +92,7 @@ export function OrderDetailPage() {
               onClick={() => navigate(`/checkout/${order.id}`)}
               className="flex-1 py-3 text-sm font-bold text-white shadow-stamp hover:scale-[1.01] transition-transform"
             >
-              💳 Toss로 {order.totalAmount.toLocaleString()}원 결제하기
+              💳 {order.totalAmount.toLocaleString()}원 결제하기
             </Button>
           )}
 

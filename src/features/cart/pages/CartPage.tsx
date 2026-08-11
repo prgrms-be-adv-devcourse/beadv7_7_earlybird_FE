@@ -87,6 +87,12 @@ export function CartPage() {
       ? selectedProject.itemsAmount
       : selectedProject.rewards.reduce((sum, r) => sum + (r.totalPrice > 0 ? r.totalPrice : r.unitPrice * r.quantity), 0);
 
+    const shippingFee = selectedProject.shippingFee > 0
+      ? selectedProject.shippingFee
+      : (projectItemsAmount >= 50000 ? 0 : 3000);
+
+    const projectTotalAmount = projectItemsAmount + shippingFee;
+
     placeOrderMutation.mutate(
       {
         userId,
@@ -97,7 +103,7 @@ export function CartPage() {
         shippingAddress,
         zipCode,
         expectedItemsAmount: projectItemsAmount,
-        expectedTotalAmount: projectItemsAmount,
+        expectedTotalAmount: projectTotalAmount,
       },
       {
         onSuccess: (createdOrder) => {
@@ -225,21 +231,40 @@ export function CartPage() {
               />
             </div>
 
-            <div className="mt-2 rounded-sm bg-mint/10 p-3 text-ink">
-              <div className="flex justify-between font-bold">
-                <span>최종 결제 금액:</span>
-                <span className="tabular-nums">
-                  {(
-                    selectedProject
-                      ? selectedProject.itemsAmount > 0
-                        ? selectedProject.itemsAmount
-                        : selectedProject.rewards.reduce((s, r) => s + (r.totalPrice > 0 ? r.totalPrice : r.unitPrice * r.quantity), 0)
-                      : 0
-                  ).toLocaleString()}
-                  원
-                </span>
-              </div>
-            </div>
+            {(() => {
+              const modalItems = selectedProject
+                ? selectedProject.itemsAmount > 0
+                  ? selectedProject.itemsAmount
+                  : selectedProject.rewards.reduce((s, r) => s + (r.totalPrice > 0 ? r.totalPrice : r.unitPrice * r.quantity), 0)
+                : 0;
+              const modalShipping = selectedProject
+                ? selectedProject.shippingFee > 0
+                  ? selectedProject.shippingFee
+                  : (modalItems >= 50000 ? 0 : 3000)
+                : 0;
+              const modalTotal = modalItems + modalShipping;
+
+              return (
+                <div className="mt-2 flex flex-col gap-1 rounded-sm bg-mint/10 p-3 text-ink">
+                  <div className="flex justify-between text-xs text-mist">
+                    <span>상품 금액:</span>
+                    <span className="tabular-nums">{modalItems.toLocaleString()}원</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-mist">
+                    <span>배송비:</span>
+                    <span className="tabular-nums">
+                      {modalShipping > 0 ? `+${modalShipping.toLocaleString()}원 (5만원 미만 배송비)` : "무료배송"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between font-bold border-t border-ink/10 pt-1.5 mt-1">
+                    <span>최종 결제 금액:</span>
+                    <span className="tabular-nums text-brand font-extrabold text-base">
+                      {modalTotal.toLocaleString()}원
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {orderError && <ErrorState error={{ message: orderError, errors: null }} />}
           </div>
