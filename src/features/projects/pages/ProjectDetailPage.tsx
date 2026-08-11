@@ -270,6 +270,10 @@ export function ProjectDetailPage() {
   const [extendModalOpen, setExtendModalOpen] = useState(false);
   const [newEndAt, setNewEndAt] = useState("2026-12-31");
 
+  // Admin project reject modal
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+
   const addCartItems = useAddCartItems();
 
   const selectedReward = rewards?.find((reward) => reward.rewardId === selectedRewardId);
@@ -416,7 +420,7 @@ export function ProjectDetailPage() {
                   <Button
                     variant="secondary"
                     className="py-1 px-3 text-xs border-red-300 text-red-600 hover:bg-red-50"
-                    onClick={() => rejectMutation.mutate({ id: projectId, reason: "관리자 심사 반려" })}
+                    onClick={() => setRejectModalOpen(true)}
                     disabled={rejectMutation.isPending}
                   >
                     심사 반려
@@ -593,6 +597,46 @@ export function ProjectDetailPage() {
               disabled={decreaseRewardQtyMutation.isPending}
             >
               {decreaseRewardQtyMutation.isPending ? "축소 중..." : "수량 축소 적용"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin project reject dialog */}
+      <Dialog open={rejectModalOpen} onOpenChange={setRejectModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogTitle>프로젝트 심사 반려 (관리자 전용)</DialogTitle>
+          <DialogDescription>
+            반려 사유를 입력하세요. 입력하신 사유는 창작자 본인에게 전달됩니다. (필수 입력)
+          </DialogDescription>
+          <textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="예: 리워드 상세 정보가 부족하거나, 목표 금액/마감일 설정에 보완이 필요합니다."
+            rows={4}
+            className="mt-3 w-full rounded-sm border-2 border-ink/20 bg-surface p-3 text-sm text-ink outline-none focus:border-brand"
+          />
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setRejectModalOpen(false)}>
+              취소
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white font-bold"
+              onClick={() => {
+                if (!rejectReason.trim()) return;
+                rejectMutation.mutate(
+                  { id: projectId, reason: rejectReason.trim() },
+                  {
+                    onSuccess: () => {
+                      setRejectModalOpen(false);
+                      setRejectReason("");
+                    },
+                  }
+                );
+              }}
+              disabled={!rejectReason.trim() || rejectMutation.isPending}
+            >
+              {rejectMutation.isPending ? "반려 처리 중..." : "반려 확정"}
             </Button>
           </div>
         </DialogContent>
