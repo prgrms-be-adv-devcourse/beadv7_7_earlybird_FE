@@ -19,9 +19,12 @@ import {
   getCategoryIdsIncludingChildren,
 } from "../utils";
 
+import { useAuthStore } from "../../../shared/auth/authStore";
+
 const ALL = "ALL";
 
 export function ProjectListPage() {
+  const user = useAuthStore((state) => state.user);
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Read initial filter values from URL params
@@ -152,12 +155,14 @@ export function ProjectListPage() {
           <h1 className="font-display text-2xl font-bold text-ink">🔍 프로젝트 탐색 및 검색</h1>
           <p className="text-xs text-mist">카테고리 드롭다운과 키워드로 원하시는 프로젝트를 쉽게 찾아보세요.</p>
         </div>
-        <Link
-          to="/projects/new"
-          className="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white shadow-stamp transition-transform hover:scale-105"
-        >
-          + 프로젝트 만들기
-        </Link>
+        {user?.role === "CREATOR" && (
+          <Link
+            to="/projects/new"
+            className="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white shadow-stamp transition-transform hover:scale-105"
+          >
+            + 프로젝트 만들기
+          </Link>
+        )}
       </div>
 
       {/* Search Bar & Filter Controls (Category, Status, Sort) */}

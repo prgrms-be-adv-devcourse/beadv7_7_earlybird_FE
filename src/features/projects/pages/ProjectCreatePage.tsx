@@ -15,6 +15,20 @@ export function ProjectCreatePage() {
   const createProjectMutation = useCreateProject();
   const createRewardMutation = useCreateReward();
 
+  if (user?.role === "ADMIN") {
+    return (
+      <Card className="flex flex-col items-center justify-center p-8 text-center gap-3">
+        <h2 className="font-display text-xl font-bold text-ink">🚫 프로젝트 생성 불가</h2>
+        <p className="text-sm text-mist">
+          관리자(ADMIN) 계정은 프로젝트를 직접 등록할 수 없습니다. 프로젝트 등록은 창작자(CREATOR) 전용 권한입니다.
+        </p>
+        <Button onClick={() => navigate("/projects")} className="mt-2">
+          전체 프로젝트로 돌아가기
+        </Button>
+      </Card>
+    );
+  }
+
   // Form states
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState<number>(1);
