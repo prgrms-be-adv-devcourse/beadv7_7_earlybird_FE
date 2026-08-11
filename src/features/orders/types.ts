@@ -63,7 +63,8 @@ export interface OrderItemRequest {
 export interface PlaceOrderRequest {
   userId: number;
   projectId?: number;
-  requests: OrderItemRequest[];
+  lines: OrderItemRequest[];
+  requests?: OrderItemRequest[];
   receiverName: string;
   receiverPhone: string;
   shippingAddress: string;
