@@ -21,6 +21,8 @@ export function useCancelOrder(id: number) {
   return useMutation({
     mutationFn: () => cancelOrder(id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["rewards"] });
       queryClient.invalidateQueries({ queryKey: ["orders", "detail", id] });
       queryClient.invalidateQueries({ queryKey: ["orders", "list"] });
     },
