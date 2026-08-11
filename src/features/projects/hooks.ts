@@ -37,16 +37,25 @@ export function useProject(id: number) {
       try {
         return await fetchProject(id);
       } catch (error) {
-        // Backend only serves single-project detail for publicly viewable statuses
-        // (e.g. IN_PROGRESS), so an owner viewing their own PENDING_REVIEW/REJECTED
-        // project 404s here. Fall back to their "my projects" list, which has no
-        // such status restriction, so they can still see their own project.
+        // Backend GET /api/v1/projects/{id} only serves single-project detail for published statuses
+        // (e.g. IN_PROGRESS), throwing 404 EntityNotFoundException for PENDING_REVIEW / REJECTED projects.
+        // Fall back to fetchMyProjects() (for creator) or fetchProjects() (for admin/list viewer).
         const accessToken = useAuthStore.getState().accessToken;
-        if (axios.isAxiosError(error) && error.response?.status === 404 && accessToken) {
-          const mine = await fetchMyProjects();
-          const found = mine.find((project) => project.projectId === id);
-          if (found) {
-            return { ...found, summary: found.summary ?? null, description: null, isOwnerPreview: true };
+        if (axios.isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 500) && accessToken) {
+          try {
+            const mine = await fetchMyProjects();
+            const foundMy = mine.find((project) => project.projectId === id);
+            if (foundMy) {
+              return { ...foundMy, summary: foundMy.summary ?? null, description: null, isOwnerPreview: true };
+            }
+
+            const allProjects = await fetchProjects();
+            const foundAll = allProjects.find((project) => project.projectId === id);
+            if (foundAll) {
+              return { ...foundAll, summary: foundAll.summary ?? null, description: null, isOwnerPreview: true };
+            }
+          } catch {
+            // Ignore fallback fetch error
           }
         }
         throw error;
