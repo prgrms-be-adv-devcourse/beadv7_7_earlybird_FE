@@ -1,10 +1,9 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { CreditCard, CheckCircle2, ShieldCheck, ArrowLeft } from "lucide-react";
-import { Button, Card, ErrorState, RowSkeleton, Skeleton } from "../../../shared/ui";
-import { useConfirmPayment, usePreparePayment } from "../hooks";
-import { useOrder } from "../../orders/hooks";
+import {useState} from "react";
+import {useNavigate, useParams} from "react-router-dom";
+import {ArrowLeft, CheckCircle2, CreditCard, ShieldCheck} from "lucide-react";
+import {Button, Card, ErrorState, RowSkeleton, Skeleton} from "../../../shared/ui";
+import {getPaymentByOrderId} from "../api";
+import {useOrder} from "../../orders/hooks";
 
 function loadTossPaymentsScript(): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -24,11 +23,8 @@ export function CheckoutPage() {
   const { id } = useParams();
   const orderId = Number(id);
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const { data: order, isPending, isError } = useOrder(orderId);
-  const preparePaymentMutation = usePreparePayment();
-  const confirmPaymentMutation = useConfirmPayment();
 
   const [paymentMethod, setPaymentMethod] = useState<"CARD" | "TRANSFER" | "EASY">("CARD");
   const [isPaying, setIsPaying] = useState(false);
@@ -39,7 +35,6 @@ export function CheckoutPage() {
     setIsPaying(true);
     setPayError(null);
 
-    const totalAmount = order.totalAmount ?? 0;
     const firstItemName = order.orderItems?.[0]?.name;
     const orderName = firstItemName
       ? order.orderItems.length > 1
@@ -48,17 +43,9 @@ export function CheckoutPage() {
       : `얼리버드 프로젝트 #${orderId} 펀딩`;
 
     try {
-      let pgOrderId = `order_${orderId}_${Date.now()}`;
-      try {
-        const prepareRes = await preparePaymentMutation.mutateAsync({
-          orderId,
-          amount: totalAmount,
-        });
-        if (prepareRes?.pgOrderId) {
-          pgOrderId = prepareRes.pgOrderId;
-        }
-      } catch (prepErr) {
-        console.warn("preparePayment API warning, using fallback pgOrderId:", prepErr);
+      const payment = await getPaymentByOrderId(orderId);
+      if (payment.status !== "READY") {
+        throw new Error("결제를 시작할 수 없는 상태입니다.");
       }
 
       const TossPaymentsSDK = await loadTossPaymentsScript();
@@ -73,39 +60,21 @@ export function CheckoutPage() {
       if (paymentMethod === "EASY") method = "가상계좌";
 
       await tossPayments.requestPayment(method, {
-        amount: totalAmount,
-        orderId: pgOrderId,
+        amount: payment.amount, // <-- payment-service가 준비한 결제 금액 사용
+        orderId: payment.pgOrderId, // <-- payment-service가 생성한 Toss 주문번호 사용
         orderName,
         customerName: order.receiverName || "김얼리",
         successUrl: `${window.location.origin}/orders/${orderId}?payment=success`,
         failUrl: `${window.location.origin}/checkout/${orderId}?payment=fail`,
       });
     } catch (err: any) {
-      // User cancelled toss popup or error occurred
       if (err?.code === "USER_CANCEL" || err?.message?.includes("취소")) {
         setPayError("결제를 취소하셨습니다.");
-        setIsPaying(false);
         return;
       }
 
-      console.warn("Toss payments SDK warning, executing fallback:", err);
-
-      // Simulated completion fallback
-      try {
-        await confirmPaymentMutation.mutateAsync({
-          paymentKey: `test_toss_key_${Date.now()}`,
-          pgOrderId: `order_${orderId}`,
-          amount: totalAmount,
-        });
-      } catch (confirmErr) {
-        console.warn("Confirm payment API warning:", confirmErr);
-      } finally {
-        queryClient.invalidateQueries({ queryKey: ["projects"] });
-        queryClient.invalidateQueries({ queryKey: ["rewards"] });
-        queryClient.invalidateQueries({ queryKey: ["cart"] });
-        queryClient.invalidateQueries({ queryKey: ["orders"] });
-        navigate(`/orders/${orderId}`, { replace: true, state: { paymentSuccess: true } });
-      }
+      console.error("Toss payment request failed:", err);
+      setPayError("결제를 시작하지 못했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       setIsPaying(false);
     }

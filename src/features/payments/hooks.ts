@@ -1,12 +1,6 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { confirmPayment, preparePayment } from "./api";
-import type { PaymentConfirmRequest, PaymentPrepareRequest } from "./types";
-
-export function usePreparePayment() {
-  return useMutation({
-    mutationFn: (request: PaymentPrepareRequest) => preparePayment(request),
-  });
-}
+import {useMutation, useQueryClient} from "@tanstack/react-query";
+import {confirmPayment} from "./api";
+import type {PaymentConfirmRequest} from "./types";
 
 export function useConfirmPayment() {
   const queryClient = useQueryClient();
@@ -20,4 +14,3 @@ export function useConfirmPayment() {
     },
   });
 }
-

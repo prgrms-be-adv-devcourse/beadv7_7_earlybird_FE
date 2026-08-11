@@ -32,9 +32,9 @@ export const ORDER_SERVICE = {
 };
 
 export const PAYMENT_SERVICE = {
-  prepare: "/api/v1/payments/prepare",
   confirm: "/api/v1/payments/confirm",
   payment: (id: number | string) => `/api/v1/payments/${id}`,
+  paymentByOrder: (orderId: number | string) => `/api/v1/payments/orders/${orderId}`,
   cancel: (id: number | string) => `/api/v1/payments/${id}/cancel`,
 };
 
