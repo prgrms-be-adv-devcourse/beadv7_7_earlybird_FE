@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { CreditCard, CheckCircle2, ShieldCheck, ArrowLeft } from "lucide-react";
 import { Button, Card, ErrorState, RowSkeleton, Skeleton } from "../../../shared/ui";
-import { useConfirmPayment } from "../hooks";
+import { useConfirmPayment, usePreparePayment } from "../hooks";
 import { useOrder } from "../../orders/hooks";
 
 function loadTossPaymentsScript(): Promise<any> {
@@ -27,6 +27,7 @@ export function CheckoutPage() {
   const queryClient = useQueryClient();
 
   const { data: order, isPending, isError } = useOrder(orderId);
+  const preparePaymentMutation = usePreparePayment();
   const confirmPaymentMutation = useConfirmPayment();
 
   const [paymentMethod, setPaymentMethod] = useState<"CARD" | "TRANSFER" | "EASY">("CARD");
@@ -47,6 +48,19 @@ export function CheckoutPage() {
       : `얼리버드 프로젝트 #${orderId} 펀딩`;
 
     try {
+      let pgOrderId = `order_${orderId}_${Date.now()}`;
+      try {
+        const prepareRes = await preparePaymentMutation.mutateAsync({
+          orderId,
+          amount: totalAmount,
+        });
+        if (prepareRes?.pgOrderId) {
+          pgOrderId = prepareRes.pgOrderId;
+        }
+      } catch (prepErr) {
+        console.warn("preparePayment API warning, using fallback pgOrderId:", prepErr);
+      }
+
       const TossPaymentsSDK = await loadTossPaymentsScript();
       let clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || "test_ck_DLJOpm5QrlB72oq9YPMQ3PNdxbWn";
       if (clientKey.startsWith("test_sk_")) {
@@ -60,7 +74,7 @@ export function CheckoutPage() {
 
       await tossPayments.requestPayment(method, {
         amount: totalAmount,
-        orderId: `earlybird_order_${orderId}_${Date.now()}`,
+        orderId: pgOrderId,
         orderName,
         customerName: order.receiverName || "김얼리",
         successUrl: `${window.location.origin}/orders/${orderId}?payment=success`,

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 import {
@@ -16,6 +17,7 @@ import {
   Skeleton,
 } from "../../../shared/ui";
 import { useOrder, useCancelOrder } from "../hooks";
+import { useConfirmPayment } from "../../payments/hooks";
 import { getOrderStatusLabel, getOrderStatusBadgeTone } from "../utils";
 
 export function OrderDetailPage() {
@@ -25,6 +27,32 @@ export function OrderDetailPage() {
   const orderId = Number(id);
   const { data: order, isPending, isError } = useOrder(orderId);
   const cancelMutation = useCancelOrder(orderId);
+  const confirmPaymentMutation = useConfirmPayment();
+
+  const searchParams = new URLSearchParams(location.search);
+  const paymentKeyParam = searchParams.get("paymentKey");
+  const pgOrderIdParam = searchParams.get("orderId");
+  const amountParam = searchParams.get("amount");
+
+  useEffect(() => {
+    if (paymentKeyParam && pgOrderIdParam && amountParam) {
+      confirmPaymentMutation.mutate(
+        {
+          paymentKey: paymentKeyParam,
+          pgOrderId: pgOrderIdParam,
+          amount: Number(amountParam),
+        },
+        {
+          onSuccess: () => {
+            navigate(`/orders/${orderId}`, { replace: true, state: { paymentSuccess: true } });
+          },
+          onError: (err) => {
+            console.error("Payment confirm error:", err);
+          },
+        }
+      );
+    }
+  }, [paymentKeyParam, pgOrderIdParam, amountParam, orderId, navigate, confirmPaymentMutation]);
 
   const isPaymentSuccess = (location.state as any)?.paymentSuccess || location.search.includes("payment=success");
   const effectiveStatus = (isPaymentSuccess || order?.status === "PAID") ? "PAID" : order?.status;
