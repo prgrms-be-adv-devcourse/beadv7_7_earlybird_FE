@@ -1,6 +1,6 @@
-import { useEffect } from "react";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { CheckCircle2 } from "lucide-react";
+import {useEffect, useRef} from "react";
+import {useLocation, useNavigate, useParams} from "react-router-dom";
+import {CheckCircle2} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,9 +16,9 @@ import {
   RowSkeleton,
   Skeleton,
 } from "../../../shared/ui";
-import { useOrder, useCancelOrder } from "../hooks";
-import { useConfirmPayment } from "../../payments/hooks";
-import { getOrderStatusLabel, getOrderStatusBadgeTone } from "../utils";
+import {useCancelOrder, useOrder} from "../hooks";
+import {useConfirmPayment} from "../../payments/hooks";
+import {getOrderStatusBadgeTone, getOrderStatusLabel} from "../utils";
 
 export function OrderDetailPage() {
   const { id } = useParams();
@@ -27,7 +27,8 @@ export function OrderDetailPage() {
   const orderId = Number(id);
   const { data: order, isPending, isError } = useOrder(orderId);
   const cancelMutation = useCancelOrder(orderId);
-  const confirmPaymentMutation = useConfirmPayment();
+  const { mutate: confirmPayment } = useConfirmPayment();
+  const hasRequestedConfirmation = useRef(false);
 
   const searchParams = new URLSearchParams(location.search);
   const paymentKeyParam = searchParams.get("paymentKey");
@@ -35,8 +36,9 @@ export function OrderDetailPage() {
   const amountParam = searchParams.get("amount");
 
   useEffect(() => {
-    if (paymentKeyParam && pgOrderIdParam && amountParam) {
-      confirmPaymentMutation.mutate(
+    if (paymentKeyParam && pgOrderIdParam && amountParam && !hasRequestedConfirmation.current) {
+      hasRequestedConfirmation.current = true; // <-- 동일 Toss 콜백 중복 승인 방지
+      confirmPayment(
         {
           paymentKey: paymentKeyParam,
           pgOrderId: pgOrderIdParam,
@@ -52,9 +54,9 @@ export function OrderDetailPage() {
         }
       );
     }
-  }, [paymentKeyParam, pgOrderIdParam, amountParam, orderId, navigate, confirmPaymentMutation]);
+  }, [paymentKeyParam, pgOrderIdParam, amountParam, orderId, navigate, confirmPayment]);
 
-  const isPaymentSuccess = (location.state as any)?.paymentSuccess || location.search.includes("payment=success");
+  const isPaymentSuccess = (location.state as any)?.paymentSuccess;
   const effectiveStatus = (isPaymentSuccess || order?.status === "PAID") ? "PAID" : order?.status;
 
   if (isPending) {
