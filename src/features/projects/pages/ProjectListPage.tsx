@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Search, X } from "lucide-react";
 import {
@@ -23,6 +23,25 @@ import { useAuthStore } from "../../../shared/auth/authStore";
 
 const ALL = "ALL";
 
+function HighlightMatch({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>;
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = text.split(new RegExp(`(${escapedQuery})`, "gi"));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <span key={i} className="font-bold text-brand underline decoration-brand/30">
+            {part}
+          </span>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
+
 export function ProjectListPage() {
   const user = useAuthStore((state) => state.user);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -40,6 +59,42 @@ export function ProjectListPage() {
   const [categoryId, setCategoryId] = useState(initialCategory);
   const [sort, setSort] = useState(initialSort);
   const [creatorId, setCreatorId] = useState(initialCreatorId);
+
+  // Autocomplete suggestions state
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+
+  // Fetch all projects for autocomplete pool
+  const { data: rawAllProjects } = useProjects();
+
+  // Compute matching autocomplete items
+  const suggestions = useMemo(() => {
+    const term = inputKeyword.trim().toLowerCase();
+    if (!term || !rawAllProjects) return [];
+
+    return rawAllProjects
+      .filter(
+        (p) =>
+          p.title.toLowerCase().includes(term) ||
+          (p.summary && p.summary.toLowerCase().includes(term))
+      )
+      .slice(0, 6);
+  }, [inputKeyword, rawAllProjects]);
+
+  // Click outside listener to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Sync state if URL searchParams change externally
   useEffect(() => {
@@ -139,6 +194,34 @@ export function ProjectListPage() {
   const handleClearSearch = () => {
     setInputKeyword("");
     setKeyword("");
+    setShowSuggestions(false);
+  };
+
+  const handleSelectSuggestion = (title: string) => {
+    setInputKeyword(title);
+    setKeyword(title);
+    setShowSuggestions(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
+    } else if (e.key === "Enter" && highlightedIndex >= 0) {
+      e.preventDefault();
+      const selected = suggestions[highlightedIndex];
+      if (selected) {
+        handleSelectSuggestion(selected.title);
+      }
+    } else if (e.key === "Escape") {
+      setShowSuggestions(false);
+    }
   };
 
   const errorMsg =
@@ -168,14 +251,22 @@ export function ProjectListPage() {
       {/* Search Bar & Filter Controls (Category, Status, Sort) */}
       <div className="flex flex-col gap-3 rounded-lg border border-ink/15 bg-paper/60 p-4 shadow-sm">
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
-          {/* Search Input Bar */}
-          <div className="relative flex items-center flex-1 w-full">
+          {/* Search Input Bar with Autocomplete Suggestions */}
+          <div ref={searchContainerRef} className="relative flex items-center flex-1 w-full">
             <Search className="absolute left-3.5 h-4 w-4 text-mist" />
             <input
               type="text"
               placeholder="프로젝트 제목 또는 한 줄 요약으로 검색..."
               value={inputKeyword}
-              onChange={(e) => setInputKeyword(e.target.value)}
+              onChange={(e) => {
+                setInputKeyword(e.target.value);
+                setShowSuggestions(true);
+                setHighlightedIndex(-1);
+              }}
+              onFocus={() => {
+                if (inputKeyword.trim()) setShowSuggestions(true);
+              }}
+              onKeyDown={handleKeyDown}
               className="w-full rounded-full border border-ink/20 bg-surface pl-10 pr-10 py-2.5 text-sm text-ink outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
             />
             {inputKeyword && (
@@ -186,6 +277,58 @@ export function ProjectListPage() {
               >
                 <X className="h-3 w-3" />
               </button>
+            )}
+
+            {/* Autocomplete Recommended Search Terms Dropdown */}
+            {showSuggestions && inputKeyword.trim().length > 0 && (
+              <div className="absolute top-full left-0 right-0 z-50 mt-1.5 overflow-hidden rounded-xl border border-ink/15 bg-surface p-1.5 shadow-2xl backdrop-blur-md">
+                <div className="flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-mist border-b border-ink/5">
+                  <span>💡 추천 검색어 ({suggestions.length})</span>
+                  <span className="text-[10px] text-mist/70">↑↓ 이동 · Enter 선택</span>
+                </div>
+                {suggestions.length > 0 ? (
+                  <ul className="flex flex-col py-1">
+                    {suggestions.map((project, index) => (
+                      <li key={project.projectId}>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleSelectSuggestion(project.title);
+                          }}
+                          onMouseEnter={() => setHighlightedIndex(index)}
+                          className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                            index === highlightedIndex
+                              ? "bg-brand/10 text-brand font-medium"
+                              : "text-ink hover:bg-ink/5"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 overflow-hidden">
+                            <span className="text-xs">🔍</span>
+                            <div className="flex flex-col truncate">
+                              <span className="truncate text-sm font-medium">
+                                <HighlightMatch text={project.title} query={inputKeyword.trim()} />
+                              </span>
+                              {project.summary && (
+                                <span className="truncate text-xs text-mist">
+                                  {project.summary}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-medium text-mist">
+                            {project.status === "IN_PROGRESS" ? "진행중" : project.status}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="px-3 py-3 text-center text-xs text-mist">
+                    '{inputKeyword}'(으)로 시작하거나 포함된 추천 검색어가 없습니다.
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
