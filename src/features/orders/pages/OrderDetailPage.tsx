@@ -27,6 +27,7 @@ export function OrderDetailPage() {
   const cancelMutation = useCancelOrder(orderId);
 
   const isPaymentSuccess = (location.state as any)?.paymentSuccess || location.search.includes("payment=success");
+  const effectiveStatus = (isPaymentSuccess || order?.status === "PAID") ? "PAID" : order?.status;
 
   if (isPending) {
     return (
@@ -56,8 +57,8 @@ export function OrderDetailPage() {
       <Card>
         <div className="mb-4 flex items-center justify-between border-b border-ink/10 pb-3">
           <h1 className="font-display text-2xl font-bold text-ink">주문 상세 정보 #{order.id}</h1>
-          <Badge tone={getOrderStatusBadgeTone(order.status)}>
-            {getOrderStatusLabel(order.status)}
+          <Badge tone={getOrderStatusBadgeTone(effectiveStatus || "CREATED")}>
+            {getOrderStatusLabel(effectiveStatus || "CREATED")}
           </Badge>
         </div>
 
@@ -86,13 +87,13 @@ export function OrderDetailPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2">
-          {order.status !== "PAID" && order.status !== "CANCELLED" && (
+          {effectiveStatus !== "PAID" && effectiveStatus !== "CANCELLED" && (
             <Button
               type="button"
               onClick={() => navigate(`/checkout/${order.id}`)}
               className="flex-1 py-3 text-sm font-bold text-white shadow-stamp hover:scale-[1.01] transition-transform"
             >
-              💳 Toss로 {order.totalAmount.toLocaleString()}원 결제하기
+              💳 {order.totalAmount.toLocaleString()}원 결제하기
             </Button>
           )}
 

@@ -18,10 +18,12 @@ export function OrderListPage() {
   if (isError) return <ErrorState error={{ message: "주문 목록을 불러오지 못했습니다.", errors: null }} />;
   if (orders.length === 0) return <EmptyState message="아직 주문이 없어요." />;
 
+  const sortedOrders = [...orders].sort((a, b) => b.id - a.id);
+
   return (
     <div className="flex flex-col gap-3">
       <h1 className="font-display text-2xl font-bold text-ink mb-2">📦 내 주문 내역</h1>
-      {orders.map((order) => (
+      {sortedOrders.map((order) => (
         <Link key={order.id} to={`/orders/${order.id}`}>
           <Card className="flex items-center justify-between transition-[transform,box-shadow] duration-150 hover:-translate-y-1 hover:shadow-stamp-lg">
             <div className="flex items-center gap-3">

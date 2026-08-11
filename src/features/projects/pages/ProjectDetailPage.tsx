@@ -62,6 +62,8 @@ function FundingPanel({
   selectedRewardId,
   onSelectReward,
   selectedReward,
+  selectedQuantity,
+  onChangeQuantity,
   onAddToCart,
   isAddingToCart,
   flightTrigger,
@@ -73,6 +75,8 @@ function FundingPanel({
   selectedRewardId: number | null;
   onSelectReward: (id: number) => void;
   selectedReward: Reward | undefined;
+  selectedQuantity: number;
+  onChangeQuantity: (qty: number) => void;
   onAddToCart: () => void;
   isAddingToCart: boolean;
   flightTrigger: number;
@@ -140,15 +144,24 @@ function FundingPanel({
                           : "border-ink/20 hover:border-ink/40"
                     }`}
                   >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <TicketStubIcon
-                        className={`h-5 w-5 shrink-0 ${selected ? "text-brand" : "text-ink/40"}`}
-                      />
-                      <span className="font-semibold text-ink text-sm leading-snug break-keep">{reward.name}</span>
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <TicketStubIcon
+                          className={`h-4 w-4 shrink-0 ${selected ? "text-brand" : "text-ink/40"}`}
+                        />
+                        <span className="font-bold text-ink text-sm leading-snug break-keep">{reward.name}</span>
+                      </div>
+                      {reward.description && (
+                        <p className="pl-6 text-xs text-mist leading-normal break-keep whitespace-pre-line">
+                          {reward.description}
+                        </p>
+                      )}
                     </div>
-                    <div className="shrink-0 text-right whitespace-nowrap">
-                      <span className="tabular-nums text-sm font-bold text-ink">{reward.price.toLocaleString()}원</span>
-                      <span className="ml-1 text-xs text-mist font-medium">(남은 {reward.remainingQuantity ?? "무제한"})</span>
+                    <div className="shrink-0 text-right whitespace-nowrap flex flex-col items-end gap-1">
+                      <span className="tabular-nums text-sm font-extrabold text-ink">{reward.price.toLocaleString()}원</span>
+                      <span className="text-[11px] font-semibold text-mist bg-surface px-1.5 py-0.5 rounded border border-ink/15">
+                        {reward.remainingQuantity != null ? `재고 ${reward.remainingQuantity.toLocaleString()}개 남음` : "수량 무제한"}
+                      </span>
                     </div>
                   </button>
                 </li>
@@ -159,9 +172,62 @@ function FundingPanel({
       </div>
 
       {selectedReward && (
-        <div className="rounded-sm bg-brand/5 border border-brand/20 p-2.5 text-xs flex items-center justify-between">
-          <span className="font-bold text-brand shrink-0">선택된 리워드:</span>
-          <span className="font-bold text-ink truncate ml-2">{selectedReward.name}</span>
+        <div className="flex flex-col gap-2 rounded-sm bg-brand/5 border border-brand/20 p-3">
+          <div className="text-xs flex items-center justify-between">
+            <span className="font-bold text-brand shrink-0">선택된 리워드:</span>
+            <span className="font-bold text-ink truncate ml-2">{selectedReward.name}</span>
+          </div>
+          {selectedReward.description && (
+            <p className="text-xs text-mist leading-relaxed whitespace-pre-line border-t border-brand/10 pt-1.5 mt-0.5">
+              {selectedReward.description}
+            </p>
+          )}
+
+          <div className="flex items-center justify-between border-t border-brand/10 pt-2 text-xs">
+            <span className="font-semibold text-ink">수량 선택:</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onChangeQuantity(Math.max(1, selectedQuantity - 1))}
+                disabled={selectedQuantity <= 1}
+                className="flex h-7 w-7 items-center justify-center rounded-sm border border-ink/20 font-bold text-ink hover:bg-ink/10 active:scale-95 disabled:opacity-30"
+              >
+                -
+              </button>
+              <input
+                type="number"
+                min={1}
+                max={selectedReward.remainingQuantity ?? 999}
+                value={selectedQuantity}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  const max = selectedReward.remainingQuantity ?? 999;
+                  if (!isNaN(val) && val >= 1) {
+                    onChangeQuantity(Math.min(val, max));
+                  }
+                }}
+                className="h-7 w-12 text-center font-bold tabular-nums text-ink border border-ink/20 rounded-sm focus:border-brand focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const max = selectedReward.remainingQuantity ?? 999;
+                  onChangeQuantity(Math.min(max, selectedQuantity + 1));
+                }}
+                disabled={selectedReward.remainingQuantity != null && selectedQuantity >= selectedReward.remainingQuantity}
+                className="flex h-7 w-7 items-center justify-center rounded-sm border border-ink/20 font-bold text-ink hover:bg-ink/10 active:scale-95 disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center text-xs font-bold text-ink border-t border-brand/10 pt-2 mt-1">
+            <span>총 후원 금액:</span>
+            <span className="text-sm font-extrabold text-brand tabular-nums">
+              {(selectedReward.price * selectedQuantity).toLocaleString()}원
+            </span>
+          </div>
         </div>
       )}
 
@@ -172,7 +238,7 @@ function FundingPanel({
             : isAddingToCart
               ? "장바구니에 담는 중..."
               : selectedReward
-                ? "장바구니에 담기 (후원하기)"
+                ? `장바구니에 담기 (${selectedQuantity}개)`
                 : "리워드를 선택해주세요"
         }
         disabled={!isOrderable || !selectedReward || isAddingToCart}
@@ -197,6 +263,7 @@ export function ProjectDetailPage() {
   const { data: rewards } = useRewards(projectId);
 
   const [selectedRewardId, setSelectedRewardId] = useState<number | null>(null);
+  const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [panelFlight, setPanelFlight] = useState(0);
   const [footerFlight, setFooterFlight] = useState(0);
@@ -217,7 +284,12 @@ export function ProjectDetailPage() {
   const [extendModalOpen, setExtendModalOpen] = useState(false);
   const [newEndAt, setNewEndAt] = useState("2026-12-31");
 
+  // Admin project reject modal
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+
   const addCartItems = useAddCartItems();
+
   const selectedReward = rewards?.find((reward) => reward.rewardId === selectedRewardId);
 
   useEffect(() => {
@@ -225,9 +297,15 @@ export function ProjectDetailPage() {
       const exists = rewards.some((r) => r.rewardId === selectedRewardId);
       if (!exists) {
         setSelectedRewardId(null);
+        setSelectedQuantity(1);
       }
     }
   }, [rewards, selectedRewardId]);
+
+  const handleSelectReward = (rewardId: number) => {
+    setSelectedRewardId(rewardId);
+    setSelectedQuantity(1);
+  };
 
   function handleAddToCart(source: "panel" | "footer") {
     if (!selectedReward || project?.status !== "IN_PROGRESS") return;
@@ -237,13 +315,13 @@ export function ProjectDetailPage() {
     }
     const targetProjectId = selectedReward.projectId ?? projectId;
     addCartItems.mutate(
-      { projectId: targetProjectId, items: [{ rewardId: selectedReward.rewardId, quantity: 1 }] },
+      { projectId: targetProjectId, items: [{ rewardId: selectedReward.rewardId, quantity: selectedQuantity }] },
       {
         onSuccess: () => {
           if (source === "panel") setPanelFlight((k) => k + 1);
           else setFooterFlight((k) => k + 1);
           setTimeout(() => {
-            setFeedback("장바구니에 담았어요!");
+            setFeedback(`장바구니에 ${selectedQuantity}개 담았어요!`);
             setTimeout(() => setFeedback(null), 2500);
           }, 900);
         },
@@ -356,7 +434,7 @@ export function ProjectDetailPage() {
                   <Button
                     variant="secondary"
                     className="py-1 px-3 text-xs border-red-300 text-red-600 hover:bg-red-50"
-                    onClick={() => rejectMutation.mutate({ id: projectId, reason: "관리자 심사 반려" })}
+                    onClick={() => setRejectModalOpen(true)}
                     disabled={rejectMutation.isPending}
                   >
                     심사 반려
@@ -463,8 +541,10 @@ export function ProjectDetailPage() {
           project={project}
           rewards={rewards}
           selectedRewardId={selectedRewardId}
-          onSelectReward={setSelectedRewardId}
+          onSelectReward={handleSelectReward}
           selectedReward={selectedReward}
+          selectedQuantity={selectedQuantity}
+          onChangeQuantity={setSelectedQuantity}
           onAddToCart={() => handleAddToCart("panel")}
           isAddingToCart={addCartItems.isPending}
           flightTrigger={panelFlight}
@@ -531,6 +611,46 @@ export function ProjectDetailPage() {
               disabled={decreaseRewardQtyMutation.isPending}
             >
               {decreaseRewardQtyMutation.isPending ? "축소 중..." : "수량 축소 적용"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin project reject dialog */}
+      <Dialog open={rejectModalOpen} onOpenChange={setRejectModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogTitle>프로젝트 심사 반려 (관리자 전용)</DialogTitle>
+          <DialogDescription>
+            반려 사유를 입력하세요. 입력하신 사유는 창작자 본인에게 전달됩니다. (필수 입력)
+          </DialogDescription>
+          <textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="예: 리워드 상세 정보가 부족하거나, 목표 금액/마감일 설정에 보완이 필요합니다."
+            rows={4}
+            className="mt-3 w-full rounded-sm border-2 border-ink/20 bg-surface p-3 text-sm text-ink outline-none focus:border-brand"
+          />
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setRejectModalOpen(false)}>
+              취소
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white font-bold"
+              onClick={() => {
+                if (!rejectReason.trim()) return;
+                rejectMutation.mutate(
+                  { id: projectId, reason: rejectReason.trim() },
+                  {
+                    onSuccess: () => {
+                      setRejectModalOpen(false);
+                      setRejectReason("");
+                    },
+                  }
+                );
+              }}
+              disabled={!rejectReason.trim() || rejectMutation.isPending}
+            >
+              {rejectMutation.isPending ? "반려 처리 중..." : "반려 확정"}
             </Button>
           </div>
         </DialogContent>

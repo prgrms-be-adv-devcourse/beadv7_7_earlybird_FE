@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCart, useRemoveCartItem, useClearCart } from "../hooks";
 import { usePlaceOrder } from "../../orders/hooks";
+import { generateUUID } from "../../orders/utils";
 import { Card, Button, Skeleton, Dialog, DialogContent, DialogTitle, DialogDescription } from "../../../shared/ui";
 import { ErrorState } from "../../../shared/ui/ErrorState";
 import { EmptyState } from "../../../shared/ui/EmptyState";
@@ -47,6 +49,7 @@ function CartRewardRow({
 
 export function CartPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: cart, isPending, isError } = useCart();
   const removeCartItemMutation = useRemoveCartItem();
   const clearCartMutation = useClearCart();
@@ -59,6 +62,8 @@ export function CartPage() {
   const [shippingAddress, setShippingAddress] = useState("서울특별시 강남구 테헤란로 123");
   const [zipCode, setZipCode] = useState("06234");
   const [orderError, setOrderError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
 
   if (isPending) {
     return (
@@ -74,8 +79,16 @@ export function CartPage() {
   if (cart.itemCount === 0 || cart.projects.length === 0) return <EmptyState message="장바구니가 비어있어요." />;
 
   const handlePlaceOrder = () => {
+    if (isSubmitting || placeOrderMutation.isPending) return;
     setOrderError(null);
     if (!userId || !selectedProject) return;
+
+    setIsSubmitting(true);
+
+    const currentKey = idempotencyKey || generateUUID();
+    if (!idempotencyKey) {
+      setIdempotencyKey(currentKey);
+    }
 
     const requests = selectedProject.rewards.map((reward) => ({
       rewardId: reward.rewardId,
@@ -87,6 +100,12 @@ export function CartPage() {
       ? selectedProject.itemsAmount
       : selectedProject.rewards.reduce((sum, r) => sum + (r.totalPrice > 0 ? r.totalPrice : r.unitPrice * r.quantity), 0);
 
+    const shippingFee = selectedProject.shippingFee > 0
+      ? selectedProject.shippingFee
+      : (projectItemsAmount >= 50000 ? 0 : 3000);
+
+    const projectTotalAmount = projectItemsAmount + shippingFee;
+
     placeOrderMutation.mutate(
       {
         userId,
@@ -97,20 +116,29 @@ export function CartPage() {
         shippingAddress,
         zipCode,
         expectedItemsAmount: projectItemsAmount,
-        expectedTotalAmount: projectItemsAmount,
+        expectedTotalAmount: projectTotalAmount,
+        orderIdempotencyKey: currentKey,
       },
       {
         onSuccess: (createdOrder) => {
+          setIsSubmitting(false);
+          setIdempotencyKey(null);
           setSelectedProject(null);
+          queryClient.invalidateQueries({ queryKey: ["projects"] });
+          queryClient.invalidateQueries({ queryKey: ["rewards"] });
+          queryClient.invalidateQueries({ queryKey: ["cart"] });
+          queryClient.invalidateQueries({ queryKey: ["orders"] });
           navigate(`/checkout/${createdOrder.id}`);
         },
         onError: (err: any) => {
+          setIsSubmitting(false);
           const msg = err.response?.data?.error?.message || err.message || "주문 생성에 실패했습니다.";
           setOrderError(msg);
         },
       }
     );
   };
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -170,6 +198,8 @@ export function CartPage() {
                 onClick={() => {
                   setSelectedProject(project);
                   setOrderError(null);
+                  setIdempotencyKey(null);
+                  setIsSubmitting(false);
                 }}
                 className="px-6 py-2.5 text-sm font-bold text-white"
               >
@@ -180,7 +210,16 @@ export function CartPage() {
         );
       })}
 
-      <Dialog open={selectedProject !== null} onOpenChange={(open) => !open && setSelectedProject(null)}>
+      <Dialog
+        open={selectedProject !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedProject(null);
+            setIdempotencyKey(null);
+            setIsSubmitting(false);
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogTitle>주문 / 결제 정보 확인</DialogTitle>
           <DialogDescription>
@@ -225,31 +264,61 @@ export function CartPage() {
               />
             </div>
 
-            <div className="mt-2 rounded-sm bg-mint/10 p-3 text-ink">
-              <div className="flex justify-between font-bold">
-                <span>최종 결제 금액:</span>
-                <span className="tabular-nums">
-                  {(
-                    selectedProject
-                      ? selectedProject.itemsAmount > 0
-                        ? selectedProject.itemsAmount
-                        : selectedProject.rewards.reduce((s, r) => s + (r.totalPrice > 0 ? r.totalPrice : r.unitPrice * r.quantity), 0)
-                      : 0
-                  ).toLocaleString()}
-                  원
-                </span>
-              </div>
-            </div>
+            {(() => {
+              const modalItems = selectedProject
+                ? selectedProject.itemsAmount > 0
+                  ? selectedProject.itemsAmount
+                  : selectedProject.rewards.reduce((s, r) => s + (r.totalPrice > 0 ? r.totalPrice : r.unitPrice * r.quantity), 0)
+                : 0;
+              const modalShipping = selectedProject
+                ? selectedProject.shippingFee > 0
+                  ? selectedProject.shippingFee
+                  : (modalItems >= 50000 ? 0 : 3000)
+                : 0;
+              const modalTotal = modalItems + modalShipping;
+
+              return (
+                <div className="mt-2 flex flex-col gap-1 rounded-sm bg-mint/10 p-3 text-ink">
+                  <div className="flex justify-between text-xs text-mist">
+                    <span>상품 금액:</span>
+                    <span className="tabular-nums">{modalItems.toLocaleString()}원</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-mist">
+                    <span>배송비:</span>
+                    <span className="tabular-nums">
+                      {modalShipping > 0 ? `+${modalShipping.toLocaleString()}원 (5만원 미만 배송비)` : "무료배송"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between font-bold border-t border-ink/10 pt-1.5 mt-1">
+                    <span>최종 결제 금액:</span>
+                    <span className="tabular-nums text-brand font-extrabold text-base">
+                      {modalTotal.toLocaleString()}원
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {orderError && <ErrorState error={{ message: orderError, errors: null }} />}
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setSelectedProject(null)}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setSelectedProject(null);
+                setIdempotencyKey(null);
+                setIsSubmitting(false);
+              }}
+            >
               취소
             </Button>
-            <Button onClick={handlePlaceOrder} disabled={placeOrderMutation.isPending}>
-              {placeOrderMutation.isPending ? "주문 처리 중..." : "주문 완료 및 결제하기"}
+            <Button
+              id="orderButton"
+              onClick={handlePlaceOrder}
+              disabled={isSubmitting || placeOrderMutation.isPending}
+            >
+              {isSubmitting || placeOrderMutation.isPending ? "주문 처리 중..." : "주문 완료 및 결제하기"}
             </Button>
           </div>
         </DialogContent>

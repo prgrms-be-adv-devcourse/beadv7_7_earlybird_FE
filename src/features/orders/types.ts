@@ -70,5 +70,7 @@ export interface PlaceOrderRequest {
   zipCode: string;
   expectedItemsAmount: number;
   expectedTotalAmount: number;
+  orderIdempotencyKey: string;
 }
+
 

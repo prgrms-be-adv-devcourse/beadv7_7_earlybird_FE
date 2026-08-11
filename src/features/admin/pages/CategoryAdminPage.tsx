@@ -15,12 +15,10 @@ import type { ProjectCategory } from "../types";
 
 function CategoryTreeNode({
   category,
-  allCategories,
   onEdit,
   onDelete,
 }: {
   category: ProjectCategory;
-  allCategories: ProjectCategory[];
   onEdit: (category: ProjectCategory) => void;
   onDelete: (id: number) => void;
 }) {
@@ -74,7 +72,6 @@ function CategoryTreeNode({
             <CategoryTreeNode
               key={child.id}
               category={child}
-              allCategories={allCategories}
               onEdit={onEdit}
               onDelete={onDelete}
             />
@@ -219,7 +216,6 @@ export function CategoryAdminPage() {
             <CategoryTreeNode
               key={category.id}
               category={category}
-              allCategories={categories}
               onEdit={handleOpenEdit}
               onDelete={handleDelete}
             />

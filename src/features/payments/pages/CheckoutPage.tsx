@@ -48,7 +48,7 @@ export function CheckoutPage() {
 
     try {
       const TossPaymentsSDK = await loadTossPaymentsScript();
-      let clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || "test_ck_docs_OSEv28rgA4KEeCeQnX3o3182";
+      let clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || "test_ck_DLJOpm5QrlB72oq9YPMQ3PNdxbWn";
       if (clientKey.startsWith("test_sk_")) {
         clientKey = clientKey.replace("test_sk_", "test_ck_");
       }
@@ -86,6 +86,8 @@ export function CheckoutPage() {
       } catch (confirmErr) {
         console.warn("Confirm payment API warning:", confirmErr);
       } finally {
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        queryClient.invalidateQueries({ queryKey: ["rewards"] });
         queryClient.invalidateQueries({ queryKey: ["cart"] });
         queryClient.invalidateQueries({ queryKey: ["orders"] });
         navigate(`/orders/${orderId}`, { replace: true, state: { paymentSuccess: true } });
@@ -240,7 +242,7 @@ export function CheckoutPage() {
         disabled={isPaying}
         className="w-full py-4 text-base font-bold text-white shadow-stamp hover:scale-[1.01] transition-transform"
       >
-        {isPaying ? "토스 결제창 불러오는 중..." : `💳 Toss로 ${order.totalAmount.toLocaleString()}원 결제하기`}
+        {isPaying ? "결제창 불러오는 중..." : `💳 ${order.totalAmount.toLocaleString()}원 결제하기`}
       </Button>
     </div>
   );
