@@ -92,7 +92,7 @@ export function CartPage() {
       setIdempotencyKey(currentKey);
     }
 
-    const requests = selectedProject.rewards.map((reward) => ({
+    const lines = selectedProject.rewards.map((reward) => ({
       rewardId: reward.rewardId,
       quantity: reward.quantity,
       expectedUnitPrice: reward.unitPrice > 0 ? reward.unitPrice : reward.totalPrice / (reward.quantity || 1),
@@ -112,7 +112,8 @@ export function CartPage() {
       {
         userId,
         projectId: Number(selectedProject.projectId),
-        requests,
+        lines,
+        requests: lines,
         receiverName,
         receiverPhone,
         shippingAddress,

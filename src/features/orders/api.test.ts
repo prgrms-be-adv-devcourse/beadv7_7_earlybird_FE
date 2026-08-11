@@ -32,10 +32,12 @@ describe("orders api", () => {
     (apiClient.post as any).mockResolvedValue({ data: { success: true, data: fakeOrder, error: null } });
 
     const idempotencyKey = generateUUID();
+    const item = [{ rewardId: 1, quantity: 1, expectedUnitPrice: 15000 }];
     const payload = {
       userId: 1,
       projectId: 100,
-      requests: [{ rewardId: 1, quantity: 1, expectedUnitPrice: 15000 }],
+      lines: item,
+      requests: item,
       receiverName: "김얼리",
       receiverPhone: "010-1234-5678",
       shippingAddress: "서울특별시 강남구",
