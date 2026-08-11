@@ -14,7 +14,6 @@ import {
 import { useProjects } from "../hooks";
 import { useCategories } from "../../admin/hooks";
 import { ProjectCard } from "../components/ProjectCard";
-import { CategoryNav } from "../components/CategoryNav";
 import {
   getCreatorDisplayName,
   getCategoryIdsIncludingChildren,
@@ -83,6 +82,21 @@ export function ProjectListPage() {
 
   const { data: categories } = useCategories();
 
+  const categoryOptions = useMemo(() => {
+    if (!categories) return [];
+    const parents = categories.filter((c) => !c.parentProjectCategoryId);
+    const result: { id: string; label: string }[] = [];
+
+    parents.forEach((parent) => {
+      result.push({ id: String(parent.id), label: `📁 ${parent.name}` });
+      const children = categories.filter((c) => c.parentProjectCategoryId === parent.id);
+      children.forEach((child) => {
+        result.push({ id: String(child.id), label: `↳ ${child.name}` });
+      });
+    });
+    return result;
+  }, [categories]);
+
   const statusOptions = useMemo(
     () => Array.from(new Set((projects ?? []).map((project) => project.status))),
     [projects]
@@ -92,9 +106,6 @@ export function ProjectListPage() {
   const filteredAndSorted = useMemo(() => {
     if (!projects) return [];
 
-    // Keyword filtering happens server-side (hybrid keyword + semantic search) via useProjects'
-    // `keyword` param — re-filtering by literal substring here would drop semantic-only matches
-    // (e.g. "냥이" matching "고양이 자동 급식기" via embedding similarity, not literal text).
     let list = projects;
 
     if (status !== ALL) {
@@ -139,7 +150,7 @@ export function ProjectListPage() {
       <div className="flex items-center justify-between border-b border-ink/10 pb-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-ink">🔍 프로젝트 탐색 및 검색</h1>
-          <p className="text-xs text-mist">원하는 카테고리에 마우스를 올려 하위 카테고리를 확인하거나 키워드로 검색해 보세요.</p>
+          <p className="text-xs text-mist">카테고리 드롭다운과 키워드로 원하시는 프로젝트를 쉽게 찾아보세요.</p>
         </div>
         <Link
           to="/projects/new"
@@ -149,10 +160,7 @@ export function ProjectListPage() {
         </Link>
       </div>
 
-      {/* Sleek Top Horizontal Category Navigation Bar with Hover Subcategories Menu */}
-      <CategoryNav activeCategoryId={categoryId} onSelectCategory={setCategoryId} />
-
-      {/* Search Bar & Secondary Filter Controls */}
+      {/* Search Bar & Filter Controls (Category, Status, Sort) */}
       <div className="flex flex-col gap-3 rounded-lg border border-ink/15 bg-paper/60 p-4 shadow-sm">
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
           {/* Search Input Bar */}
@@ -175,6 +183,21 @@ export function ProjectListPage() {
               </button>
             )}
           </div>
+
+          {/* Category Dropdown Filter */}
+          <Select value={categoryId} onValueChange={setCategoryId}>
+            <SelectTrigger className="w-48 bg-surface">
+              <SelectValue placeholder="카테고리 선택" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>📁 전체 카테고리</SelectItem>
+              {categoryOptions.map((opt) => (
+                <SelectItem key={opt.id} value={opt.id}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           {/* Status Filter */}
           <Select value={status} onValueChange={setStatus}>
