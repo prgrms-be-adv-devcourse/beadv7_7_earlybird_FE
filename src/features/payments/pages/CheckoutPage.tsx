@@ -48,7 +48,7 @@ export function CheckoutPage() {
 
     try {
       const TossPaymentsSDK = await loadTossPaymentsScript();
-      let clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || "test_ck_docs_OSEv28rgA4KEeCeQnX3o3182";
+      let clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || "test_ck_DLJOpm5QrlB72oq9YPMQ3PNdxbWn";
       if (clientKey.startsWith("test_sk_")) {
         clientKey = clientKey.replace("test_sk_", "test_ck_");
       }
