@@ -48,7 +48,15 @@ describe("orders api", () => {
     };
 
     const result = await placeOrder(payload);
-    expect(apiClient.post).toHaveBeenCalledWith(ORDER_SERVICE.orders, payload);
+    expect(apiClient.post).toHaveBeenCalledWith(
+      ORDER_SERVICE.orders,
+      payload,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "Idempotency-Key": idempotencyKey,
+        }),
+      })
+    );
     expect(result).toEqual(fakeOrder);
   });
 
