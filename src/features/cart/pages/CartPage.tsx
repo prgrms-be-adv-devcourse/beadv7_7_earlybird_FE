@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCart, useRemoveCartItem, useClearCart } from "../hooks";
 import { usePlaceOrder } from "../../orders/hooks";
 import { Card, Button, Skeleton, Dialog, DialogContent, DialogTitle, DialogDescription } from "../../../shared/ui";
@@ -47,6 +48,7 @@ function CartRewardRow({
 
 export function CartPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: cart, isPending, isError } = useCart();
   const removeCartItemMutation = useRemoveCartItem();
   const clearCartMutation = useClearCart();
@@ -108,6 +110,10 @@ export function CartPage() {
       {
         onSuccess: (createdOrder) => {
           setSelectedProject(null);
+          queryClient.invalidateQueries({ queryKey: ["projects"] });
+          queryClient.invalidateQueries({ queryKey: ["rewards"] });
+          queryClient.invalidateQueries({ queryKey: ["cart"] });
+          queryClient.invalidateQueries({ queryKey: ["orders"] });
           navigate(`/checkout/${createdOrder.id}`);
         },
         onError: (err: any) => {
