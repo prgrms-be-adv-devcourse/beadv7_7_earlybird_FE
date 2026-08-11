@@ -170,7 +170,12 @@ export function ProjectApprovalPage() {
             <Card key={project.projectId} className="flex items-center justify-between">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-display font-bold text-ink text-base">{project.title}</span>
+                  <Link
+                    to={`/projects/${project.projectId}`}
+                    className="font-display font-bold text-ink text-base hover:text-brand hover:underline transition-colors"
+                  >
+                    {project.title} ➔
+                  </Link>
                   <span className="text-xs font-bold text-brand bg-brand/10 px-2 py-0.5 rounded">
                     {getStatusLabel(project.status)}
                   </span>
@@ -190,7 +195,13 @@ export function ProjectApprovalPage() {
                   | 시작일/생성일: {formatDateKorean(project.startAt)} | 마감일: <strong className="text-ink">{formatDateKorean(project.endAt)}</strong> | 목표: {project.goalAmount.toLocaleString()}원
                 </span>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                <Link
+                  to={`/projects/${project.projectId}`}
+                  className="rounded-sm border border-ink/20 px-3 py-2 text-xs font-bold text-ink transition-colors hover:border-brand hover:text-brand"
+                >
+                  상세보기 🔍
+                </Link>
                 <ExtendDeadlineButton projectId={project.projectId} currentEndAt={project.endAt} />
                 <Button onClick={() => approveMutation.mutate(project.projectId)}>승인</Button>
                 <RejectButton projectId={project.projectId} />
