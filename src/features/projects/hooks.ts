@@ -25,6 +25,8 @@ export function useProjects(params?: FetchProjectsParams) {
     queryKey: ["projects", "list", params],
     queryFn: () => fetchProjects(params),
     placeholderData: keepPreviousData,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -50,6 +52,8 @@ export function useProject(id: number) {
         throw error;
       }
     },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 

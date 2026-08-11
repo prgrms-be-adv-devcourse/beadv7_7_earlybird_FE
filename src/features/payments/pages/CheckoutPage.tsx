@@ -86,6 +86,8 @@ export function CheckoutPage() {
       } catch (confirmErr) {
         console.warn("Confirm payment API warning:", confirmErr);
       } finally {
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        queryClient.invalidateQueries({ queryKey: ["rewards"] });
         queryClient.invalidateQueries({ queryKey: ["cart"] });
         queryClient.invalidateQueries({ queryKey: ["orders"] });
         navigate(`/orders/${orderId}`, { replace: true, state: { paymentSuccess: true } });
