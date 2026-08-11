@@ -68,7 +68,7 @@ export function ProjectListPage() {
   // Fetch all projects for autocomplete pool
   const { data: rawAllProjects } = useProjects();
 
-  // Compute matching autocomplete items with flexible word matching
+  // Compute matching autocomplete items with flexible word & synonym matching
   const suggestions = useMemo(() => {
     const term = inputKeyword.trim().toLowerCase();
     if (!term || !rawAllProjects) return [];
@@ -84,9 +84,19 @@ export function ProjectListPage() {
         if (titleLower.includes(term) || summaryLower.includes(term)) return true;
 
         // Word-by-word match
-        return words.some((w) => titleLower.includes(w) || summaryLower.includes(w));
+        if (words.some((w) => titleLower.includes(w) || summaryLower.includes(w))) return true;
+
+        // Synonym match (e.g. '냥이' <-> '고양이', '멍멍이' <-> '강아지')
+        if (
+          (term.includes("냥이") || term.includes("고양이")) &&
+          (titleLower.includes("고양이") || titleLower.includes("냥이") || summaryLower.includes("고양이") || summaryLower.includes("냥이"))
+        ) {
+          return true;
+        }
+
+        return false;
       })
-      .slice(0, 5);
+      .slice(0, 6);
   }, [inputKeyword, rawAllProjects]);
 
   // Click outside listener to close suggestions
@@ -211,27 +221,21 @@ export function ProjectListPage() {
     setHighlightedIndex(-1);
   };
 
-  const totalNavItems = 1 + suggestions.length; // Item 0 is direct keyword search
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!showSuggestions) return;
+    if (!showSuggestions || suggestions.length === 0) return;
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlightedIndex((prev) => (prev < totalNavItems - 1 ? prev + 1 : 0));
+      setHighlightedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : totalNavItems - 1));
+      setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (highlightedIndex <= 0) {
-        // Direct search with current input text
-        setKeyword(inputKeyword.trim());
+      if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {
+        handleSelectSuggestion(suggestions[highlightedIndex].title);
       } else {
-        const selected = suggestions[highlightedIndex - 1];
-        if (selected) {
-          handleSelectSuggestion(selected.title);
-        }
+        setKeyword(inputKeyword.trim());
       }
       setShowSuggestions(false);
     } else if (e.key === "Escape") {
@@ -298,43 +302,12 @@ export function ProjectListPage() {
             {showSuggestions && inputKeyword.trim().length > 0 && (
               <div className="absolute top-full left-0 right-0 z-50 mt-1.5 overflow-hidden rounded-xl border border-ink/15 bg-surface p-1.5 shadow-2xl backdrop-blur-md">
                 <div className="flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-mist border-b border-ink/5">
-                  <span>💡 검색 추천 & 키워드</span>
+                  <span>💡 추천 검색어 ({suggestions.length})</span>
                   <span className="text-[10px] text-mist/70">↑↓ 이동 · Enter 선택</span>
                 </div>
-
-                <ul className="flex flex-col py-1">
-                  {/* Direct Search Option (Always visible) */}
-                  <li>
-                    <button
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setKeyword(inputKeyword.trim());
-                        setShowSuggestions(false);
-                      }}
-                      onMouseEnter={() => setHighlightedIndex(0)}
-                      className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                        highlightedIndex === 0 || highlightedIndex === -1
-                          ? "bg-brand/10 text-brand font-bold"
-                          : "text-ink hover:bg-ink/5"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-xs">🔍</span>
-                        <span className="text-sm font-semibold">
-                          '<span className="underline">{inputKeyword.trim()}</span>'(으)로 전체 검색
-                        </span>
-                      </div>
-                      <span className="rounded-md bg-brand/15 px-2 py-0.5 text-[10px] font-bold text-brand">
-                        Enter ↵
-                      </span>
-                    </button>
-                  </li>
-
-                  {/* Matching Projects List */}
-                  {suggestions.map((project, index) => {
-                    const itemIndex = index + 1;
-                    return (
+                {suggestions.length > 0 ? (
+                  <ul className="flex flex-col py-1">
+                    {suggestions.map((project, index) => (
                       <li key={project.projectId}>
                         <button
                           type="button"
@@ -342,15 +315,15 @@ export function ProjectListPage() {
                             e.preventDefault();
                             handleSelectSuggestion(project.title);
                           }}
-                          onMouseEnter={() => setHighlightedIndex(itemIndex)}
+                          onMouseEnter={() => setHighlightedIndex(index)}
                           className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                            highlightedIndex === itemIndex
+                            index === highlightedIndex
                               ? "bg-brand/10 text-brand font-medium"
                               : "text-ink hover:bg-ink/5"
                           }`}
                         >
                           <div className="flex items-center gap-2.5 overflow-hidden">
-                            <span className="text-xs">📌</span>
+                            <span className="text-xs">🔍</span>
                             <div className="flex flex-col truncate">
                               <span className="truncate text-sm font-medium">
                                 <HighlightMatch text={project.title} query={inputKeyword.trim()} />
@@ -367,9 +340,13 @@ export function ProjectListPage() {
                           </span>
                         </button>
                       </li>
-                    );
-                  })}
-                </ul>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="px-3 py-3 text-center text-xs text-mist">
+                    '{inputKeyword}'(으)로 시작하거나 포함된 추천 검색어가 없습니다.
+                  </div>
+                )}
               </div>
             )}
           </div>
