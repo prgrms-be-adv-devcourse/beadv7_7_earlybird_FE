@@ -36,6 +36,7 @@ export interface Reward {
   rewardId: number;
   projectId: number;
   name: string;
+  description?: string | null;
   price: number;
   totalQuantity: number | null;
   remainingQuantity: number | null;

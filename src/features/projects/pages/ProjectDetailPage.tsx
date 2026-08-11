@@ -144,15 +144,24 @@ function FundingPanel({
                           : "border-ink/20 hover:border-ink/40"
                     }`}
                   >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <TicketStubIcon
-                        className={`h-5 w-5 shrink-0 ${selected ? "text-brand" : "text-ink/40"}`}
-                      />
-                      <span className="font-semibold text-ink text-sm leading-snug break-keep">{reward.name}</span>
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <TicketStubIcon
+                          className={`h-4 w-4 shrink-0 ${selected ? "text-brand" : "text-ink/40"}`}
+                        />
+                        <span className="font-bold text-ink text-sm leading-snug break-keep">{reward.name}</span>
+                      </div>
+                      {reward.description && (
+                        <p className="pl-6 text-xs text-mist leading-normal break-keep whitespace-pre-line">
+                          {reward.description}
+                        </p>
+                      )}
                     </div>
-                    <div className="shrink-0 text-right whitespace-nowrap">
-                      <span className="tabular-nums text-sm font-bold text-ink">{reward.price.toLocaleString()}원</span>
-                      <span className="ml-1 text-xs text-mist font-medium">(남은 {reward.remainingQuantity ?? "무제한"})</span>
+                    <div className="shrink-0 text-right whitespace-nowrap flex flex-col items-end gap-1">
+                      <span className="tabular-nums text-sm font-extrabold text-ink">{reward.price.toLocaleString()}원</span>
+                      <span className="text-[11px] font-semibold text-mist bg-surface px-1.5 py-0.5 rounded border border-ink/15">
+                        {reward.remainingQuantity != null ? `재고 ${reward.remainingQuantity.toLocaleString()}개 남음` : "수량 무제한"}
+                      </span>
                     </div>
                   </button>
                 </li>
@@ -168,6 +177,11 @@ function FundingPanel({
             <span className="font-bold text-brand shrink-0">선택된 리워드:</span>
             <span className="font-bold text-ink truncate ml-2">{selectedReward.name}</span>
           </div>
+          {selectedReward.description && (
+            <p className="text-xs text-mist leading-relaxed whitespace-pre-line border-t border-brand/10 pt-1.5 mt-0.5">
+              {selectedReward.description}
+            </p>
+          )}
 
           <div className="flex items-center justify-between border-t border-brand/10 pt-2 text-xs">
             <span className="font-semibold text-ink">수량 선택:</span>
