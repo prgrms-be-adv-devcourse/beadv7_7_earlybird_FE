@@ -16,9 +16,9 @@ import {
   RowSkeleton,
   Skeleton,
 } from "../../../shared/ui";
-import {useCancelOrder, useOrder} from "../hooks";
-import {useConfirmPayment} from "../../payments/hooks";
-import {getOrderStatusBadgeTone, getOrderStatusLabel} from "../utils";
+import { useCancelOrder, useOrder } from "../hooks";
+import { useConfirmPayment } from "../../payments/hooks";
+import { getOrderStatusBadgeTone, getOrderStatusLabel } from "../utils";
 
 export function OrderDetailPage() {
   const { id } = useParams();

@@ -17,10 +17,23 @@ export interface ProjectNotice {
 export interface ProjectReview {
   id: number;
   projectId: number;
-  rewardId: number;
-  rewardName: string;
-  authorName: string;
+  rewardId?: number;
+  rewardName?: string;
+  authorName?: string;
   rating: number;
   content: string;
-  createdAt: string;
+  createdAt?: string;
+}
+
+export interface CreateNoticePayload {
+  projectId: number;
+  title: string;
+  content: string;
+}
+
+export interface CreateReviewPayload {
+  projectId: number;
+  rewardId?: number;
+  rating: number;
+  content: string;
 }
