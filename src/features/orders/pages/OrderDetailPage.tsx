@@ -90,6 +90,20 @@ export function OrderDetailPage() {
         </div>
       )}
 
+      {/* Payment Failure / Timeout Alert Banner */}
+      {(effectiveStatus === "PAYMENT_FAILED" || effectiveStatus === "STOCK_FAILED") && (
+        <div className="flex items-center gap-3 rounded-lg border-2 border-red-200 bg-red-50 p-4 text-red-700 shadow-stamp-sm">
+          <div>
+            <h2 className="font-bold text-sm">⚠️ 결제를 완료할 수 없는 주문입니다</h2>
+            <p className="text-xs text-red-600 mt-0.5">
+              {effectiveStatus === "STOCK_FAILED"
+                ? "리워드 재고 부족으로 인해 주문이 실패 처리되었습니다."
+                : "결제 타임아웃(시간 초과) 또는 결제 승인 실패로 인해 처리할 수 없는 주문입니다. 다시 시도하려면 새로 주문해 주세요."}
+            </p>
+          </div>
+        </div>
+      )}
+
       <Card>
         <div className="mb-4 flex items-center justify-between border-b border-ink/10 pb-3">
           <h1 className="font-display text-2xl font-bold text-ink">주문 상세 정보 #{order.id}</h1>
@@ -123,39 +137,44 @@ export function OrderDetailPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2">
-          {effectiveStatus !== "PAID" && effectiveStatus !== "CANCELLED" && (
-            <Button
-              type="button"
-              onClick={() => navigate(`/checkout/${order.id}`)}
-              className="flex-1 py-3 text-sm font-bold text-white shadow-stamp hover:scale-[1.01] transition-transform"
-            >
-              💳 {order.totalAmount.toLocaleString()}원 결제하기
-            </Button>
-          )}
+          {effectiveStatus !== "PAID" &&
+            effectiveStatus !== "CANCELLED" &&
+            effectiveStatus !== "PAYMENT_FAILED" &&
+            effectiveStatus !== "STOCK_FAILED" && (
+              <Button
+                type="button"
+                onClick={() => navigate(`/checkout/${order.id}`)}
+                className="flex-1 py-3 text-sm font-bold text-white shadow-stamp hover:scale-[1.01] transition-transform"
+              >
+                💳 {order.totalAmount.toLocaleString()}원 결제하기
+              </Button>
+            )}
 
-          {order.status !== "CANCELLED" && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="secondary" disabled={cancelMutation.isPending} className="py-3">
-                  {cancelMutation.isPending ? "취소 중..." : "주문 취소"}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogTitle>주문을 취소할까요?</AlertDialogTitle>
-                <AlertDialogDescription className="mt-1">
-                  취소하면 되돌릴 수 없어요. 결제된 금액은 환불 절차에 따라 처리돼요.
-                </AlertDialogDescription>
-                <div className="mt-4 flex justify-end gap-2">
-                  <AlertDialogCancel asChild>
-                    <Button variant="ghost">돌아가기</Button>
-                  </AlertDialogCancel>
-                  <AlertDialogAction asChild>
-                    <Button onClick={() => cancelMutation.mutate()}>취소하기</Button>
-                  </AlertDialogAction>
-                </div>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
+          {effectiveStatus !== "CANCELLED" &&
+            effectiveStatus !== "PAYMENT_FAILED" &&
+            effectiveStatus !== "STOCK_FAILED" && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="secondary" disabled={cancelMutation.isPending} className="py-3">
+                    {cancelMutation.isPending ? "취소 중..." : "주문 취소"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogTitle>주문을 취소할까요?</AlertDialogTitle>
+                  <AlertDialogDescription className="mt-1">
+                    취소하면 되돌릴 수 없어요. 결제된 금액은 환불 절차에 따라 처리돼요.
+                  </AlertDialogDescription>
+                  <div className="mt-4 flex justify-end gap-2">
+                    <AlertDialogCancel asChild>
+                      <Button variant="ghost">돌아가기</Button>
+                    </AlertDialogCancel>
+                    <AlertDialogAction asChild>
+                      <Button onClick={() => cancelMutation.mutate()}>취소하기</Button>
+                    </AlertDialogAction>
+                  </div>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
         </div>
       </Card>
     </div>
