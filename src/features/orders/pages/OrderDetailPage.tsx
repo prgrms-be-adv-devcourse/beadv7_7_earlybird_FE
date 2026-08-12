@@ -34,15 +34,16 @@ export function OrderDetailPage() {
   const paymentKeyParam = searchParams.get("paymentKey");
   const pgOrderIdParam = searchParams.get("orderId");
   const amountParam = searchParams.get("amount");
+  const isRedirectingFromToss = Boolean(paymentKeyParam && pgOrderIdParam && amountParam);
 
   useEffect(() => {
-    if (paymentKeyParam && pgOrderIdParam && amountParam && !hasRequestedConfirmation.current) {
+    if (isRedirectingFromToss && !hasRequestedConfirmation.current) {
       hasRequestedConfirmation.current = true; // <-- 동일 Toss 콜백 중복 승인 방지
       confirmPayment(
         {
-          paymentKey: paymentKeyParam,
-          pgOrderId: pgOrderIdParam,
-          amount: Number(amountParam),
+          paymentKey: paymentKeyParam!,
+          pgOrderId: pgOrderIdParam!,
+          amount: Number(amountParam!),
         },
         {
           onSuccess: () => {
@@ -54,10 +55,15 @@ export function OrderDetailPage() {
         }
       );
     }
-  }, [paymentKeyParam, pgOrderIdParam, amountParam, orderId, navigate, confirmPayment]);
+  }, [isRedirectingFromToss, paymentKeyParam, pgOrderIdParam, amountParam, orderId, navigate, confirmPayment]);
 
-  const isPaymentSuccess = (location.state as any)?.paymentSuccess;
-  const effectiveStatus = (isPaymentSuccess || order?.status === "PAID") ? "PAID" : order?.status;
+  const isPaymentSuccess = Boolean(
+    (location.state as any)?.paymentSuccess ||
+    location.search.includes("payment=success") ||
+    isRedirectingFromToss ||
+    order?.status === "PAID"
+  );
+  const effectiveStatus = isPaymentSuccess ? "PAID" : order?.status;
 
   if (isPending) {
     return (
