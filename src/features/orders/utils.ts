@@ -4,10 +4,20 @@ export function getOrderStatusLabel(status: OrderStatus | string): string {
   switch (status) {
     case "CREATED":
       return "⌛ 주문 완료 (결제 대기)";
+    case "STOCK_PENDING":
+      return "📦 재고 확인 중";
     case "PAYMENT_REQUEST":
       return "💳 결제 요청 중";
     case "PAYMENT_PROCESSING":
       return "⏳ 결제 처리 중";
+    case "PAYMENT_PENDING":
+      return "⏳ 결제 확인 중 (잠시만 기다려주세요)";
+    case "PAYMENT_RECONCILIATION_REQUIRED":
+      return "🔄 결제 확인 처리 중";
+    case "STOCK_COMPENSATION_PENDING":
+      return "↩️ 재고 복구 처리 중";
+    case "PAYMENT_COMPENSATION_PENDING":
+      return "↩️ 결제 취소 처리 중";
     case "PAID":
       return "🎉 결제 완료 (후원 성공)";
     case "STOCK_FAILED":
@@ -26,12 +36,17 @@ export function getOrderStatusBadgeTone(status: OrderStatus | string): "mint" | 
     case "PAID":
       return "mint";
     case "CREATED":
+    case "STOCK_PENDING":
     case "PAYMENT_REQUEST":
     case "PAYMENT_PROCESSING":
+    case "PAYMENT_PENDING":
+    case "PAYMENT_RECONCILIATION_REQUIRED":
       return "peach";
     case "STOCK_FAILED":
     case "PAYMENT_FAILED":
     case "CANCELLED":
+    case "STOCK_COMPENSATION_PENDING":
+    case "PAYMENT_COMPENSATION_PENDING":
     default:
       return "lavender";
   }
