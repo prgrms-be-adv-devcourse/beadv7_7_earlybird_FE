@@ -50,7 +50,10 @@ export const SETTLEMENT_SERVICE = {
 export const BOARD_SERVICE = {
   notices: (projectId: number | string) => `/api/v1/notices?projectId=${projectId}`,
   notice: (noticeId: number | string) => `/api/v1/notices/${noticeId}`,
+  createNotice: "/api/v1/notices",
   reviews: (projectId: number | string) => `/api/v1/reviews?projectId=${projectId}`,
+  review: (reviewId: number | string) => `/api/v1/reviews/${reviewId}`,
+  createReview: "/api/v1/reviews",
   comment: (commentId: number | string) => `/api/v1/comments/${commentId}`,
 };
 

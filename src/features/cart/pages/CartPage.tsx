@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import { useCart, useRemoveCartItem, useClearCart } from "../hooks";
-import { removeCartItem } from "../api";
 import { usePlaceOrder } from "../../orders/hooks";
 import { generateUUID } from "../../orders/utils";
 import { Card, Button, Skeleton, Dialog, DialogContent, DialogTitle, DialogDescription } from "../../../shared/ui";
@@ -51,7 +49,6 @@ function CartRewardRow({
 
 export function CartPage() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { data: cart, isPending, isError } = useCart();
   const removeCartItemMutation = useRemoveCartItem();
   const clearCartMutation = useClearCart();
@@ -123,24 +120,10 @@ export function CartPage() {
         orderIdempotencyKey: currentKey,
       },
       {
-        onSuccess: async (createdOrder) => {
+        onSuccess: (createdOrder) => {
           setIsSubmitting(false);
           setIdempotencyKey(null);
-          const rewardsToRemove = selectedProject.rewards;
           setSelectedProject(null);
-
-          try {
-            await Promise.all(
-              rewardsToRemove.map((reward) => removeCartItem(userId, reward.rewardId))
-            );
-          } catch (err) {
-            console.error("장바구니 항목 자동 삭제 중 오류 발생:", err);
-          }
-
-          queryClient.invalidateQueries({ queryKey: ["projects"] });
-          queryClient.invalidateQueries({ queryKey: ["rewards"] });
-          queryClient.invalidateQueries({ queryKey: ["cart"] });
-          queryClient.invalidateQueries({ queryKey: ["orders"] });
           navigate(`/checkout/${createdOrder.id}`);
         },
         onError: (err: any) => {

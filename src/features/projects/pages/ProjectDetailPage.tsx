@@ -133,6 +133,7 @@ function FundingPanel({
           <ul className="flex flex-col gap-2.5">
             {rewards.map((reward) => {
               const selected = reward.rewardId === selectedRewardId;
+              const isRewardSoldOut = reward.remainingQuantity != null && reward.remainingQuantity <= 0;
               return (
                 <li key={reward.rewardId}>
                   <button
@@ -163,8 +164,18 @@ function FundingPanel({
                     </div>
                     <div className="shrink-0 text-right whitespace-nowrap flex flex-col items-end gap-1">
                       <span className="tabular-nums text-sm font-extrabold text-ink">{reward.price.toLocaleString()}원</span>
-                      <span className="text-[11px] font-semibold text-mist bg-surface px-1.5 py-0.5 rounded border border-ink/15">
-                        {reward.remainingQuantity != null ? `재고 ${reward.remainingQuantity.toLocaleString()}개 남음` : "수량 무제한"}
+                      <span
+                        className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border ${
+                          isRewardSoldOut
+                            ? "bg-red-50 text-red-600 border-red-200 font-bold"
+                            : "text-mist bg-surface border-ink/15"
+                        }`}
+                      >
+                        {isRewardSoldOut
+                          ? "품절 (재고 0개)"
+                          : reward.remainingQuantity != null
+                            ? `재고 ${reward.remainingQuantity.toLocaleString()}개 남음`
+                            : "수량 무제한"}
                       </span>
                     </div>
                   </button>
@@ -235,20 +246,27 @@ function FundingPanel({
         </div>
       )}
 
-      <SupportButton
-        label={
-          !isOrderable
-            ? getOrderClosedMessage(project.status)
-            : isAddingToCart
-              ? "장바구니에 담는 중..."
-              : selectedReward
-                ? `장바구니에 담기 (${selectedQuantity}개)`
-                : "리워드를 선택해주세요"
-        }
-        disabled={!isOrderable || !selectedReward || isAddingToCart}
-        onClick={onAddToCart}
-        trigger={flightTrigger}
-      />
+      {(() => {
+        const isSoldOut = selectedReward && selectedReward.remainingQuantity != null && selectedReward.remainingQuantity <= 0;
+        return (
+          <SupportButton
+            label={
+              !isOrderable
+                ? getOrderClosedMessage(project.status)
+                : isSoldOut
+                  ? "품절된 리워드입니다"
+                  : isAddingToCart
+                    ? "장바구니에 담는 중..."
+                    : selectedReward
+                      ? `장바구니에 담기 (${selectedQuantity}개)`
+                      : "리워드를 선택해주세요"
+            }
+            disabled={!isOrderable || !selectedReward || Boolean(isSoldOut) || isAddingToCart}
+            onClick={onAddToCart}
+            trigger={flightTrigger}
+          />
+        );
+      })()}
       {feedback && <p className="text-center text-xs font-semibold text-brand">{feedback}</p>}
     </Card>
   );
@@ -314,6 +332,13 @@ export function ProjectDetailPage() {
 
   const selectedReward = rewards?.find((reward) => reward.rewardId === selectedRewardId);
 
+  // Reset selected reward state when route projectId changes
+  useEffect(() => {
+    setSelectedRewardId(null);
+    setSelectedQuantity(1);
+    setFeedback(null);
+  }, [projectId]);
+
   useEffect(() => {
     if (rewards && selectedRewardId !== null) {
       const exists = rewards.some((r) => r.rewardId === selectedRewardId);
@@ -331,11 +356,19 @@ export function ProjectDetailPage() {
 
   function handleAddToCart(source: "panel" | "footer") {
     if (!selectedReward || project?.status !== "IN_PROGRESS") return;
+    if (selectedReward.remainingQuantity != null && selectedReward.remainingQuantity <= 0) {
+      setFeedback("품절된 리워드는 장바구니에 담을 수 없습니다.");
+      return;
+    }
     if (!user) {
       navigate("/login");
       return;
     }
-    const targetProjectId = selectedReward.projectId ?? projectId;
+    const targetProjectId =
+      selectedReward.projectId && selectedReward.projectId > 0
+        ? selectedReward.projectId
+        : projectId;
+
     addCartItems.mutate(
       { projectId: targetProjectId, items: [{ rewardId: selectedReward.rewardId, quantity: selectedQuantity }] },
       {
@@ -372,10 +405,10 @@ export function ProjectDetailPage() {
           let friendlyMsg = "담기에 실패했어요. 다시 시도해주세요.";
           if (serverMsg) {
             if (serverMsg.includes("does not belong to the project")) {
-              friendlyMsg = "장바구니 연동 정보를 확인 중입니다. 잠시 후 다시 시도해 주세요.";
+              friendlyMsg = "프로젝트에 포함되지 않은 리워드입니다.";
             } else if (serverMsg.includes("not orderable")) {
               friendlyMsg = "현재 구매 신청할 수 없는 리워드입니다.";
-            } else if (serverMsg.includes("insufficient")) {
+            } else if (serverMsg.includes("insufficient") || serverMsg.includes("stock") || serverMsg.includes("재고")) {
               friendlyMsg = "리워드 재고가 부족합니다.";
             } else {
               friendlyMsg = serverMsg;
