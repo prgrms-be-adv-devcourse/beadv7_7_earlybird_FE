@@ -46,13 +46,13 @@ export function useProject(id: number) {
             const mine = await fetchMyProjects();
             const foundMy = mine.find((project) => project.projectId === id);
             if (foundMy) {
-              return { ...foundMy, summary: foundMy.summary ?? null, description: null, isOwnerPreview: true };
+              return { ...foundMy, summary: foundMy.summary ?? null, description: foundMy.description ?? null, isOwnerPreview: true };
             }
 
             const allProjects = await fetchProjects();
             const foundAll = allProjects.find((project) => project.projectId === id);
             if (foundAll) {
-              return { ...foundAll, summary: foundAll.summary ?? null, description: null, isOwnerPreview: true };
+              return { ...foundAll, summary: foundAll.summary ?? null, description: foundAll.description ?? null, isOwnerPreview: true };
             }
           } catch {
             // Ignore fallback fetch error

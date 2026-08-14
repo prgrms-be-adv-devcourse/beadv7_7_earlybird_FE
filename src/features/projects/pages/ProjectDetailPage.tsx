@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import axios from "axios";
+import { Pencil } from "lucide-react";
 import {
   Badge,
   Button,
@@ -20,9 +21,12 @@ import {
   EmptyState,
 } from "../../../shared/ui";
 import { useProject, useRewards } from "../hooks";
+import { useCategories } from "../../admin/hooks";
 import { useAddCartItems } from "../../cart/hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
 import { ProjectBoardTabs } from "../../board/components/ProjectBoardTabs";
+import { ProjectEditModal } from "../components/ProjectEditModal";
+import { RewardEditModal } from "../components/RewardEditModal";
 import {
   useApproveProject,
   useRejectProject,
@@ -279,6 +283,8 @@ export function ProjectDetailPage() {
 
   const { data: project, isPending, isError } = useProject(projectId);
   const { data: rewards } = useRewards(projectId);
+  const { data: categories } = useCategories();
+  const categoryName = categories?.find((c) => c.id === project?.categoryId)?.name;
 
   const [selectedRewardId, setSelectedRewardId] = useState<number | null>(null);
   const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
@@ -294,9 +300,25 @@ export function ProjectDetailPage() {
   const decreaseRewardQtyMutation = useDecreaseRewardQuantity();
   const deactivateRewardMutation = useDeactivateReward();
 
+  // Owner (creator) inline edit — pencil button reveals per-section edit buttons
+  const [ownerEditMode, setOwnerEditMode] = useState(false);
+  const [editingProject, setEditingProject] = useState(false);
+  const [editingReward, setEditingReward] = useState<Reward | null>(null);
+
   // Admin decrease reward modal
   const [targetRewardId, setTargetRewardId] = useState<number | null>(null);
   const [decreaseAmount, setDecreaseAmount] = useState<number>(10);
+
+  // Admin panel success/error feedback (deactivate, decrease qty, extend deadline)
+  const [adminMsg, setAdminMsg] = useState<string | null>(null);
+  const showAdminMsg = (msg: string) => {
+    setAdminMsg(msg);
+    setTimeout(() => setAdminMsg(null), 4000);
+  };
+  const getAdminErrorMsg = (error: unknown) =>
+    axios.isAxiosError(error)
+      ? error.response?.data?.error?.message ?? error.message
+      : "요청에 실패했습니다.";
 
   // Admin extend deadline modal
   const [extendModalOpen, setExtendModalOpen] = useState(false);
@@ -417,16 +439,23 @@ export function ProjectDetailPage() {
 
   const percent = fundedPercent(project.fundedAmount, project.goalAmount);
   const isAdmin = user?.role === "ADMIN";
-  const isCreator = user?.role === "CREATOR";
+  // 다른 창작자의 프로젝트가 아니라 "본인" 프로젝트일 때만 창작자 패널을 보여준다.
+  const isCreator = user?.role === "CREATOR" && project.creatorId === user?.id;
   const isPublished = project.status === "IN_PROGRESS";
   const isPendingReview = project.status === "PENDING_REVIEW";
 
   return (
     <div className="flex flex-col gap-6 pb-24 lg:grid lg:grid-cols-[1fr_360px] lg:items-start lg:gap-8 lg:pb-0">
       <div className="flex flex-col gap-6">
-        {project.isOwnerPreview && (
+        {project.isOwnerPreview && project.status === "REJECTED" && (
+          <div className="rounded-sm border-2 border-red-300 bg-red-50 px-4 py-3 text-xs font-semibold text-red-800">
+            ❌ 심사가 반려됐어요. 창작자 본인에게만 보이는 미리보기입니다.
+            {project.rejectReason && <div className="mt-1 font-normal">반려 사유: {project.rejectReason}</div>}
+          </div>
+        )}
+        {project.isOwnerPreview && project.status !== "REJECTED" && (
           <div className="rounded-sm border-2 border-amber-300 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
-            ⌛ 심사 대기 중인 프로젝트예요. 창작자 본인에게만 보이는 미리보기이며, 스토리(상세 설명)는 심사 승인 후 표시됩니다.
+            ⌛ 심사 대기 중인 프로젝트예요. 창작자 본인에게만 보이는 미리보기입니다.
           </div>
         )}
 
@@ -435,9 +464,22 @@ export function ProjectDetailPage() {
             <Thumbnail className="aspect-[16/9] w-full" />
             <div className="p-6">
               <div className="mb-2 flex items-center justify-between gap-3">
-                <h1 className="font-display text-2xl font-bold text-ink">{project.title}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="font-display text-2xl font-bold text-ink">{project.title}</h1>
+                  {isCreator && (
+                    <button
+                      type="button"
+                      aria-label="프로젝트 정보 수정"
+                      onClick={() => setOwnerEditMode((v) => !v)}
+                      className={`flex h-7 w-7 items-center justify-center rounded-full border ${ownerEditMode ? "border-brand bg-brand/10 text-brand" : "border-ink/20 text-mist hover:border-brand hover:text-brand"}`}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
+                </div>
                 <Badge tone={getStatusBadgeTone(project.status)}>{getStatusLabel(project.status)}</Badge>
               </div>
+              {categoryName && <p className="mb-1 text-xs font-medium text-brand">📁 {categoryName}</p>}
               <p className="text-mist">{project.summary}</p>
             </div>
           </Card>
@@ -453,6 +495,7 @@ export function ProjectDetailPage() {
             <p className="text-xs text-mist">
               공개 후 리워드 수량 축소 및 비활성화, 마감일 연장, 프로젝트 취소는 관리자 전용 권한입니다.
             </p>
+            {adminMsg && <p className="text-xs font-semibold text-brand">{adminMsg}</p>}
 
             <div className="flex flex-wrap gap-2 pt-1">
               {isPendingReview && (
@@ -515,7 +558,12 @@ export function ProjectDetailPage() {
                         <Button
                           variant="secondary"
                           className="py-0.5 px-2 text-[11px] border-red-300 text-red-600 hover:bg-red-50"
-                          onClick={() => deactivateRewardMutation.mutate(r.rewardId)}
+                          onClick={() =>
+                            deactivateRewardMutation.mutate(r.rewardId, {
+                              onSuccess: () => showAdminMsg(`✅ "${r.name}" 리워드가 비활성화 되었습니다.`),
+                              onError: (error) => showAdminMsg(`❌ ${getAdminErrorMsg(error)}`),
+                            })
+                          }
                           disabled={deactivateRewardMutation.isPending}
                         >
                           비활성화
@@ -530,8 +578,8 @@ export function ProjectDetailPage() {
         )}
 
         {/* CREATOR Control Panel */}
-        {isCreator && (
-          <Card className="border-2 border-peach/40 bg-peach/5 flex flex-col gap-2">
+        {isCreator && ownerEditMode && (
+          <Card className="border-2 border-peach/40 bg-peach/5 flex flex-col gap-3">
             <span className="font-bold text-sm text-ink">🛠️ 창작자(CREATOR) 전용 패널</span>
             {isPublished ? (
               <p className="text-xs text-mist">
@@ -541,6 +589,42 @@ export function ProjectDetailPage() {
               <p className="text-xs text-mist">
                 공개 전 상태이므로 프로젝트 및 리워드를 자유롭게 수정/삭제할 수 있습니다.
               </p>
+            )}
+
+            <Button
+              variant="secondary"
+              className="w-fit py-1 px-3 text-xs border-brand text-brand hover:bg-brand/10"
+              onClick={() => setEditingProject(true)}
+            >
+              ✏️ 프로젝트 정보 수정
+            </Button>
+
+            {rewards && rewards.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-bold text-ink">리워드 ({rewards.length}개)</span>
+                <div className="flex flex-wrap gap-2">
+                  {rewards.map((r) => (
+                    <div
+                      key={r.rewardId}
+                      className="flex items-center gap-2 rounded border border-ink/15 bg-surface px-2 py-1 text-xs text-ink"
+                    >
+                      <span>
+                        {r.name} ({r.price.toLocaleString()}원)
+                        {r.totalQuantity != null && (
+                          <span className="text-mist"> · 잔여 {r.remainingQuantity ?? 0}/{r.totalQuantity}개</span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditingReward(r)}
+                        className="font-bold text-brand hover:underline text-[11px]"
+                      >
+                        수정
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </Card>
         )}
@@ -605,7 +689,10 @@ export function ProjectDetailPage() {
               onClick={() => {
                 extendDeadlineMutation.mutate(
                   { id: projectId, endAt: newEndAt },
-                  { onSuccess: () => setExtendModalOpen(false) }
+                  {
+                    onSuccess: () => setExtendModalOpen(false),
+                    onError: (error) => showAdminMsg(`❌ ${getAdminErrorMsg(error)}`),
+                  }
                 );
               }}
               disabled={extendDeadlineMutation.isPending}
@@ -637,7 +724,10 @@ export function ProjectDetailPage() {
                 if (targetRewardId) {
                   decreaseRewardQtyMutation.mutate(
                     { rewardId: targetRewardId, amount: decreaseAmount },
-                    { onSuccess: () => setTargetRewardId(null) }
+                    {
+                      onSuccess: () => setTargetRewardId(null),
+                      onError: (error) => showAdminMsg(`❌ ${getAdminErrorMsg(error)}`),
+                    }
                   );
                 }
               }}
@@ -707,6 +797,23 @@ export function ProjectDetailPage() {
           />
         </div>
       </div>
+
+      {/* Owner inline edit modals */}
+      {editingProject && (
+        <ProjectEditModal
+          project={project}
+          open={editingProject}
+          onOpenChange={setEditingProject}
+        />
+      )}
+      {editingReward && (
+        <RewardEditModal
+          reward={editingReward}
+          isPublished={isPublished}
+          open={!!editingReward}
+          onOpenChange={(open) => !open && setEditingReward(null)}
+        />
+      )}
     </div>
   );
 }

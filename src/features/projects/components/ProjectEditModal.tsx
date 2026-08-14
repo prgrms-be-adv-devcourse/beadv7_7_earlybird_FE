@@ -138,7 +138,7 @@ export function ProjectEditModal({
                 <label className="mb-1 block font-semibold text-ink">목표 금액 (원)</label>
                 <input
                   type="number"
-                  value={goalAmount}
+                  value={goalAmount || ""}
                   onChange={(e) => setGoalAmount(Number(e.target.value))}
                   className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink focus:border-brand focus:outline-none tabular-nums"
                 />

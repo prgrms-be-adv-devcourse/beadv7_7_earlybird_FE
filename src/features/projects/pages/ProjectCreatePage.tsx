@@ -215,7 +215,7 @@ export function ProjectCreatePage() {
               required
               min={10000}
               step={10000}
-              value={goalAmount}
+              value={goalAmount || ""}
               onChange={(e) => setGoalAmount(Number(e.target.value))}
               className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink focus:border-brand focus:outline-none tabular-nums"
             />
@@ -289,7 +289,7 @@ export function ProjectCreatePage() {
                     type="number"
                     required
                     min={1000}
-                    value={reward.price}
+                    value={reward.price || ""}
                     onChange={(e) => handleRewardChange(index, "price", Number(e.target.value))}
                     className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink focus:border-brand focus:outline-none tabular-nums"
                   />
