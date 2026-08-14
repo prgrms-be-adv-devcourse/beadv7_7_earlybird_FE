@@ -20,6 +20,10 @@ export interface ProjectSummary {
   startAt: string;
   endAt: string;
   thumbnailId: number | null;
+  // ProjectController's list/me endpoints return the same full ProjectResponse as the
+  // detail endpoint, so these are present at runtime even though list views don't use them.
+  description?: string | null;
+  rejectReason?: string | null;
 }
 
 export interface ProjectDetail extends ProjectSummary {

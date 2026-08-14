@@ -17,6 +17,7 @@ import { ProjectCard } from "../components/ProjectCard";
 import {
   getCreatorDisplayName,
   getCategoryIdsIncludingChildren,
+  getStatusLabel,
 } from "../utils";
 
 import { useAuthStore } from "../../../shared/auth/authStore";
@@ -336,7 +337,7 @@ export function ProjectListPage() {
                             </div>
                           </div>
                           <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-medium text-mist">
-                            {project.status === "IN_PROGRESS" ? "진행중" : project.status}
+                            {getStatusLabel(project.status)}
                           </span>
                         </button>
                       </li>
@@ -375,7 +376,7 @@ export function ProjectListPage() {
               <SelectItem value={ALL}>🏷️ 전체 상태</SelectItem>
               {statusOptions.map((option) => (
                 <SelectItem key={option} value={option}>
-                  {option}
+                  {getStatusLabel(option)}
                 </SelectItem>
               ))}
             </SelectContent>

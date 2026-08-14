@@ -25,7 +25,7 @@ export function RewardEditModal({
   const deleteRewardMutation = useDeleteReward();
 
   const [name, setName] = useState(reward.name);
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(reward.description ?? "");
   const [price, setPrice] = useState<number>(reward.price);
   const [totalQuantity, setTotalQuantity] = useState<number | null>(reward.totalQuantity);
   const [increaseQty, setIncreaseQty] = useState<number>(10);
@@ -97,7 +97,7 @@ export function RewardEditModal({
                   type="number"
                   required
                   min={1000}
-                  value={price}
+                  value={price || ""}
                   onChange={(e) => setPrice(Number(e.target.value))}
                   className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink focus:border-brand focus:outline-none tabular-nums"
                 />

@@ -52,6 +52,14 @@ export function getOrderStatusBadgeTone(status: OrderStatus | string): "mint" | 
   }
 }
 
+// Backend order ids are a global auto-increment PK shared across all users, so showing
+// them raw (e.g. #105) doesn't read as "내 5번째 주문". Rank orders by id (chronological,
+// since id is assigned at creation) to get a per-user sequential display number.
+export function getOrderDisplayNumber(orderId: number, allOrderIds: number[]): number {
+  const rank = [...new Set(allOrderIds)].sort((a, b) => a - b).indexOf(orderId);
+  return rank === -1 ? orderId : rank + 1;
+}
+
 export function generateUUID(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();

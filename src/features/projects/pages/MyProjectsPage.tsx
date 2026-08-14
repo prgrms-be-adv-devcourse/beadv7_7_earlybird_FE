@@ -101,7 +101,12 @@ function MyProjectCard({ project }: { project: ProjectSummary }) {
                 key={r.rewardId}
                 className="flex items-center gap-2 rounded border border-ink/15 bg-surface px-2 py-1 text-xs text-ink"
               >
-                <span>{r.name} ({r.price.toLocaleString()}원)</span>
+                <span>
+                  {r.name} ({r.price.toLocaleString()}원)
+                  {r.totalQuantity != null && (
+                    <span className="text-mist"> · 잔여 {r.remainingQuantity ?? 0}/{r.totalQuantity}개</span>
+                  )}
+                </span>
                 <button
                   type="button"
                   onClick={() => setEditingReward(r)}
@@ -291,7 +296,7 @@ export function MyProjectsPage() {
               <input
                 type="number"
                 min={1000}
-                value={rewardPrice}
+                value={rewardPrice || ""}
                 onChange={(e) => setRewardPrice(Number(e.target.value))}
                 className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink focus:border-brand focus:outline-none tabular-nums"
               />

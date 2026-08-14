@@ -16,9 +16,9 @@ import {
   RowSkeleton,
   Skeleton,
 } from "../../../shared/ui";
-import {useCancelOrder, useOrder} from "../hooks";
+import {useCancelOrder, useOrder, useOrders} from "../hooks";
 import {useConfirmPayment} from "../../payments/hooks";
-import {getOrderStatusBadgeTone, getOrderStatusLabel} from "../utils";
+import {getOrderStatusBadgeTone, getOrderStatusLabel, getOrderDisplayNumber} from "../utils";
 
 export function OrderDetailPage() {
   const { id } = useParams();
@@ -26,6 +26,8 @@ export function OrderDetailPage() {
   const navigate = useNavigate();
   const orderId = Number(id);
   const { data: order, isPending, isError } = useOrder(orderId);
+  const { data: myOrders } = useOrders();
+  const displayNumber = getOrderDisplayNumber(orderId, myOrders?.map((o) => o.id) ?? [orderId]);
   const cancelMutation = useCancelOrder(orderId);
   const { mutate: confirmPayment } = useConfirmPayment();
   const hasRequestedConfirmation = useRef(false);
@@ -86,7 +88,7 @@ export function OrderDetailPage() {
 
       <Card>
         <div className="mb-4 flex items-center justify-between border-b border-ink/10 pb-3">
-          <h1 className="font-display text-2xl font-bold text-ink">주문 상세 정보 #{order.id}</h1>
+          <h1 className="font-display text-2xl font-bold text-ink">주문 상세 정보 #{displayNumber}</h1>
           <Badge tone={getOrderStatusBadgeTone(effectiveStatus || "CREATED")}>
             {getOrderStatusLabel(effectiveStatus || "CREATED")}
           </Badge>
