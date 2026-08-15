@@ -11,3 +11,7 @@ export async function login(request: LoginRequest): Promise<AuthSession> {
 export async function signup(request: SignupRequest): Promise<void> {
   await apiClient.post<ApiResponse<null>>(USER_SERVICE.signup, request);
 }
+
+export async function logoutRequest(): Promise<void> {
+  await apiClient.post<ApiResponse<null>>(USER_SERVICE.logout);
+}

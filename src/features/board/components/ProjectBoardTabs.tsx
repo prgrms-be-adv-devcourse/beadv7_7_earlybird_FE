@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star, MessageSquarePlus, Trash2, Megaphone, User } from "lucide-react";
+import { Star, MessageSquarePlus, MessageCircle, Trash2, Pencil, Megaphone, User, CornerDownRight } from "lucide-react";
 import {
   Card,
   Button,
@@ -13,16 +13,142 @@ import {
 import {
   useNotices,
   useCreateNotice,
+  useUpdateNotice,
   useDeleteNotice,
   useReviews,
   useCreateReview,
+  useUpdateReview,
   useDeleteReview,
+  useComments,
+  useCreateComment,
+  useReplyToComment,
+  useDeleteComment,
 } from "../hooks";
+import type { ProjectComment } from "../types";
 import { useRewards } from "../../projects/hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
 
+function CommentThread({
+  comment,
+  canReply,
+  canDelete,
+  onDelete,
+  onReply,
+  isReplying,
+}: {
+  comment: ProjectComment;
+  canReply: boolean;
+  canDelete: boolean;
+  onDelete: (commentId: number) => void;
+  onReply: (commentId: number, content: string) => void;
+  isReplying: boolean;
+}) {
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+
+  return (
+    <li className="rounded-lg border border-ink/10 bg-surface p-4 flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1 text-xs font-bold text-ink">
+          <User className="h-3.5 w-3.5" />
+          {comment.authorName || "사용자"}
+        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          {comment.createdAt && (
+            <span className="text-[11px] text-mist font-mono">{comment.createdAt.split("T")[0]}</span>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(comment.id)}
+              className="text-mist hover:text-red-500 p-1 transition-colors"
+              title="댓글 삭제"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <p className="text-sm text-ink/80 whitespace-pre-line leading-relaxed">{comment.content}</p>
+
+      {canReply && (
+        <button
+          type="button"
+          onClick={() => setReplyOpen((v) => !v)}
+          className="flex items-center gap-1 self-start text-xs font-semibold text-brand hover:underline"
+        >
+          <CornerDownRight className="h-3.5 w-3.5" />
+          답글
+        </button>
+      )}
+
+      {replyOpen && (
+        <div className="flex flex-col gap-2 pl-4 border-l-2 border-ink/10">
+          <textarea
+            rows={2}
+            value={replyContent}
+            onChange={(e) => setReplyContent(e.target.value)}
+            placeholder="답글을 입력하세요."
+            className="w-full rounded-md border border-ink/20 p-2 text-xs text-ink outline-none focus:border-brand resize-none"
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              className="py-1 px-2 text-xs"
+              onClick={() => {
+                setReplyOpen(false);
+                setReplyContent("");
+              }}
+            >
+              취소
+            </Button>
+            <Button
+              className="py-1 px-2 text-xs"
+              disabled={isReplying || !replyContent.trim()}
+              onClick={() => {
+                onReply(comment.id, replyContent.trim());
+                setReplyOpen(false);
+                setReplyContent("");
+              }}
+            >
+              등록
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {comment.replies.length > 0 && (
+        <ul className="flex flex-col gap-2 pl-4 border-l-2 border-ink/10">
+          {comment.replies.map((reply) => (
+            <li key={reply.id} className="flex flex-col gap-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1 text-xs font-bold text-ink">
+                  <User className="h-3.5 w-3.5" />
+                  {reply.authorName || "사용자"}
+                </span>
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => onDelete(reply.id)}
+                    className="text-mist hover:text-red-500 p-1 transition-colors"
+                    title="답글 삭제"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <p className="text-sm text-ink/80 whitespace-pre-line leading-relaxed">{reply.content}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
 export function ProjectBoardTabs({ projectId }: { projectId: number }) {
-  const [tab, setTab] = useState<"notices" | "reviews">("notices");
+  const [tab, setTab] = useState<"notices" | "reviews" | "comments">("notices");
 
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.role === "ADMIN";
@@ -32,71 +158,130 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
   const { data: notices, isPending: noticesPending } = useNotices(projectId);
   const { data: reviews, isPending: reviewsPending } = useReviews(projectId);
   const { data: rewards } = useRewards(projectId);
+  const { data: comments, isPending: commentsPending } = useComments("PROJECT", projectId);
 
   const createNoticeMutation = useCreateNotice(projectId);
+  const updateNoticeMutation = useUpdateNotice(projectId);
   const deleteNoticeMutation = useDeleteNotice(projectId);
 
   const createReviewMutation = useCreateReview(projectId);
+  const updateReviewMutation = useUpdateReview(projectId);
   const deleteReviewMutation = useDeleteReview(projectId);
 
-  // Notice Modal State
+  const createCommentMutation = useCreateComment("PROJECT", projectId);
+  const replyToCommentMutation = useReplyToComment("PROJECT", projectId);
+  const deleteCommentMutation = useDeleteComment("PROJECT", projectId);
+
+  // Notice Modal State (also used for editing — editingNoticeId set => edit mode)
   const [noticeModalOpen, setNoticeModalOpen] = useState(false);
+  const [editingNoticeId, setEditingNoticeId] = useState<number | null>(null);
   const [noticeTitle, setNoticeTitle] = useState("");
   const [noticeContent, setNoticeContent] = useState("");
   const [noticeError, setNoticeError] = useState<string | null>(null);
 
-  // Review Modal State
+  // Review Modal State (also used for editing — editingReviewId set => edit mode)
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
   const [selectedRewardId, setSelectedRewardId] = useState<number | undefined>(undefined);
   const [rating, setRating] = useState<number>(5);
   const [reviewContent, setReviewContent] = useState("");
   const [reviewError, setReviewError] = useState<string | null>(null);
 
-  const handleCreateNotice = () => {
+  // Comment Compose State
+  const [newCommentContent, setNewCommentContent] = useState("");
+
+  const openCreateNotice = () => {
+    setEditingNoticeId(null);
+    setNoticeTitle("");
+    setNoticeContent("");
+    setNoticeError(null);
+    setNoticeModalOpen(true);
+  };
+
+  const openEditNotice = (notice: { id: number; title: string; content: string }) => {
+    setEditingNoticeId(notice.id);
+    setNoticeTitle(notice.title);
+    setNoticeContent(notice.content);
+    setNoticeError(null);
+    setNoticeModalOpen(true);
+  };
+
+  const handleSubmitNotice = () => {
     if (!noticeTitle.trim() || !noticeContent.trim()) {
       setNoticeError("제목과 내용을 입력해주세요.");
       return;
     }
     setNoticeError(null);
-    createNoticeMutation.mutate(
-      { title: noticeTitle.trim(), content: noticeContent.trim() },
-      {
-        onSuccess: () => {
-          setNoticeTitle("");
-          setNoticeContent("");
-          setNoticeModalOpen(false);
-        },
-        onError: (err: any) => {
-          setNoticeError(err.response?.data?.error?.message || "공지사항 등록에 실패했습니다.");
-        },
-      }
-    );
+    const payload = { title: noticeTitle.trim(), content: noticeContent.trim() };
+    const onSuccess = () => {
+      setNoticeTitle("");
+      setNoticeContent("");
+      setNoticeModalOpen(false);
+      setEditingNoticeId(null);
+    };
+    const onError = (err: any) => {
+      setNoticeError(err.response?.data?.error?.message || "공지사항 저장에 실패했습니다.");
+    };
+
+    if (editingNoticeId) {
+      updateNoticeMutation.mutate({ noticeId: editingNoticeId, payload }, { onSuccess, onError });
+    } else {
+      createNoticeMutation.mutate(payload, { onSuccess, onError });
+    }
   };
 
-  const handleCreateReview = () => {
+  const openCreateReview = () => {
+    setEditingReviewId(null);
+    setSelectedRewardId(undefined);
+    setRating(5);
+    setReviewContent("");
+    setReviewError(null);
+    setReviewModalOpen(true);
+  };
+
+  const openEditReview = (review: { id: number; rating: number; content: string }) => {
+    setEditingReviewId(review.id);
+    setRating(review.rating || 5);
+    setReviewContent(review.content);
+    setReviewError(null);
+    setReviewModalOpen(true);
+  };
+
+  const handleSubmitReview = () => {
     if (!reviewContent.trim()) {
       setReviewError("후기 내용을 입력해주세요.");
       return;
     }
     setReviewError(null);
-    createReviewMutation.mutate(
-      {
-        rewardId: selectedRewardId,
-        rating,
-        content: reviewContent.trim(),
-      },
-      {
-        onSuccess: () => {
-          setReviewContent("");
-          setRating(5);
-          setSelectedRewardId(undefined);
-          setReviewModalOpen(false);
-        },
-        onError: (err: any) => {
-          setReviewError(err.response?.data?.error?.message || "후기 등록에 실패했습니다.");
-        },
-      }
-    );
+    const onSuccess = () => {
+      setReviewContent("");
+      setRating(5);
+      setSelectedRewardId(undefined);
+      setReviewModalOpen(false);
+      setEditingReviewId(null);
+    };
+    const onError = (err: any) => {
+      setReviewError(err.response?.data?.error?.message || "후기 저장에 실패했습니다.");
+    };
+
+    if (editingReviewId) {
+      updateReviewMutation.mutate(
+        { reviewId: editingReviewId, payload: { rating, content: reviewContent.trim() } },
+        { onSuccess, onError }
+      );
+    } else {
+      createReviewMutation.mutate(
+        { rewardId: selectedRewardId, rating, content: reviewContent.trim() },
+        { onSuccess, onError }
+      );
+    }
+  };
+
+  const handleCreateComment = () => {
+    if (!newCommentContent.trim()) return;
+    createCommentMutation.mutate(newCommentContent.trim(), {
+      onSuccess: () => setNewCommentContent(""),
+    });
   };
 
   // Average Rating calculation
@@ -135,16 +320,26 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
             <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
             <span>후기 ({reviews?.length ?? 0})</span>
           </button>
+
+          <button
+            type="button"
+            className={`flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-bold transition-all ${
+              tab === "comments"
+                ? "bg-brand text-white shadow-stamp-sm"
+                : "border border-ink/20 text-mist hover:border-brand/40 hover:text-ink"
+            }`}
+            onClick={() => setTab("comments")}
+          >
+            <MessageCircle className="h-4 w-4" />
+            <span>문의 ({comments?.length ?? 0})</span>
+          </button>
         </div>
 
         {/* Action Button depending on active Tab */}
         {tab === "notices" && (isCreator || isAdmin) && (
           <Button
             type="button"
-            onClick={() => {
-              setNoticeError(null);
-              setNoticeModalOpen(true);
-            }}
+            onClick={openCreateNotice}
             className="py-1.5 px-3 text-xs font-bold text-white flex items-center gap-1"
           >
             <Megaphone className="h-3.5 w-3.5" />
@@ -155,10 +350,7 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
         {tab === "reviews" && isLoggedIn && (
           <Button
             type="button"
-            onClick={() => {
-              setReviewError(null);
-              setReviewModalOpen(true);
-            }}
+            onClick={openCreateReview}
             className="py-1.5 px-3 text-xs font-bold text-white flex items-center gap-1"
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
@@ -190,15 +382,25 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
                         </span>
                       )}
                       {(isCreator || isAdmin) && (
-                        <button
-                          type="button"
-                          onClick={() => deleteNoticeMutation.mutate(notice.id)}
-                          disabled={deleteNoticeMutation.isPending}
-                          className="text-mist hover:text-red-500 p-1 transition-colors"
-                          title="공지 삭제"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => openEditNotice(notice)}
+                            className="text-mist hover:text-brand p-1 transition-colors"
+                            title="공지 수정"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteNoticeMutation.mutate(notice.id)}
+                            disabled={deleteNoticeMutation.isPending}
+                            className="text-mist hover:text-red-500 p-1 transition-colors"
+                            title="공지 삭제"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -278,15 +480,25 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
                         </span>
                       )}
                       {isAdmin && (
-                        <button
-                          type="button"
-                          onClick={() => deleteReviewMutation.mutate(review.id)}
-                          disabled={deleteReviewMutation.isPending}
-                          className="text-mist hover:text-red-500 p-1 transition-colors"
-                          title="후기 삭제"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => openEditReview(review)}
+                            className="text-mist hover:text-brand p-1 transition-colors"
+                            title="후기 수정"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteReviewMutation.mutate(review.id)}
+                            disabled={deleteReviewMutation.isPending}
+                            className="text-mist hover:text-red-500 p-1 transition-colors"
+                            title="후기 삭제"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -306,10 +518,55 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
         </div>
       )}
 
-      {/* CREATE NOTICE DIALOG */}
+      {/* COMMENTS (문의) TAB CONTENT */}
+      {tab === "comments" && (
+        <div className="flex flex-col gap-4">
+          {isLoggedIn && (
+            <div className="flex flex-col gap-2">
+              <textarea
+                rows={2}
+                value={newCommentContent}
+                onChange={(e) => setNewCommentContent(e.target.value)}
+                placeholder="프로젝트에 대해 궁금한 점을 남겨보세요."
+                className="w-full rounded-md border border-ink/20 p-3 text-sm text-ink outline-none focus:border-brand resize-none"
+              />
+              <Button
+                type="button"
+                className="self-end py-1.5 px-3 text-xs font-bold text-white"
+                disabled={createCommentMutation.isPending || !newCommentContent.trim()}
+                onClick={handleCreateComment}
+              >
+                {createCommentMutation.isPending ? "등록 중..." : "문의 등록"}
+              </Button>
+            </div>
+          )}
+
+          {commentsPending ? (
+            <p className="text-xs text-mist py-4 text-center">문의를 불러오는 중...</p>
+          ) : !comments || comments.length === 0 ? (
+            <EmptyState message="등록된 문의가 없어요." />
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {comments.map((comment) => (
+                <CommentThread
+                  key={comment.id}
+                  comment={comment}
+                  canReply={isCreator || isAdmin}
+                  canDelete={isAdmin}
+                  isReplying={replyToCommentMutation.isPending}
+                  onDelete={(commentId) => deleteCommentMutation.mutate(commentId)}
+                  onReply={(commentId, content) => replyToCommentMutation.mutate({ commentId, content })}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* CREATE/EDIT NOTICE DIALOG */}
       <Dialog open={noticeModalOpen} onOpenChange={setNoticeModalOpen}>
         <DialogContent className="max-w-md">
-          <DialogTitle>📢 공지사항 작성</DialogTitle>
+          <DialogTitle>{editingNoticeId ? "📢 공지사항 수정" : "📢 공지사항 작성"}</DialogTitle>
           <DialogDescription>
             후원자들에게 전할 소식이나 업데이트 사항을 작성하세요.
           </DialogDescription>
@@ -347,19 +604,23 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
               취소
             </Button>
             <Button
-              onClick={handleCreateNotice}
-              disabled={createNoticeMutation.isPending}
+              onClick={handleSubmitNotice}
+              disabled={createNoticeMutation.isPending || updateNoticeMutation.isPending}
             >
-              {createNoticeMutation.isPending ? "등록 중..." : "공지사항 등록"}
+              {createNoticeMutation.isPending || updateNoticeMutation.isPending
+                ? "저장 중..."
+                : editingNoticeId
+                  ? "공지사항 수정"
+                  : "공지사항 등록"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* CREATE REVIEW DIALOG */}
+      {/* CREATE/EDIT REVIEW DIALOG */}
       <Dialog open={reviewModalOpen} onOpenChange={setReviewModalOpen}>
         <DialogContent className="max-w-md">
-          <DialogTitle>✍️ 후기 작성하기</DialogTitle>
+          <DialogTitle>{editingReviewId ? "✍️ 후기 수정하기" : "✍️ 후기 작성하기"}</DialogTitle>
           <DialogDescription>
             이 프로젝트 및 리워드에 대한 솔직한 후기를 남겨주세요.
           </DialogDescription>
@@ -390,7 +651,7 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
             </div>
 
             {/* Reward Selector */}
-            {rewards && rewards.length > 0 && (
+            {!editingReviewId && rewards && rewards.length > 0 && (
               <div>
                 <label className="mb-1 block text-xs font-bold text-ink">후원한 리워드 선택 (선택사항)</label>
                 <select
@@ -432,10 +693,14 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
               취소
             </Button>
             <Button
-              onClick={handleCreateReview}
-              disabled={createReviewMutation.isPending}
+              onClick={handleSubmitReview}
+              disabled={createReviewMutation.isPending || updateReviewMutation.isPending}
             >
-              {createReviewMutation.isPending ? "등록 중..." : "후기 등록하기"}
+              {createReviewMutation.isPending || updateReviewMutation.isPending
+                ? "저장 중..."
+                : editingReviewId
+                  ? "후기 수정하기"
+                  : "후기 등록하기"}
             </Button>
           </div>
         </DialogContent>

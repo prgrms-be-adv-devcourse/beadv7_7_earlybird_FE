@@ -9,3 +9,11 @@ export async function fetchNotifications(userId: number): Promise<Notification[]
   });
   return response.data.data ?? [];
 }
+
+export async function markNotificationRead(notificationId: number): Promise<void> {
+  await apiClient.patch<ApiResponse<null>>(NOTIFICATION_SERVICE.read(notificationId));
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  await apiClient.patch<ApiResponse<null>>(NOTIFICATION_SERVICE.readAll);
+}

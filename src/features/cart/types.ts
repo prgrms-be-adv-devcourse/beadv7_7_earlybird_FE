@@ -42,3 +42,9 @@ export interface AddCartItemsPayload {
   projectId: number;
   items: { rewardId: number; quantity: number }[];
 }
+
+// cart-service UpdateCartItemsRequest(presentation/dto/UpdateCartItemsRequest.java)와 동일한 shape.
+export interface UpdateCartItemsPayload {
+  projectId: number;
+  items: { rewardId: number; quantity: number }[];
+}

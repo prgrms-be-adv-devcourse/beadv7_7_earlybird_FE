@@ -43,10 +43,10 @@ export const SETTLEMENT_SERVICE = {
   allSettlements: "/api/v1/settlements/all",
 };
 
-// TODO(FE): board-service 컨트롤러 코드(ProjectNoticeController/ReviewController/CommentController)엔
-// 클래스 레벨 @RequestMapping이 없어 /api/v1 프리픽스가 실제로는 없다(/projects/{id}/notices 등).
-// 팀 컨벤션(2026-07-16 확정, /api/v1/{svc}/xxx) 기준으로 여기서는 있다고 가정만 했다 — 배포 서버가
-// 켜지면 curl로 실제 라우트를 확인하고 아래 값만 고치면 된다(다른 파일에는 영향 없음).
+// 강대혁/project/settlement-kafka-closed-event 브랜치의 실제 컨트롤러 코드로 확인 완료:
+// ProjectNoticeController/ReviewController/CommentController 모두 클래스 레벨
+// @RequestMapping("/api/v1/notices"), ("/api/v1/reviews"), ("/api/v1/comments")를 갖고 있어
+// 아래 경로가 실제 라우트와 일치한다.
 export const BOARD_SERVICE = {
   notices: (projectId: number | string) => `/api/v1/notices?projectId=${projectId}`,
   notice: (noticeId: number | string) => `/api/v1/notices/${noticeId}`,
@@ -55,6 +55,9 @@ export const BOARD_SERVICE = {
   review: (reviewId: number | string) => `/api/v1/reviews/${reviewId}`,
   createReview: "/api/v1/reviews",
   comment: (commentId: number | string) => `/api/v1/comments/${commentId}`,
+  comments: (targetType: string, targetId: number | string) =>
+    `/api/v1/comments?targetType=${targetType}&targetId=${targetId}`,
+  commentReplies: (commentId: number | string) => `/api/v1/comments/${commentId}/replies`,
 };
 
 // TODO(FE): notification-service NotificationController도 /api/v1 프리픽스 없이 /notifications뿐.
@@ -63,4 +66,6 @@ export const BOARD_SERVICE = {
 // ORDER_SERVICE.myOrders/fetchOrders와 동일 패턴으로 params에 담아 보낸다.)
 export const NOTIFICATION_SERVICE = {
   notifications: "/api/v1/notifications/me",
+  read: (notificationId: number | string) => `/api/v1/notifications/${notificationId}/read`,
+  readAll: "/api/v1/notifications/read-all",
 };

@@ -7,3 +7,10 @@ export async function fetchMySettlements(): Promise<Settlement[]> {
   const response = await apiClient.get<ApiResponse<Settlement[]>>(SETTLEMENT_SERVICE.mySettlements);
   return response.data.data ?? [];
 }
+
+export async function fetchAllSettlements(): Promise<Settlement[]> {
+  const response = await apiClient.get<ApiResponse<Settlement[]>>(SETTLEMENT_SERVICE.allSettlements, {
+    headers: { "X-User-Role": "ADMIN" },
+  });
+  return response.data.data ?? [];
+}

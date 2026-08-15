@@ -14,6 +14,7 @@ import { useAuthStore } from "../shared/auth/authStore";
 import { FloatingCartBar } from "../features/cart/components/FloatingCartBar";
 import { useCategories } from "../features/admin/hooks";
 import type { ProjectCategory } from "../features/admin/types";
+import { logoutRequest } from "../features/auth/api";
 
 function CategoryTreeItem({
   category,
@@ -115,6 +116,9 @@ export function Layout() {
   const queryClient = useQueryClient();
 
   const handleLogout = () => {
+    logoutRequest().catch(() => {
+      // 서버 로그아웃 실패해도 로컬 세션은 항상 정리한다 (토큰 만료 등으로 흔히 발생).
+    });
     logout();
     queryClient.clear();
   };
