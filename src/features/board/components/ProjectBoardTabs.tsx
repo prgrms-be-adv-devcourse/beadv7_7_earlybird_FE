@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star, MessageSquarePlus, MessageCircle, Trash2, Pencil, Megaphone, User, CornerDownRight } from "lucide-react";
+import { Star, MessageSquarePlus, MessageCircle, Trash2, Pencil, Megaphone, User, CornerDownRight, ImageIcon } from "lucide-react";
 import {
   Card,
   Button,
@@ -26,7 +26,44 @@ import {
 } from "../hooks";
 import type { ProjectComment } from "../types";
 import { useRewards } from "../../projects/hooks";
+import { useUploadFile, useFilesByOwner } from "../../files/hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
+
+function ReviewPhotos({ reviewId }: { reviewId: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const { data: files, isPending } = useFilesByOwner("REVIEW", reviewId, expanded);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-1 self-start text-xs font-semibold text-brand hover:underline"
+      >
+        <ImageIcon className="h-3.5 w-3.5" />
+        {expanded ? "사진 접기" : "사진 보기"}
+      </button>
+      {expanded && (
+        isPending ? (
+          <p className="text-xs text-mist">불러오는 중...</p>
+        ) : !files || files.length === 0 ? (
+          <p className="text-xs text-mist">등록된 사진이 없어요.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {files.map((f) => (
+              <img
+                key={f.id}
+                src={f.storedUrl}
+                alt={f.originalName}
+                className="h-24 w-24 rounded-sm border border-ink/20 object-cover"
+              />
+            ))}
+          </div>
+        )
+      )}
+    </div>
+  );
+}
 
 function CommentThread({
   comment,
@@ -186,6 +223,8 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
   const [rating, setRating] = useState<number>(5);
   const [reviewContent, setReviewContent] = useState("");
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewPhotoFile, setReviewPhotoFile] = useState<File | null>(null);
+  const uploadReviewPhotoMutation = useUploadFile();
 
   // Comment Compose State
   const [newCommentContent, setNewCommentContent] = useState("");
@@ -236,6 +275,7 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
     setRating(5);
     setReviewContent("");
     setReviewError(null);
+    setReviewPhotoFile(null);
     setReviewModalOpen(true);
   };
 
@@ -247,33 +287,44 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
     setReviewModalOpen(true);
   };
 
-  const handleSubmitReview = () => {
+  const handleSubmitReview = async () => {
     if (!reviewContent.trim()) {
       setReviewError("후기 내용을 입력해주세요.");
       return;
     }
     setReviewError(null);
-    const onSuccess = () => {
+
+    try {
+      if (editingReviewId) {
+        await updateReviewMutation.mutateAsync({
+          reviewId: editingReviewId,
+          payload: { rating, content: reviewContent.trim() },
+        });
+      } else {
+        const createdReview = await createReviewMutation.mutateAsync({
+          rewardId: selectedRewardId,
+          rating,
+          content: reviewContent.trim(),
+        });
+        // 후기엔 project의 thumbnailId 같은 필드가 없다 — 사진은 file-service에
+        // ownerType=REVIEW/ownerId=review.id로 등록만 해두고, 조회할 때 ReviewPhotos가 따로 불러온다.
+        if (reviewPhotoFile) {
+          await uploadReviewPhotoMutation.mutateAsync({
+            file: reviewPhotoFile,
+            ownerType: "REVIEW",
+            ownerId: createdReview.id,
+          });
+        }
+      }
+
       setReviewContent("");
       setRating(5);
       setSelectedRewardId(undefined);
+      setReviewPhotoFile(null);
       setReviewModalOpen(false);
       setEditingReviewId(null);
-    };
-    const onError = (err: any) => {
+    } catch (err: any) {
       setReviewError(err.response?.data?.error?.message || "후기 저장에 실패했습니다.");
-    };
-
-    if (editingReviewId) {
-      updateReviewMutation.mutate(
-        { reviewId: editingReviewId, payload: { rating, content: reviewContent.trim() } },
-        { onSuccess, onError }
-      );
-    } else {
-      createReviewMutation.mutate(
-        { rewardId: selectedRewardId, rating, content: reviewContent.trim() },
-        { onSuccess, onError }
-      );
     }
   };
 
@@ -511,6 +562,8 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
                     <User className="h-3.5 w-3.5" />
                     <span>{review.authorName || "후원자"}</span>
                   </div>
+
+                  <ReviewPhotos reviewId={review.id} />
                 </li>
               ))}
             </ul>
@@ -671,6 +724,19 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
               </div>
             )}
 
+            {/* Photo Input (수정 모드는 미지원 — 작성 시에만) */}
+            {!editingReviewId && (
+              <div>
+                <label className="mb-1 block text-xs font-bold text-ink">사진 첨부 (선택)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setReviewPhotoFile(e.target.files?.[0] ?? null)}
+                  className="w-full text-xs text-ink file:mr-3 file:rounded-sm file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink"
+                />
+              </div>
+            )}
+
             {/* Review Content Input */}
             <div>
               <label className="mb-1 block text-xs font-bold text-ink">후기 내용</label>
@@ -694,9 +760,13 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
             </Button>
             <Button
               onClick={handleSubmitReview}
-              disabled={createReviewMutation.isPending || updateReviewMutation.isPending}
+              disabled={
+                createReviewMutation.isPending ||
+                updateReviewMutation.isPending ||
+                uploadReviewPhotoMutation.isPending
+              }
             >
-              {createReviewMutation.isPending || updateReviewMutation.isPending
+              {createReviewMutation.isPending || updateReviewMutation.isPending || uploadReviewPhotoMutation.isPending
                 ? "저장 중..."
                 : editingReviewId
                   ? "후기 수정하기"

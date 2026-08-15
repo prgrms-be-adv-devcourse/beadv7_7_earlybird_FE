@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCreateProject, useCreateReward } from "../hooks";
+import { useCreateProject, useCreateReward, useUpdateProject } from "../hooks";
 import { useCategories } from "../../admin/hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
+import { useUploadFile } from "../../files/hooks";
 import { Button, Card, ErrorState } from "../../../shared/ui";
 import type { CreateRewardRequest } from "../types";
 import { flattenCategories } from "../utils";
@@ -14,6 +15,8 @@ export function ProjectCreatePage() {
 
   const createProjectMutation = useCreateProject();
   const createRewardMutation = useCreateReward();
+  const updateProjectMutation = useUpdateProject();
+  const uploadFileMutation = useUploadFile();
 
   // Form states
   const [title, setTitle] = useState("");
@@ -32,6 +35,20 @@ export function ProjectCreatePage() {
   const [rewards, setRewards] = useState<CreateRewardRequest[]>([
     { name: "[얼리버드] 기본 팩", description: "선착순 한정 혜택", price: 30000, totalQuantity: 100 },
   ]);
+
+  // Thumbnail (파일 자체는 프로젝트 생성 후 projectId를 ownerId로 삼아 업로드한다 — 생성 전엔
+  // 아직 ownerId가 없다.)
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState<string | null>(null);
+
+  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setThumbnailFile(file);
+    setThumbnailPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return file ? URL.createObjectURL(file) : null;
+    });
+  };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -109,7 +126,20 @@ export function ProjectCreatePage() {
         });
       }
 
-      // 3. Navigate to creator's project management page where PENDING_REVIEW projects are cleanly displayed
+      // 3. Thumbnail upload (선택) — 이제 projectId가 있으니 파일을 올리고 프로젝트에 붙인다.
+      if (thumbnailFile) {
+        const uploaded = await uploadFileMutation.mutateAsync({
+          file: thumbnailFile,
+          ownerType: "PROJECT",
+          ownerId: projectId,
+        });
+        await updateProjectMutation.mutateAsync({
+          projectId,
+          data: { thumbnailId: uploaded.id },
+        });
+      }
+
+      // 4. Navigate to creator's project management page where PENDING_REVIEW projects are cleanly displayed
       navigate("/projects/me");
     } catch (err: any) {
       console.error("Project creation error:", err);
@@ -198,6 +228,23 @@ export function ProjectCreatePage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink focus:border-brand focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-ink">대표 이미지 (선택)</label>
+            {thumbnailPreviewUrl && (
+              <img
+                src={thumbnailPreviewUrl}
+                alt="대표 이미지 미리보기"
+                className="mb-2 h-40 w-full rounded-sm border border-ink/20 object-cover"
+              />
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleThumbnailChange}
+              className="w-full text-sm text-ink file:mr-3 file:rounded-sm file:border file:border-ink/30 file:bg-paper file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink"
             />
           </div>
         </Card>
