@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Star, ImageIcon, CheckCircle2 } from "lucide-react";
+import { Star, ImageIcon, CheckCircle2, AlertCircle } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -99,11 +99,22 @@ export function OrderReviewModal({
         onOpenChange(false);
       }, 1200);
     } catch (err: any) {
-      setErrorMsg(
+      const status = err?.response?.status;
+      const rawMessage =
         err?.response?.data?.error?.message ||
-          err?.response?.data?.message ||
-          "후기 등록 중 오류가 발생했습니다."
-      );
+        err?.response?.data?.message ||
+        "";
+      if (
+        status === 403 ||
+        status === 400 ||
+        rawMessage.includes("구매") ||
+        rawMessage.includes("확인") ||
+        rawMessage.includes("PurchaseNotVerified")
+      ) {
+        setErrorMsg("주문확정된 사용자만 리뷰 작성이 가능합니다!");
+      } else {
+        setErrorMsg(rawMessage || "후기 등록 중 오류가 발생했습니다.");
+      }
     }
   };
 
@@ -229,9 +240,10 @@ export function OrderReviewModal({
 
             {/* Error Message */}
             {errorMsg && (
-              <p className="rounded bg-red-50 p-2 text-xs font-bold text-red-600 border border-red-200">
-                {errorMsg}
-              </p>
+              <div className="flex items-center gap-2 rounded-md border-2 border-amber-400 bg-amber-50 p-3 text-xs font-bold text-amber-900 shadow-sm">
+                <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
             )}
           </div>
         )}

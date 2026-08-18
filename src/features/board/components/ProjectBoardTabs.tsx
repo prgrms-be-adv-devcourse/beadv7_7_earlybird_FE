@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star, MessageSquarePlus, MessageCircle, Trash2, Pencil, Megaphone, User, CornerDownRight, ImageIcon } from "lucide-react";
+import { Star, MessageSquarePlus, MessageCircle, Trash2, Pencil, Megaphone, User, CornerDownRight, ImageIcon, AlertCircle } from "lucide-react";
 import {
   Card,
   Button,
@@ -223,6 +223,7 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
   const [rating, setRating] = useState<number>(5);
   const [reviewContent, setReviewContent] = useState("");
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewTabBanner, setReviewTabBanner] = useState<string | null>(null);
   const [reviewPhotoFile, setReviewPhotoFile] = useState<File | null>(null);
   const uploadReviewPhotoMutation = useUploadFile();
 
@@ -324,7 +325,21 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
       setReviewModalOpen(false);
       setEditingReviewId(null);
     } catch (err: any) {
-      setReviewError(err.response?.data?.error?.message || "후기 저장에 실패했습니다.");
+      const status = err?.response?.status;
+      const rawMessage = err?.response?.data?.error?.message || err?.response?.data?.message || "";
+      if (
+        status === 403 ||
+        status === 400 ||
+        rawMessage.includes("구매") ||
+        rawMessage.includes("확인") ||
+        rawMessage.includes("PurchaseNotVerified")
+      ) {
+        const msg = "주문확정된 사용자만 리뷰 작성이 가능합니다!";
+        setReviewError(msg);
+        setReviewTabBanner(msg);
+      } else {
+        setReviewError(rawMessage || "후기 저장에 실패했습니다.");
+      }
     }
   };
 
@@ -479,6 +494,23 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
       {/* REVIEWS TAB CONTENT */}
       {tab === "reviews" && (
         <div className="flex flex-col gap-4">
+          {/* Unverified Order Warning Banner */}
+          {reviewTabBanner && (
+            <div className="flex items-center justify-between rounded-lg border-2 border-amber-400 bg-amber-50 p-4 text-xs font-bold text-amber-900 shadow-stamp-sm">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+                <span className="text-sm font-extrabold">{reviewTabBanner}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReviewTabBanner(null)}
+                className="text-amber-800 hover:text-amber-950 font-bold ml-3 text-xs"
+              >
+                ✕ 닫기
+              </button>
+            </div>
+          )}
+
           {/* Average Rating Summary Banner */}
           {reviews && reviews.length > 0 && (
             <div className="flex items-center gap-4 rounded-lg bg-amber-500/10 border border-amber-500/20 p-4">
@@ -750,7 +782,10 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
             </div>
 
             {reviewError && (
-              <p className="text-xs font-semibold text-red-500">{reviewError}</p>
+              <div className="flex items-center gap-2 rounded-md border-2 border-amber-400 bg-amber-50 p-3 text-xs font-bold text-amber-900 shadow-sm">
+                <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                <span>{reviewError}</span>
+              </div>
             )}
           </div>
 
