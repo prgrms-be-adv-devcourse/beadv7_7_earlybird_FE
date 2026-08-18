@@ -10,6 +10,7 @@ import { useCreateReward, useDeleteProject, useRewards } from "../hooks";
 import { formatDateKorean } from "../utils";
 import { ProjectEditModal } from "../components/ProjectEditModal";
 import { RewardEditModal } from "../components/RewardEditModal";
+import { useFilesByOwner } from "../../files/hooks";
 import {
   Button,
   Card,
@@ -20,6 +21,7 @@ import {
   DialogTitle,
   EmptyState,
   ErrorState,
+  Thumbnail,
 } from "../../../shared/ui";
 
 export async function cancelMyProject(projectId: number): Promise<void> {
@@ -29,6 +31,8 @@ export async function cancelMyProject(projectId: number): Promise<void> {
 function MyProjectCard({ project }: { project: ProjectSummary }) {
   const queryClient = useQueryClient();
   const { data: rewards } = useRewards(project.projectId);
+  const { data: projectFiles } = useFilesByOwner("PROJECT", project.projectId, true);
+  const thumbnailUrl = projectFiles && projectFiles.length > 0 ? projectFiles[0].storedUrl : null;
 
   const [editingProject, setEditingProject] = useState(false);
   const [editingReward, setEditingReward] = useState<Reward | null>(null);
@@ -64,30 +68,40 @@ function MyProjectCard({ project }: { project: ProjectSummary }) {
 
   return (
     <Card className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {getStatusBadge(project.status)}
-          <h2 className="font-display text-lg font-bold text-ink">{project.title}</h2>
-        </div>
-        <span className="text-xs text-mist font-mono">Project ID: #{project.projectId}</span>
-      </div>
+      <div className="flex flex-col sm:flex-row gap-4 items-start">
+        <Thumbnail
+          src={thumbnailUrl}
+          alt={project.title}
+          className="w-full sm:w-36 h-28 aspect-[16/10] sm:aspect-auto rounded-sm shrink-0"
+          objectFit="cover"
+        />
+        <div className="flex-1 w-full flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {getStatusBadge(project.status)}
+              <h2 className="font-display text-lg font-bold text-ink">{project.title}</h2>
+            </div>
+            <span className="text-xs text-mist font-mono">Project ID: #{project.projectId}</span>
+          </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-sm bg-surface p-3 text-xs text-mist">
-        <div>
-          <span className="block font-semibold text-ink">목표 금액</span>
-          <span className="tabular-nums font-bold text-ink">{project.goalAmount.toLocaleString()}원</span>
-        </div>
-        <div>
-          <span className="block font-semibold text-ink">현재 달성액</span>
-          <span className="tabular-nums font-bold text-brand">{project.fundedAmount.toLocaleString()}원</span>
-        </div>
-        <div>
-          <span className="block font-semibold text-ink">시작일 / 생성일</span>
-          <span>{formatDateKorean(project.startAt)}</span>
-        </div>
-        <div>
-          <span className="block font-semibold text-ink">마감일</span>
-          <span className="font-bold text-ink">{formatDateKorean(project.endAt)}</span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-sm bg-surface p-3 text-xs text-mist">
+            <div>
+              <span className="block font-semibold text-ink">목표 금액</span>
+              <span className="tabular-nums font-bold text-ink">{project.goalAmount.toLocaleString()}원</span>
+            </div>
+            <div>
+              <span className="block font-semibold text-ink">현재 달성액</span>
+              <span className="tabular-nums font-bold text-brand">{project.fundedAmount.toLocaleString()}원</span>
+            </div>
+            <div>
+              <span className="block font-semibold text-ink">시작일 / 생성일</span>
+              <span>{formatDateKorean(project.startAt)}</span>
+            </div>
+            <div>
+              <span className="block font-semibold text-ink">마감일</span>
+              <span className="font-bold text-ink">{formatDateKorean(project.endAt)}</span>
+            </div>
+          </div>
         </div>
       </div>
 
