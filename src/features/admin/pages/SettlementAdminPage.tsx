@@ -270,6 +270,45 @@ export function SettlementAdminPage() {
 
   const [actionFeedback, setActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
+  // Summary statistics
+  const summary = useMemo(() => {
+    const list = settlements ?? [];
+    const totalCount = list.length;
+    const totalBase = list.reduce((sum, s) => sum + (s.settlementBaseAmount || 0), 0);
+    const totalPayout = list.reduce((sum, s) => sum + (s.creatorPayoutAmount || 0), 0);
+    const completedCount = list.filter((s) => s.status === "COMPLETED").length;
+    const processingCount = list.filter((s) => s.status === "PROCESSING").length;
+    const pendingCount = list.filter(
+      (s) => s.status === "SCHEDULED" || s.status === "CREATOR_PAYOUT_PROFILE_WAITING" || s.status === "RETRY_WAITING"
+    ).length;
+
+    return { totalCount, totalBase, totalPayout, completedCount, processingCount, pendingCount };
+  }, [settlements]);
+
+  // Filtered and sorted settlements
+  const filteredSettlements = useMemo(() => {
+    let result = [...(settlements ?? [])];
+
+    if (statusFilter !== "ALL") {
+      result = result.filter((s) => s.status === statusFilter);
+    }
+
+    if (searchProjectId.trim()) {
+      const pid = searchProjectId.trim();
+      result = result.filter((s) => String(s.projectId).includes(pid) || String(s.settlementId).includes(pid));
+    }
+
+    if (sortOrder === "AMOUNT_DESC") {
+      result.sort((a, b) => b.creatorPayoutAmount - a.creatorPayoutAmount);
+    } else if (sortOrder === "AMOUNT_ASC") {
+      result.sort((a, b) => a.creatorPayoutAmount - b.creatorPayoutAmount);
+    } else {
+      result.sort((a, b) => b.settlementId - a.settlementId);
+    }
+
+    return result;
+  }, [settlements, statusFilter, searchProjectId, sortOrder]);
+
   if (!isAdmin) {
     return (
       <ErrorState
@@ -337,45 +376,6 @@ export function SettlementAdminPage() {
       },
     });
   };
-
-  // Summary statistics
-  const summary = useMemo(() => {
-    const list = settlements ?? [];
-    const totalCount = list.length;
-    const totalBase = list.reduce((sum, s) => sum + (s.settlementBaseAmount || 0), 0);
-    const totalPayout = list.reduce((sum, s) => sum + (s.creatorPayoutAmount || 0), 0);
-    const completedCount = list.filter((s) => s.status === "COMPLETED").length;
-    const processingCount = list.filter((s) => s.status === "PROCESSING").length;
-    const pendingCount = list.filter(
-      (s) => s.status === "SCHEDULED" || s.status === "CREATOR_PAYOUT_PROFILE_WAITING" || s.status === "RETRY_WAITING"
-    ).length;
-
-    return { totalCount, totalBase, totalPayout, completedCount, processingCount, pendingCount };
-  }, [settlements]);
-
-  // Filtered and sorted settlements
-  const filteredSettlements = useMemo(() => {
-    let result = [...(settlements ?? [])];
-
-    if (statusFilter !== "ALL") {
-      result = result.filter((s) => s.status === statusFilter);
-    }
-
-    if (searchProjectId.trim()) {
-      const pid = searchProjectId.trim();
-      result = result.filter((s) => String(s.projectId).includes(pid) || String(s.settlementId).includes(pid));
-    }
-
-    if (sortOrder === "AMOUNT_DESC") {
-      result.sort((a, b) => b.creatorPayoutAmount - a.creatorPayoutAmount);
-    } else if (sortOrder === "AMOUNT_ASC") {
-      result.sort((a, b) => a.creatorPayoutAmount - b.creatorPayoutAmount);
-    } else {
-      result.sort((a, b) => b.settlementId - a.settlementId);
-    }
-
-    return result;
-  }, [settlements, statusFilter, searchProjectId, sortOrder]);
 
   return (
     <div className="flex flex-col gap-6">
