@@ -16,6 +16,7 @@ import { SettlementDashboardPage } from "../features/settlements/pages/Settlemen
 import { NotificationListPage } from "../features/notifications/pages/NotificationListPage";
 import { CategoryAdminPage } from "../features/admin/pages/CategoryAdminPage";
 import { ProjectApprovalPage } from "../features/admin/pages/ProjectApprovalPage";
+import { SettlementAdminPage } from "../features/admin/pages/SettlementAdminPage";
 import { SupportButtonPreview } from "../dev/SupportButtonPreview";
 import { HomePreview } from "../dev/HomePreview";
 
@@ -42,6 +43,7 @@ export function AppRoutes() {
           <Route path="/notifications" element={<NotificationListPage />} />
           <Route path="/admin/categories" element={<CategoryAdminPage />} />
           <Route path="/admin/approvals" element={<ProjectApprovalPage />} />
+          <Route path="/admin/settlements" element={<SettlementAdminPage />} />
         </Route>
       </Route>
     </Routes>

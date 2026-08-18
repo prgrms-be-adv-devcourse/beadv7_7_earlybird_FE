@@ -41,6 +41,9 @@ export const PAYMENT_SERVICE = {
 export const SETTLEMENT_SERVICE = {
   mySettlements: "/api/v1/settlements",
   allSettlements: "/api/v1/settlements/all",
+  settlementDetail: (id: number | string) => `/api/v1/settlements/all/${id}`,
+  runPayout: "/internal/v1/settlements/project-payouts/runs",
+  runPgReconciliation: "/internal/v1/settlements/pg-reconciliations/runs",
 };
 
 // 강대혁/project/settlement-kafka-closed-event 브랜치의 실제 컨트롤러 코드로 확인 완료:

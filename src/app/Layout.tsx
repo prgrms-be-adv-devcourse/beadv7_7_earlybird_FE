@@ -180,6 +180,9 @@ export function Layout() {
               <Link to="/admin/approvals" className="font-bold text-brand transition-colors hover:underline">
                 🛡️ 프로젝트 심사
               </Link>
+              <Link to="/admin/settlements" className="font-bold text-brand transition-colors hover:underline">
+                💰 정산 관리
+              </Link>
             </>
           )}
 
@@ -212,9 +215,15 @@ export function Layout() {
                 <DropdownMenuItem asChild>
                   <Link to="/orders">내 주문 내역</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/settlements">정산 현황</Link>
-                </DropdownMenuItem>
+                {user.role === "ADMIN" ? (
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/settlements">정산 내역 관리</Link>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem asChild>
+                    <Link to="/settlements">정산 현황</Link>
+                  </DropdownMenuItem>
+                )}
 
                 <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
                 <div className="px-2 py-1 text-[11px] font-semibold text-mist">역할 즉시 전환 (테스트용)</div>
@@ -275,12 +284,19 @@ export function Layout() {
                 <DropdownMenuItem asChild>
                   <Link to="/projects/me">내 프로젝트 관리</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/admin/categories">📁 카테고리 관리</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/admin/approvals">🛡️ 프로젝트 심사</Link>
-                </DropdownMenuItem>
+                {user.role === "ADMIN" && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin/categories">📁 카테고리 관리</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin/approvals">🛡️ 프로젝트 심사</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin/settlements">💰 정산 내역 관리</Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
                 <DropdownMenuItem onSelect={() => setRole(user.role === "ADMIN" ? "CREATOR" : user.role === "CREATOR" ? "BACKER" : "ADMIN")}>
                   역할 전환 ({user.role} ➔ 토글)

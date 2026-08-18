@@ -17,7 +17,7 @@ export type PayoutObligationStatus =
   | "COMPLETED"
   | "ACTION_REQUIRED";
 
-/** GET /api/v1/settlements 목록 항목 (CreatorProjectSettlementListItemResponse). */
+/** GET /api/v1/settlements 목록 항목 (CreatorProjectSettlementListItemResponse / AdminProjectSettlementListItemResponse). */
 export interface Settlement {
   settlementId: number;
   projectId: number;
@@ -28,3 +28,56 @@ export interface Settlement {
   scheduledDate: string;
   completedAt: string | null;
 }
+
+export interface FeeDetail {
+  rate: number;
+  amount: number;
+  vatRate: number;
+  vatAmount: number;
+}
+
+export interface SettlementBreakdown {
+  settlementBaseAmount: number;
+  paymentAndSettlementAgencyFee: FeeDetail;
+  platformFee: FeeDetail;
+  otherDeductionAmount: number;
+  creatorPayoutAmount: number;
+}
+
+export interface PayoutDestination {
+  tossSellerId?: string | null;
+  bankCode?: string | null;
+  maskedAccountNumber?: string | null;
+}
+
+export interface PayoutAttempt {
+  attemptId: number;
+  sequence: number;
+  refPayoutId?: string | null;
+  idempotencyKey?: string | null;
+  tossPayoutId?: string | null;
+  amount: number;
+  status: string;
+  errorCode?: string | null;
+  requestedAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface PayoutDetail {
+  settlementId: number;
+  status: PayoutObligationStatus;
+  scheduledDate: string;
+  completedAt: string | null;
+  destination: PayoutDestination;
+  attempts: PayoutAttempt[];
+}
+
+export interface AdminSettlementDetail {
+  settlementId: number;
+  creatorId: number;
+  project: { projectId: number };
+  confirmedAt: string;
+  breakdown: SettlementBreakdown;
+  payout: PayoutDetail;
+}
+
