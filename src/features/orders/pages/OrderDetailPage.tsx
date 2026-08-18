@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Star } from "lucide-react";
 import {
   AlertDialog,
@@ -25,6 +26,7 @@ export function OrderDetailPage() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const orderId = Number(id);
   const { data: order, isPending, isError } = useOrder(orderId);
   const { data: myOrders } = useOrders();
@@ -58,6 +60,8 @@ export function OrderDetailPage() {
         },
         {
           onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["orders", orderId] });
+            queryClient.invalidateQueries({ queryKey: ["orders"] });
             navigate(`/orders/${orderId}`, { replace: true, state: { paymentSuccess: true } });
           },
           onError: (err) => {
@@ -66,7 +70,7 @@ export function OrderDetailPage() {
         }
       );
     }
-  }, [isRedirectingFromToss, paymentKeyParam, pgOrderIdParam, amountParam, orderId, navigate, confirmPayment]);
+  }, [isRedirectingFromToss, paymentKeyParam, pgOrderIdParam, amountParam, orderId, navigate, confirmPayment, queryClient]);
 
   const isPaymentSuccess = Boolean(
     (location.state as any)?.paymentSuccess ||
