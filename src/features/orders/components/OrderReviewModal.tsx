@@ -104,7 +104,9 @@ export function OrderReviewModal({
         err?.response?.data?.error?.message ||
         err?.response?.data?.message ||
         "";
-      if (
+      if (status === 409 || rawMessage.includes("이미 이 프로젝트에 리뷰를 작성했습니다")) {
+        setErrorMsg("이미 이 프로젝트에 작성하신 후기가 등록되어 있습니다. 프로젝트 상세 페이지의 [후기] 탭에서 확인하실 수 있습니다.");
+      } else if (
         status === 403 ||
         status === 400 ||
         rawMessage.includes("구매") ||
