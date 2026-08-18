@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Button,
   Dialog,
@@ -9,6 +10,7 @@ import {
 } from "../../../shared/ui";
 import { useUpdateProject } from "../hooks";
 import { useCategories } from "../../admin/hooks";
+import { useUploadFile, useFilesByOwner } from "../../files/hooks";
 import type { ProjectDetail } from "../types";
 import { flattenCategories } from "../utils";
 
@@ -21,8 +23,11 @@ export function ProjectEditModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const queryClient = useQueryClient();
   const { data: categories } = useCategories();
   const updateProjectMutation = useUpdateProject();
+  const uploadFileMutation = useUploadFile();
+  const { data: existingFiles } = useFilesByOwner("PROJECT", project.projectId, open);
 
   const flatCategoryOptions = useMemo(
     () => flattenCategories(categories ?? []),
@@ -41,37 +46,71 @@ export function ProjectEditModal({
   );
   const [endAt, setEndAt] = useState(project.endAt || "");
 
+  const [newThumbnailFile, setNewThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (open) {
+      setTitle(project.title);
+      setCategoryId(project.categoryId);
+      setSummary(project.summary || "");
+      setDescription(project.description || "");
+      setGoalAmount(project.goalAmount);
+      setStartAt(project.startAt ? new Date(project.startAt).toISOString().slice(0, 16) : "");
+      setEndAt(project.endAt || "");
+      setNewThumbnailFile(null);
+      setThumbnailPreviewUrl(null);
+      setErrorMsg(null);
+    }
+  }, [open, project]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setIsSaving(true);
 
-    const data: any = isPublished
-      ? {
-          summary,
-          description,
-        }
-      : {
-          title,
-          categoryId,
-          summary,
-          description,
-          goalAmount,
-          startAt: startAt ? new Date(startAt).toISOString() : undefined,
-          endAt,
-        };
+    try {
+      let uploadedThumbnailId = project.thumbnailId;
 
-    updateProjectMutation.mutate(
-      { projectId: project.projectId, data },
-      {
-        onSuccess: () => onOpenChange(false),
-        onError: (err: any) => {
-          const msg = err.response?.data?.error?.message || err.message || "프로젝트 수정에 실패했습니다.";
-          setErrorMsg(msg);
-        },
+      if (newThumbnailFile) {
+        const uploaded = await uploadFileMutation.mutateAsync({
+          file: newThumbnailFile,
+          ownerType: "PROJECT",
+          ownerId: project.projectId,
+        });
+        uploadedThumbnailId = uploaded.id;
       }
-    );
+
+      const data: any = isPublished
+        ? {
+            summary,
+            description,
+            ...(uploadedThumbnailId ? { thumbnailId: uploadedThumbnailId } : {}),
+          }
+        : {
+            title,
+            categoryId,
+            summary,
+            description,
+            goalAmount,
+            startAt: startAt ? new Date(startAt).toISOString() : undefined,
+            endAt,
+            ...(uploadedThumbnailId ? { thumbnailId: uploadedThumbnailId } : {}),
+          };
+
+      await updateProjectMutation.mutateAsync({ projectId: project.projectId, data });
+      queryClient.invalidateQueries({ queryKey: ["files", "PROJECT", project.projectId] });
+      queryClient.invalidateQueries({ queryKey: ["projects", project.projectId] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      onOpenChange(false);
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.message || "프로젝트 수정에 실패했습니다.";
+      setErrorMsg(msg);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -132,6 +171,34 @@ export function ProjectEditModal({
             />
           </div>
 
+          <div>
+            <label className="mb-1 block font-semibold text-ink">대표 이미지 (사진 추가/변경)</label>
+            {(thumbnailPreviewUrl || (existingFiles && existingFiles.length > 0)) && (
+              <div className="mb-2 relative inline-block w-full">
+                <img
+                  src={thumbnailPreviewUrl || existingFiles?.[0]?.storedUrl}
+                  alt="대표 이미지 미리보기"
+                  className="h-40 w-full rounded-sm border border-ink/20 object-cover bg-paper"
+                />
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                setNewThumbnailFile(file);
+                if (file) {
+                  setThumbnailPreviewUrl(URL.createObjectURL(file));
+                }
+              }}
+              className="w-full text-xs text-ink file:mr-3 file:rounded-sm file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink hover:file:bg-paper/80"
+            />
+            <p className="mt-1 text-[11px] text-mist">
+              새로운 이미지를 선택하시면 프로젝트 대표 이미지가 즉시 교체/등록됩니다.
+            </p>
+          </div>
+
           {!isPublished && (
             <>
               <div>
@@ -173,8 +240,8 @@ export function ProjectEditModal({
             <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
               취소
             </Button>
-            <Button type="submit" disabled={updateProjectMutation.isPending}>
-              {updateProjectMutation.isPending ? "저장 중..." : "수정 완료"}
+            <Button type="submit" disabled={isSaving || updateProjectMutation.isPending || uploadFileMutation.isPending}>
+              {isSaving ? "저장 중..." : "수정 완료"}
             </Button>
           </div>
         </form>

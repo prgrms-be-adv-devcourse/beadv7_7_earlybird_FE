@@ -24,6 +24,7 @@ import { useProject, useRewards } from "../hooks";
 import { useCategories } from "../../admin/hooks";
 import { useAddCartItems } from "../../cart/hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
+import { useFilesByOwner } from "../../files/hooks";
 import { ProjectBoardTabs } from "../../board/components/ProjectBoardTabs";
 import { ProjectEditModal } from "../components/ProjectEditModal";
 import { RewardEditModal } from "../components/RewardEditModal";
@@ -284,7 +285,9 @@ export function ProjectDetailPage() {
   const { data: project, isPending, isError } = useProject(projectId);
   const { data: rewards } = useRewards(projectId);
   const { data: categories } = useCategories();
+  const { data: projectFiles } = useFilesByOwner("PROJECT", projectId, true);
   const categoryName = categories?.find((c) => c.id === project?.categoryId)?.name;
+  const projectThumbnailUrl = projectFiles && projectFiles.length > 0 ? projectFiles[0].storedUrl : null;
 
   const [selectedRewardId, setSelectedRewardId] = useState<number | null>(null);
   const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
@@ -461,7 +464,7 @@ export function ProjectDetailPage() {
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
           <Card className="!p-0">
-            <Thumbnail className="aspect-[16/9] w-full" />
+            <Thumbnail src={projectThumbnailUrl} alt={project.title} className="aspect-[16/9] w-full" />
             <div className="p-6">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
