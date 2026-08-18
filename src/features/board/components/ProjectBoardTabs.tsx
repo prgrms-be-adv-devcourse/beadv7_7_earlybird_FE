@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star, MessageSquarePlus, MessageCircle, Trash2, Pencil, Megaphone, User, CornerDownRight, ImageIcon, AlertCircle } from "lucide-react";
+import { Star, MessageSquarePlus, MessageCircle, Trash2, Pencil, Megaphone, User, CornerDownRight, AlertCircle } from "lucide-react";
 import {
   Card,
   Button,
@@ -30,36 +30,43 @@ import { useUploadFile, useFilesByOwner } from "../../files/hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
 
 function ReviewPhotos({ reviewId }: { reviewId: number }) {
-  const [expanded, setExpanded] = useState(false);
-  const { data: files, isPending } = useFilesByOwner("REVIEW", reviewId, expanded);
+  const { data: files } = useFilesByOwner("REVIEW", reviewId, true);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+
+  if (!files || files.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-2">
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="flex items-center gap-1 self-start text-xs font-semibold text-brand hover:underline"
-      >
-        <ImageIcon className="h-3.5 w-3.5" />
-        {expanded ? "사진 접기" : "사진 보기"}
-      </button>
-      {expanded && (
-        isPending ? (
-          <p className="text-xs text-mist">불러오는 중...</p>
-        ) : !files || files.length === 0 ? (
-          <p className="text-xs text-mist">등록된 사진이 없어요.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {files.map((f) => (
-              <img
-                key={f.id}
-                src={f.storedUrl}
-                alt={f.originalName}
-                className="h-24 w-24 rounded-sm border border-ink/20 object-cover"
-              />
-            ))}
-          </div>
-        )
+    <div className="mt-2 flex flex-col gap-2">
+      <div className="flex flex-wrap gap-3">
+        {files.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setSelectedPhoto(f.storedUrl)}
+            className="group relative overflow-hidden rounded-md border border-ink/15 shadow-sm transition-all hover:border-brand hover:shadow-md focus:outline-none"
+          >
+            <img
+              src={f.storedUrl}
+              alt={f.originalName}
+              className="h-44 w-44 sm:h-52 sm:w-52 rounded-md object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+            <span className="absolute bottom-1.5 right-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+              🔍 크게 보기
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {selectedPhoto && (
+        <Dialog open={!!selectedPhoto} onOpenChange={(open) => !open && setSelectedPhoto(null)}>
+          <DialogContent className="max-w-3xl p-3 flex flex-col items-center">
+            <img
+              src={selectedPhoto}
+              alt="후기 사진 크게보기"
+              className="max-h-[80vh] w-auto rounded-md object-contain"
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
