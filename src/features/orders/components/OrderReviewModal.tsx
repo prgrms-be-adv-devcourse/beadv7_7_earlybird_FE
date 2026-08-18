@@ -224,12 +224,12 @@ export function OrderReviewModal({
                   <img
                     src={photoPreview}
                     alt="Review attachment preview"
-                    className="h-20 w-20 rounded border-2 border-ink/20 object-cover"
+                    className="max-h-48 max-w-full rounded border-2 border-ink/20 object-contain bg-paper/60 p-0.5 transition-all duration-300"
                   />
                   <button
                     type="button"
                     onClick={() => handleFileChange(null)}
-                    className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-white text-[10px] font-black"
+                    className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-white text-[10px] font-black shadow-sm hover:scale-110 transition-transform"
                     title="사진 제거"
                   >
                     ✕

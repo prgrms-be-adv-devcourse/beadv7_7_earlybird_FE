@@ -115,7 +115,7 @@ export function ProjectEditModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto transition-all duration-300">
         <DialogTitle>✏️ 프로젝트 정보 수정</DialogTitle>
         <DialogDescription>
           {isPublished
@@ -174,11 +174,11 @@ export function ProjectEditModal({
           <div>
             <label className="mb-1 block font-semibold text-ink">대표 이미지 (사진 추가/변경)</label>
             {(thumbnailPreviewUrl || (existingFiles && existingFiles.length > 0)) && (
-              <div className="mb-2 relative inline-block w-full">
+              <div className="mb-2 relative flex items-center justify-center w-full rounded-sm border border-ink/20 bg-paper/60 p-1">
                 <img
                   src={thumbnailPreviewUrl || existingFiles?.[0]?.storedUrl}
                   alt="대표 이미지 미리보기"
-                  className="h-40 w-full rounded-sm border border-ink/20 object-cover bg-paper"
+                  className="max-h-80 w-full rounded-sm object-contain transition-all duration-300"
                 />
               </div>
             )}

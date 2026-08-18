@@ -234,11 +234,13 @@ export function ProjectCreatePage() {
           <div>
             <label className="mb-1 block text-sm font-semibold text-ink">대표 이미지 (선택)</label>
             {thumbnailPreviewUrl && (
-              <img
-                src={thumbnailPreviewUrl}
-                alt="대표 이미지 미리보기"
-                className="mb-2 h-40 w-full rounded-sm border border-ink/20 object-cover"
-              />
+              <div className="mb-2 flex items-center justify-center w-full rounded-sm border border-ink/20 bg-paper/60 p-1">
+                <img
+                  src={thumbnailPreviewUrl}
+                  alt="대표 이미지 미리보기"
+                  className="max-h-80 w-full rounded-sm object-contain transition-all duration-300"
+                />
+              </div>
             )}
             <input
               type="file"

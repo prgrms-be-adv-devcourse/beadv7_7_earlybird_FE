@@ -463,8 +463,13 @@ export function ProjectDetailPage() {
         )}
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
-          <Card className="!p-0">
-            <Thumbnail src={projectThumbnailUrl} alt={project.title} className="aspect-[16/9] w-full" />
+          <Card className="!p-0 overflow-hidden">
+            <Thumbnail
+              src={projectThumbnailUrl}
+              alt={project.title}
+              className="w-full min-h-[280px] max-h-[580px] bg-paper/40 transition-all duration-300"
+              objectFit="contain"
+            />
             <div className="p-6">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
