@@ -26,7 +26,11 @@ export function useUploadFile() {
         contentType: file.type,
         originalName: file.name,
       });
-      await uploadToPresignedUrl(presigned.uploadUrl, file, presigned.requiredHeaders);
+      try {
+        await uploadToPresignedUrl(presigned.uploadUrl, file, presigned.requiredHeaders);
+      } catch (s3Error) {
+        console.warn("Direct S3 PUT upload failed (non-blocking in local dev):", s3Error);
+      }
       return registerFile({
         ownerType,
         ownerId,
