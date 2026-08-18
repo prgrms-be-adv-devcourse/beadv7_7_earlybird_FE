@@ -1,6 +1,6 @@
-import {useEffect, useRef} from "react";
-import {useLocation, useNavigate, useParams} from "react-router-dom";
-import {CheckCircle2} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { CheckCircle2, Star } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,9 +16,10 @@ import {
   RowSkeleton,
   Skeleton,
 } from "../../../shared/ui";
-import {useCancelOrder, useOrder, useOrders} from "../hooks";
-import {useConfirmPayment} from "../../payments/hooks";
-import {getOrderStatusBadgeTone, getOrderStatusLabel, getOrderDisplayNumber} from "../utils";
+import { useCancelOrder, useOrder, useOrders } from "../hooks";
+import { useConfirmPayment } from "../../payments/hooks";
+import { getOrderStatusBadgeTone, getOrderStatusLabel, getOrderDisplayNumber } from "../utils";
+import { OrderReviewModal } from "../components/OrderReviewModal";
 
 export function OrderDetailPage() {
   const { id } = useParams();
@@ -31,6 +32,14 @@ export function OrderDetailPage() {
   const cancelMutation = useCancelOrder(orderId);
   const { mutate: confirmPayment } = useConfirmPayment();
   const hasRequestedConfirmation = useRef(false);
+
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [selectedRewardIdForReview, setSelectedRewardIdForReview] = useState<number | undefined>(undefined);
+
+  const handleOpenReview = (rewardId?: number) => {
+    setSelectedRewardIdForReview(rewardId);
+    setReviewModalOpen(true);
+  };
 
   const searchParams = new URLSearchParams(location.search);
   const paymentKeyParam = searchParams.get("paymentKey");
@@ -122,11 +131,35 @@ export function OrderDetailPage() {
         <h2 className="mb-2 font-display text-base font-bold text-ink">주문한 리워드 항목</h2>
         <ul className="mb-4 flex flex-col gap-2">
           {order.orderItems.map((item) => (
-            <li key={item.id} className="flex justify-between rounded-sm border border-ink/20 p-3">
-              <span className="font-medium text-ink">
-                {item.name} <span className="text-mist">x {item.quantity}개</span>
-              </span>
-              <span className="tabular-nums font-bold text-ink">{item.subtotal.toLocaleString()}원</span>
+            <li
+              key={item.id}
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-sm border border-ink/20 p-3 bg-surface/50"
+            >
+              <div className="flex flex-col gap-0.5">
+                <span className="font-bold text-ink">
+                  {item.name} <span className="text-mist font-normal">x {item.quantity}개</span>
+                </span>
+                <Link
+                  to={`/projects/${item.projectId}`}
+                  className="text-[11px] font-semibold text-brand hover:underline self-start"
+                >
+                  프로젝트 바로가기 ➔
+                </Link>
+              </div>
+              <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                <span className="tabular-nums font-bold text-ink">{item.subtotal.toLocaleString()}원</span>
+                {effectiveStatus === "PAID" && (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    className="text-xs font-bold py-1 px-2.5 flex items-center gap-1 shadow-none"
+                    onClick={() => handleOpenReview(item.rewardId)}
+                  >
+                    <Star className="h-3.5 w-3.5 fill-current" />
+                    <span>후기 쓰기</span>
+                  </Button>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -139,6 +172,17 @@ export function OrderDetailPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2">
+          {effectiveStatus === "PAID" && (
+            <Button
+              type="button"
+              onClick={() => handleOpenReview()}
+              className="flex-1 py-3 text-sm font-bold text-white shadow-stamp hover:scale-[1.01] transition-transform flex items-center justify-center gap-2"
+            >
+              <Star className="h-4 w-4 fill-current" />
+              <span>✍️ 리워드 후기 작성하기</span>
+            </Button>
+          )}
+
           {effectiveStatus !== "PAID" &&
             effectiveStatus !== "CANCELLED" &&
             effectiveStatus !== "PAYMENT_FAILED" &&
@@ -179,6 +223,16 @@ export function OrderDetailPage() {
             )}
         </div>
       </Card>
+
+      {/* Order Review Modal */}
+      {order && (
+        <OrderReviewModal
+          open={reviewModalOpen}
+          onOpenChange={setReviewModalOpen}
+          orderItems={order.orderItems}
+          defaultRewardId={selectedRewardIdForReview}
+        />
+      )}
     </div>
   );
 }

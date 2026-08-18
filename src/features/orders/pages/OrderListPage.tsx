@@ -30,6 +30,11 @@ export function OrderListPage() {
             <div className="flex items-center gap-3">
               <span className="font-bold text-ink">주문 #{getOrderDisplayNumber(order.id, allOrderIds)}</span>
               <Badge tone={getOrderStatusBadgeTone(order.status)}>{getOrderStatusLabel(order.status)}</Badge>
+              {order.status === "PAID" && (
+                <span className="rounded bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-bold text-amber-800 hidden sm:inline-block">
+                  ✍️ 후기 작성 가능
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-4">
               <span className="tabular-nums font-bold text-ink">{order.totalAmount.toLocaleString()}원</span>
