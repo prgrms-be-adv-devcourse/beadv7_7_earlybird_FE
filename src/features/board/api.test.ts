@@ -47,7 +47,9 @@ describe("board api", () => {
     (apiClient.post as any).mockResolvedValue({ data: { success: true, data: fakeReview, error: null } });
     const payload = { projectId: 39, rating: 5, content: "최고의 프로젝트입니다!" };
     const result = await createReview(payload);
-    expect(apiClient.post).toHaveBeenCalledWith(BOARD_SERVICE.createReview, payload);
+    expect(apiClient.post).toHaveBeenCalledWith(BOARD_SERVICE.createReview, payload, {
+      params: { projectId: 39 },
+    });
     expect(result).toEqual(fakeReview);
   });
 

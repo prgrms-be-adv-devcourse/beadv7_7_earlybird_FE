@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Clock, Calendar } from "lucide-react";
 import { Badge, ProgressMeter, Thumbnail, buttonClassName } from "../../../shared/ui";
+import { useFilesByOwner } from "../../files/hooks";
 import type { ProjectSummary } from "../types";
 import { daysLeft, fundedPercent, getStatusLabel, getStatusBadgeTone, formatDateKorean } from "../utils";
 
@@ -11,6 +12,9 @@ interface ProjectCardProps {
 }
 
 export function ProjectCard({ project, categoryName, className = "" }: ProjectCardProps) {
+  const { data: projectFiles } = useFilesByOwner("PROJECT", project.projectId, true);
+  const thumbnailUrl = projectFiles && projectFiles.length > 0 ? projectFiles[0].storedUrl : null;
+
   const percent = fundedPercent(project.fundedAmount, project.goalAmount);
   const remaining = daysLeft(project.endAt);
   const statusLabel = getStatusLabel(project.status);
@@ -22,7 +26,12 @@ export function ProjectCard({ project, categoryName, className = "" }: ProjectCa
     >
       <Link to={`/projects/${project.projectId}`} className="absolute inset-0 z-10" aria-label={project.title} />
 
-      <Thumbnail className="aspect-square w-full" />
+      <Thumbnail
+        src={thumbnailUrl}
+        alt={project.title}
+        className="aspect-[16/10] w-full"
+        objectFit="cover"
+      />
 
       <div className="flex flex-1 flex-col p-4">
         <div className="mb-1.5 flex items-center justify-between gap-2">

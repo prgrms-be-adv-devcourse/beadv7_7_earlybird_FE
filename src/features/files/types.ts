@@ -1,7 +1,4 @@
-// file-service File 도메인(file/domain/File.java) 기준. 현재 백엔드 enum(FileOwnerType.java)엔
-// PROJECT만 있고, REVIEW는 주석에 "향후 확장" 대상으로만 적혀 있다 — 후기 사진을 쓰려면 백엔드에
-// REVIEW 값 추가를 요청해야 한다(PRESIGNED_UPLOAD_SPEC 참고).
-export type FileOwnerType = "PROJECT" | "REVIEW";
+export type FileOwnerType = "PROJECT" | "REVIEW" | "REWARD";
 
 // PRESIGNED_UPLOAD_SPEC.md에서 백엔드팀에 요청하는 신규 엔드포인트의 응답 shape (아직 미구현 —
 // 존재한다고 가정하고 FE를 먼저 짠 것).

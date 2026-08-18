@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star, MessageSquarePlus, MessageCircle, Trash2, Pencil, Megaphone, User, CornerDownRight, ImageIcon } from "lucide-react";
+import { Star, MessageSquarePlus, MessageCircle, Trash2, Pencil, Megaphone, User, CornerDownRight, AlertCircle } from "lucide-react";
 import {
   Card,
   Button,
@@ -30,36 +30,43 @@ import { useUploadFile, useFilesByOwner } from "../../files/hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
 
 function ReviewPhotos({ reviewId }: { reviewId: number }) {
-  const [expanded, setExpanded] = useState(false);
-  const { data: files, isPending } = useFilesByOwner("REVIEW", reviewId, expanded);
+  const { data: files } = useFilesByOwner("REVIEW", reviewId, true);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+
+  if (!files || files.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-2">
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="flex items-center gap-1 self-start text-xs font-semibold text-brand hover:underline"
-      >
-        <ImageIcon className="h-3.5 w-3.5" />
-        {expanded ? "사진 접기" : "사진 보기"}
-      </button>
-      {expanded && (
-        isPending ? (
-          <p className="text-xs text-mist">불러오는 중...</p>
-        ) : !files || files.length === 0 ? (
-          <p className="text-xs text-mist">등록된 사진이 없어요.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {files.map((f) => (
-              <img
-                key={f.id}
-                src={f.storedUrl}
-                alt={f.originalName}
-                className="h-24 w-24 rounded-sm border border-ink/20 object-cover"
-              />
-            ))}
-          </div>
-        )
+    <div className="mt-2 flex flex-col gap-2">
+      <div className="flex flex-wrap gap-3">
+        {files.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setSelectedPhoto(f.storedUrl)}
+            className="group relative overflow-hidden rounded-md border border-ink/15 shadow-sm transition-all hover:border-brand hover:shadow-md focus:outline-none"
+          >
+            <img
+              src={f.storedUrl}
+              alt={f.originalName}
+              className="h-44 w-44 sm:h-52 sm:w-52 rounded-md object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+            <span className="absolute bottom-1.5 right-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+              🔍 크게 보기
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {selectedPhoto && (
+        <Dialog open={!!selectedPhoto} onOpenChange={(open) => !open && setSelectedPhoto(null)}>
+          <DialogContent className="max-w-3xl p-3 flex flex-col items-center">
+            <img
+              src={selectedPhoto}
+              alt="후기 사진 크게보기"
+              className="max-h-[80vh] w-auto rounded-md object-contain"
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
@@ -223,6 +230,7 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
   const [rating, setRating] = useState<number>(5);
   const [reviewContent, setReviewContent] = useState("");
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewTabBanner, setReviewTabBanner] = useState<string | null>(null);
   const [reviewPhotoFile, setReviewPhotoFile] = useState<File | null>(null);
   const uploadReviewPhotoMutation = useUploadFile();
 
@@ -324,7 +332,21 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
       setReviewModalOpen(false);
       setEditingReviewId(null);
     } catch (err: any) {
-      setReviewError(err.response?.data?.error?.message || "후기 저장에 실패했습니다.");
+      const status = err?.response?.status;
+      const rawMessage = err?.response?.data?.error?.message || err?.response?.data?.message || "";
+      if (
+        status === 403 ||
+        status === 400 ||
+        rawMessage.includes("구매") ||
+        rawMessage.includes("확인") ||
+        rawMessage.includes("PurchaseNotVerified")
+      ) {
+        const msg = "주문확정된 사용자만 리뷰 작성이 가능합니다!";
+        setReviewError(msg);
+        setReviewTabBanner(msg);
+      } else {
+        setReviewError(rawMessage || "후기 저장에 실패했습니다.");
+      }
     }
   };
 
@@ -479,6 +501,23 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
       {/* REVIEWS TAB CONTENT */}
       {tab === "reviews" && (
         <div className="flex flex-col gap-4">
+          {/* Unverified Order Warning Banner */}
+          {reviewTabBanner && (
+            <div className="flex items-center justify-between rounded-lg border-2 border-amber-400 bg-amber-50 p-4 text-xs font-bold text-amber-900 shadow-stamp-sm">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+                <span className="text-sm font-extrabold">{reviewTabBanner}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReviewTabBanner(null)}
+                className="text-amber-800 hover:text-amber-950 font-bold ml-3 text-xs"
+              >
+                ✕ 닫기
+              </button>
+            </div>
+          )}
+
           {/* Average Rating Summary Banner */}
           {reviews && reviews.length > 0 && (
             <div className="flex items-center gap-4 rounded-lg bg-amber-500/10 border border-amber-500/20 p-4">
@@ -750,7 +789,10 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
             </div>
 
             {reviewError && (
-              <p className="text-xs font-semibold text-red-500">{reviewError}</p>
+              <div className="flex items-center gap-2 rounded-md border-2 border-amber-400 bg-amber-50 p-3 text-xs font-bold text-amber-900 shadow-sm">
+                <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                <span>{reviewError}</span>
+              </div>
             )}
           </div>
 

@@ -24,6 +24,7 @@ import { useProject, useRewards } from "../hooks";
 import { useCategories } from "../../admin/hooks";
 import { useAddCartItems } from "../../cart/hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
+import { useFilesByOwner } from "../../files/hooks";
 import { ProjectBoardTabs } from "../../board/components/ProjectBoardTabs";
 import { ProjectEditModal } from "../components/ProjectEditModal";
 import { RewardEditModal } from "../components/RewardEditModal";
@@ -58,6 +59,76 @@ function NestStatus({ percent }: { percent: number }) {
   else if (percent >= 25) statusText = "🪺 알 품기 시작 (25%+)";
 
   return <div className="text-xs font-semibold text-brand">{statusText}</div>;
+}
+
+function FundingRewardItem({
+  reward,
+  selected,
+  isOrderable,
+  onSelectReward,
+}: {
+  reward: Reward;
+  selected: boolean;
+  isOrderable: boolean;
+  onSelectReward: (id: number) => void;
+}) {
+  const { data: rewardFiles } = useFilesByOwner("REWARD", reward.rewardId, true);
+  const rewardThumbnailUrl = rewardFiles && rewardFiles.length > 0 ? rewardFiles[0].storedUrl : null;
+  const isRewardSoldOut = reward.remainingQuantity != null && reward.remainingQuantity <= 0;
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => isOrderable && onSelectReward(reward.rewardId)}
+        disabled={!isOrderable}
+        aria-pressed={selected}
+        className={`flex w-full items-start gap-3 rounded-sm border-2 p-3 text-left transition-colors ${
+          !isOrderable
+            ? "cursor-not-allowed border-ink/10 opacity-50"
+            : selected
+              ? "border-brand bg-brand/5"
+              : "border-ink/20 hover:border-ink/40"
+        }`}
+      >
+        {rewardThumbnailUrl ? (
+          <img
+            src={rewardThumbnailUrl}
+            alt={reward.name}
+            className="h-14 w-14 shrink-0 rounded-sm border border-ink/20 object-cover bg-paper"
+          />
+        ) : (
+          <div className="h-10 w-10 shrink-0 rounded-sm border border-ink/15 bg-paper/60 flex items-center justify-center">
+            <TicketStubIcon className={`h-5 w-5 ${selected ? "text-brand" : "text-ink/40"}`} />
+          </div>
+        )}
+        <div className="flex flex-col gap-1 min-w-0 flex-1">
+          <span className="font-bold text-ink text-sm leading-snug break-keep">{reward.name}</span>
+          {reward.description && (
+            <p className="text-xs text-mist leading-normal break-keep whitespace-pre-line">
+              {reward.description}
+            </p>
+          )}
+        </div>
+        <div className="shrink-0 text-right whitespace-nowrap flex flex-col items-end gap-1">
+          <span className="tabular-nums text-sm font-extrabold text-ink">{reward.price.toLocaleString()}원</span>
+          <span
+            className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border ${
+              isRewardSoldOut
+                ? "bg-red-50 text-red-600 border-red-200 font-bold"
+                : "text-mist bg-surface border-ink/15"
+            }`}
+          >
+            {isRewardSoldOut
+              ? "품절 (재고 0개)"
+              : reward.remainingQuantity != null
+                ? `재고 ${reward.remainingQuantity.toLocaleString()}개 남음`
+                : "수량 무제한"}
+          </span>
+        </div>
+      </button>
+    </li>
+  );
 }
 
 function FundingPanel({
@@ -131,57 +202,15 @@ function FundingPanel({
           <EmptyState message="등록된 리워드가 없어요." />
         ) : (
           <ul className="flex flex-col gap-2.5">
-            {rewards.map((reward) => {
-              const selected = reward.rewardId === selectedRewardId;
-              const isRewardSoldOut = reward.remainingQuantity != null && reward.remainingQuantity <= 0;
-              return (
-                <li key={reward.rewardId}>
-                  <button
-                    type="button"
-                    onClick={() => isOrderable && onSelectReward(reward.rewardId)}
-                    disabled={!isOrderable}
-                    aria-pressed={selected}
-                    className={`flex w-full items-center justify-between gap-3 rounded-sm border-2 p-3 text-left transition-colors ${
-                      !isOrderable
-                        ? "cursor-not-allowed border-ink/10 opacity-50"
-                        : selected
-                          ? "border-brand bg-brand/5"
-                          : "border-ink/20 hover:border-ink/40"
-                    }`}
-                  >
-                    <div className="flex flex-col gap-1 min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <TicketStubIcon
-                          className={`h-4 w-4 shrink-0 ${selected ? "text-brand" : "text-ink/40"}`}
-                        />
-                        <span className="font-bold text-ink text-sm leading-snug break-keep">{reward.name}</span>
-                      </div>
-                      {reward.description && (
-                        <p className="pl-6 text-xs text-mist leading-normal break-keep whitespace-pre-line">
-                          {reward.description}
-                        </p>
-                      )}
-                    </div>
-                    <div className="shrink-0 text-right whitespace-nowrap flex flex-col items-end gap-1">
-                      <span className="tabular-nums text-sm font-extrabold text-ink">{reward.price.toLocaleString()}원</span>
-                      <span
-                        className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border ${
-                          isRewardSoldOut
-                            ? "bg-red-50 text-red-600 border-red-200 font-bold"
-                            : "text-mist bg-surface border-ink/15"
-                        }`}
-                      >
-                        {isRewardSoldOut
-                          ? "품절 (재고 0개)"
-                          : reward.remainingQuantity != null
-                            ? `재고 ${reward.remainingQuantity.toLocaleString()}개 남음`
-                            : "수량 무제한"}
-                      </span>
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
+            {rewards.map((reward) => (
+              <FundingRewardItem
+                key={reward.rewardId}
+                reward={reward}
+                selected={reward.rewardId === selectedRewardId}
+                isOrderable={isOrderable}
+                onSelectReward={onSelectReward}
+              />
+            ))}
           </ul>
         )}
       </div>
@@ -284,7 +313,9 @@ export function ProjectDetailPage() {
   const { data: project, isPending, isError } = useProject(projectId);
   const { data: rewards } = useRewards(projectId);
   const { data: categories } = useCategories();
+  const { data: projectFiles } = useFilesByOwner("PROJECT", projectId, true);
   const categoryName = categories?.find((c) => c.id === project?.categoryId)?.name;
+  const projectThumbnailUrl = projectFiles && projectFiles.length > 0 ? projectFiles[0].storedUrl : null;
 
   const [selectedRewardId, setSelectedRewardId] = useState<number | null>(null);
   const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
@@ -460,8 +491,13 @@ export function ProjectDetailPage() {
         )}
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
-          <Card className="!p-0">
-            <Thumbnail className="aspect-[16/9] w-full" />
+          <Card className="!p-0 overflow-hidden">
+            <Thumbnail
+              src={projectThumbnailUrl}
+              alt={project.title}
+              className="w-full min-h-[280px] max-h-[580px] bg-paper/40 transition-all duration-300"
+              objectFit="contain"
+            />
             <div className="p-6">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">

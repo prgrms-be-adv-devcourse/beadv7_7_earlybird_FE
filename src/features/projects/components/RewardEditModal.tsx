@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Button,
   Dialog,
@@ -8,6 +9,7 @@ import {
   ErrorState,
 } from "../../../shared/ui";
 import { useUpdateReward, useDeleteReward } from "../hooks";
+import { useFilesByOwner, useUploadFile } from "../../files/hooks";
 import type { Reward } from "../types";
 
 export function RewardEditModal({
@@ -21,8 +23,11 @@ export function RewardEditModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const queryClient = useQueryClient();
   const updateRewardMutation = useUpdateReward();
   const deleteRewardMutation = useDeleteReward();
+  const uploadFileMutation = useUploadFile();
+  const { data: existingFiles } = useFilesByOwner("REWARD", reward.rewardId, open);
 
   const [name, setName] = useState(reward.name);
   const [description, setDescription] = useState(reward.description ?? "");
@@ -30,31 +35,57 @@ export function RewardEditModal({
   const [totalQuantity, setTotalQuantity] = useState<number | null>(reward.totalQuantity);
   const [increaseQty, setIncreaseQty] = useState<number>(10);
 
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (open) {
+      setName(reward.name);
+      setDescription(reward.description ?? "");
+      setPrice(reward.price);
+      setTotalQuantity(reward.totalQuantity);
+      setIncreaseQty(10);
+      setNewImageFile(null);
+      setImagePreviewUrl(null);
+      setErrorMsg(null);
+    }
+  }, [open, reward]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setIsSaving(true);
 
-    const data: any = isPublished
-      ? { increaseQuantity: Number(increaseQty) }
-      : {
-          name,
-          description,
-          price: Number(price),
-          totalQuantity: totalQuantity ? Number(totalQuantity) : null,
-        };
-
-    updateRewardMutation.mutate(
-      { rewardId: reward.rewardId, data },
-      {
-        onSuccess: () => onOpenChange(false),
-        onError: (err: any) => {
-          const msg = err.response?.data?.error?.message || err.message || "리워드 수정에 실패했습니다.";
-          setErrorMsg(msg);
-        },
+    try {
+      if (newImageFile) {
+        await uploadFileMutation.mutateAsync({
+          file: newImageFile,
+          ownerType: "REWARD",
+          ownerId: reward.rewardId,
+        });
+        queryClient.invalidateQueries({ queryKey: ["files", "REWARD", reward.rewardId] });
       }
-    );
+
+      const data: any = isPublished
+        ? { increaseQuantity: Number(increaseQty) }
+        : {
+            name,
+            description,
+            price: Number(price),
+            totalQuantity: totalQuantity ? Number(totalQuantity) : null,
+          };
+
+      await updateRewardMutation.mutateAsync({ rewardId: reward.rewardId, data });
+      queryClient.invalidateQueries({ queryKey: ["rewards", reward.projectId] });
+      onOpenChange(false);
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.message || "리워드 수정에 실패했습니다.";
+      setErrorMsg(msg);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDelete = () => {
@@ -69,12 +100,12 @@ export function RewardEditModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogTitle>🎁 리워드 관리</DialogTitle>
         <DialogDescription>
           {isPublished
-            ? "공개(진행중) 프로젝트의 리워드는 수량 추가만 가능합니다."
-            : "공개 전 리워드 정보를 자유롭게 수정 또는 삭제합니다."}
+            ? "공개(진행중) 프로젝트의 리워드는 수량 추가 및 사진 변경이 가능합니다."
+            : "공개 전 리워드 정보와 사진을 자유롭게 수정 또는 삭제합니다."}
         </DialogDescription>
 
         <form onSubmit={handleSubmit} className="my-4 flex flex-col gap-4 text-sm">
@@ -140,6 +171,31 @@ export function RewardEditModal({
             </div>
           )}
 
+          <div>
+            <label className="mb-1 block font-semibold text-ink">리워드 사진 (추가/변경)</label>
+            {(imagePreviewUrl || (existingFiles && existingFiles.length > 0)) && (
+              <div className="mb-2 flex items-center justify-center w-full rounded-sm border border-ink/20 bg-paper/60 p-1">
+                <img
+                  src={imagePreviewUrl || existingFiles?.[0]?.storedUrl}
+                  alt="리워드 미리보기"
+                  className="max-h-48 w-full rounded-sm object-contain transition-all duration-300"
+                />
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                setNewImageFile(file);
+                if (file) {
+                  setImagePreviewUrl(URL.createObjectURL(file));
+                }
+              }}
+              className="w-full text-xs text-ink file:mr-3 file:rounded file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink hover:file:bg-paper/80"
+            />
+          </div>
+
           {errorMsg && <ErrorState error={{ message: errorMsg, errors: null }} />}
 
           <div className="mt-2 flex items-center justify-between">
@@ -148,7 +204,7 @@ export function RewardEditModal({
                 type="button"
                 variant="secondary"
                 onClick={handleDelete}
-                disabled={deleteRewardMutation.isPending}
+                disabled={deleteRewardMutation.isPending || isSaving}
                 className="border-red-300 text-red-600 hover:bg-red-50 text-xs"
               >
                 {deleteRewardMutation.isPending ? "삭제 중..." : "리워드 삭제"}
@@ -159,8 +215,8 @@ export function RewardEditModal({
               <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
                 취소
               </Button>
-              <Button type="submit" disabled={updateRewardMutation.isPending}>
-                {updateRewardMutation.isPending ? "적용 중..." : "적용하기"}
+              <Button type="submit" disabled={isSaving || updateRewardMutation.isPending || uploadFileMutation.isPending}>
+                {isSaving ? "저장 중..." : "적용하기"}
               </Button>
             </div>
           </div>

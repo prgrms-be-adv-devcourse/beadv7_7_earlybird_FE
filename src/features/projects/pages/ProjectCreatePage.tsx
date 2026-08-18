@@ -50,6 +50,9 @@ export function ProjectCreatePage() {
     });
   };
 
+  const [rewardFiles, setRewardFiles] = useState<(File | null)[]>([null]);
+  const [rewardPreviews, setRewardPreviews] = useState<(string | null)[]>([null]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -63,11 +66,15 @@ export function ProjectCreatePage() {
       ...prev,
       { name: "", description: "", price: 10000, totalQuantity: 50 },
     ]);
+    setRewardFiles((prev) => [...prev, null]);
+    setRewardPreviews((prev) => [...prev, null]);
   };
 
   const handleRemoveReward = (index: number) => {
     if (rewards.length <= 1) return;
     setRewards((prev) => prev.filter((_, i) => i !== index));
+    setRewardFiles((prev) => prev.filter((_, i) => i !== index));
+    setRewardPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleRewardChange = (index: number, field: keyof CreateRewardRequest, value: any) => {
@@ -113,9 +120,10 @@ export function ProjectCreatePage() {
 
       const projectId = createdProject.projectId;
 
-      // 2. Create rewards for project
-      for (const reward of rewards) {
-        await createRewardMutation.mutateAsync({
+      // 2. Create rewards for project and upload reward photos
+      for (let i = 0; i < rewards.length; i++) {
+        const reward = rewards[i];
+        const createdReward = await createRewardMutation.mutateAsync({
           projectId,
           data: {
             name: reward.name,
@@ -124,6 +132,14 @@ export function ProjectCreatePage() {
             totalQuantity: reward.totalQuantity ? Number(reward.totalQuantity) : null,
           },
         });
+        const rewardImg = rewardFiles[i];
+        if (rewardImg && createdReward?.rewardId) {
+          await uploadFileMutation.mutateAsync({
+            file: rewardImg,
+            ownerType: "REWARD",
+            ownerId: createdReward.rewardId,
+          });
+        }
       }
 
       // 3. Thumbnail upload (선택) — 이제 projectId가 있으니 파일을 올리고 프로젝트에 붙인다.
@@ -234,11 +250,13 @@ export function ProjectCreatePage() {
           <div>
             <label className="mb-1 block text-sm font-semibold text-ink">대표 이미지 (선택)</label>
             {thumbnailPreviewUrl && (
-              <img
-                src={thumbnailPreviewUrl}
-                alt="대표 이미지 미리보기"
-                className="mb-2 h-40 w-full rounded-sm border border-ink/20 object-cover"
-              />
+              <div className="mb-2 flex items-center justify-center w-full rounded-sm border border-ink/20 bg-paper/60 p-1">
+                <img
+                  src={thumbnailPreviewUrl}
+                  alt="대표 이미지 미리보기"
+                  className="max-h-80 w-full rounded-sm object-contain transition-all duration-300"
+                />
+              </div>
             )}
             <input
               type="file"
@@ -370,6 +388,31 @@ export function ProjectCreatePage() {
                     className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink focus:border-brand focus:outline-none tabular-nums"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">리워드 사진 (선택)</label>
+                {rewardPreviews[index] && (
+                  <div className="mb-2 flex items-center justify-center w-full rounded-sm border border-ink/20 bg-paper/60 p-1">
+                    <img
+                      src={rewardPreviews[index]!}
+                      alt={`리워드 #${index + 1} 미리보기`}
+                      className="max-h-36 w-full rounded-sm object-contain transition-all duration-300"
+                    />
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setRewardFiles((prev) => prev.map((f, i) => (i === index ? file : f)));
+                    setRewardPreviews((prev) =>
+                      prev.map((p, i) => (i === index ? (file ? URL.createObjectURL(file) : null) : p))
+                    );
+                  }}
+                  className="w-full text-xs text-ink file:mr-3 file:rounded file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink hover:file:bg-paper/80"
+                />
               </div>
             </div>
           ))}

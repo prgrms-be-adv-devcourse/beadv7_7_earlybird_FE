@@ -37,7 +37,11 @@ export async function fetchReviews(projectId: number): Promise<ProjectReview[]> 
 }
 
 export async function createReview(payload: CreateReviewPayload): Promise<ProjectReview> {
-  const response = await apiClient.post<ApiResponse<ProjectReview>>(BOARD_SERVICE.createReview, payload);
+  const response = await apiClient.post<ApiResponse<ProjectReview>>(
+    BOARD_SERVICE.createReview,
+    payload,
+    { params: { projectId: payload.projectId } }
+  );
   return response.data.data as ProjectReview;
 }
 
