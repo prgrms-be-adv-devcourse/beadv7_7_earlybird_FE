@@ -17,6 +17,10 @@ export default defineConfig({
         target: "http://localhost:8085",
         changeOrigin: true,
       },
+      "^/api/v1/files": {
+        target: "http://localhost:8087",
+        changeOrigin: true,
+      },
       "^/internal/v1/settlements": {
         target: "http://localhost:8086",
         changeOrigin: true,
