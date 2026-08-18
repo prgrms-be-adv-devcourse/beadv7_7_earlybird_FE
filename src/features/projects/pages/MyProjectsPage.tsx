@@ -10,7 +10,7 @@ import { useCreateReward, useDeleteProject, useRewards } from "../hooks";
 import { formatDateKorean } from "../utils";
 import { ProjectEditModal } from "../components/ProjectEditModal";
 import { RewardEditModal } from "../components/RewardEditModal";
-import { useFilesByOwner } from "../../files/hooks";
+import { useFilesByOwner, useUploadFile } from "../../files/hooks";
 import {
   Button,
   Card,
@@ -196,12 +196,14 @@ function MyProjectCard({ project }: { project: ProjectSummary }) {
 }
 
 export function MyProjectsPage() {
+  const queryClient = useQueryClient();
   const { data: myProjects, isPending, isError } = useQuery({
     queryKey: ["projects", "me"],
     queryFn: fetchMyProjects,
   });
 
   const createRewardMutation = useCreateReward();
+  const uploadFileMutation = useUploadFile();
 
   // Add Reward modal state
   const [targetProjectId, setTargetProjectId] = useState<number | null>(null);
@@ -209,9 +211,12 @@ export function MyProjectsPage() {
   const [rewardPrice, setRewardPrice] = useState<number>(10000);
   const [rewardDesc, setRewardDesc] = useState("");
   const [rewardQty, setRewardQty] = useState<number | null>(null);
+  const [rewardImageFile, setRewardImageFile] = useState<File | null>(null);
+  const [rewardImagePreview, setRewardImagePreview] = useState<string | null>(null);
   const [rewardError, setRewardError] = useState<string | null>(null);
+  const [isAddingReward, setIsAddingReward] = useState(false);
 
-  const handleAddReward = () => {
+  const handleAddReward = async () => {
     if (!targetProjectId) return;
     setRewardError(null);
 
@@ -224,8 +229,9 @@ export function MyProjectsPage() {
       return;
     }
 
-    createRewardMutation.mutate(
-      {
+    setIsAddingReward(true);
+    try {
+      const created = await createRewardMutation.mutateAsync({
         projectId: targetProjectId,
         data: {
           name: rewardName.trim(),
@@ -233,21 +239,30 @@ export function MyProjectsPage() {
           description: rewardDesc,
           totalQuantity: rewardQty,
         },
-      },
-      {
-        onSuccess: () => {
-          setTargetProjectId(null);
-          setRewardName("");
-          setRewardPrice(10000);
-          setRewardDesc("");
-          setRewardQty(null);
-        },
-        onError: (err: any) => {
-          const msg = err.response?.data?.error?.message || err.message || "리워드 추가에 실패했습니다.";
-          setRewardError(msg);
-        },
+      });
+
+      if (rewardImageFile && created?.rewardId) {
+        await uploadFileMutation.mutateAsync({
+          file: rewardImageFile,
+          ownerType: "REWARD",
+          ownerId: created.rewardId,
+        });
+        queryClient.invalidateQueries({ queryKey: ["files", "REWARD", created.rewardId] });
       }
-    );
+
+      setTargetProjectId(null);
+      setRewardName("");
+      setRewardPrice(10000);
+      setRewardDesc("");
+      setRewardQty(null);
+      setRewardImageFile(null);
+      setRewardImagePreview(null);
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.message || "리워드 추가에 실패했습니다.";
+      setRewardError(msg);
+    } finally {
+      setIsAddingReward(false);
+    }
   };
 
   if (isPending) {
@@ -336,6 +351,31 @@ export function MyProjectsPage() {
               />
             </div>
 
+            <div>
+              <label className="mb-1 block font-semibold text-ink">리워드 사진 (선택)</label>
+              {rewardImagePreview && (
+                <div className="mb-2 flex items-center justify-center w-full rounded-sm border border-ink/20 bg-paper/60 p-1">
+                  <img
+                    src={rewardImagePreview}
+                    alt="리워드 미리보기"
+                    className="max-h-36 w-full rounded-sm object-contain transition-all duration-300"
+                  />
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  setRewardImageFile(file);
+                  if (file) {
+                    setRewardImagePreview(URL.createObjectURL(file));
+                  }
+                }}
+                className="w-full text-xs text-ink file:mr-3 file:rounded file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink hover:file:bg-paper/80"
+              />
+            </div>
+
             {rewardError && <ErrorState error={{ message: rewardError, errors: null }} />}
           </div>
 
@@ -343,8 +383,8 @@ export function MyProjectsPage() {
             <Button variant="secondary" onClick={() => setTargetProjectId(null)}>
               취소
             </Button>
-            <Button onClick={handleAddReward} disabled={createRewardMutation.isPending}>
-              {createRewardMutation.isPending ? "추가 중..." : "리워드 등록"}
+            <Button onClick={handleAddReward} disabled={isAddingReward || createRewardMutation.isPending || uploadFileMutation.isPending}>
+              {isAddingReward ? "추가 중..." : "리워드 등록"}
             </Button>
           </div>
         </DialogContent>
