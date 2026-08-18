@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCart, useRemoveCartItem, useClearCart } from "../hooks";
+import { Minus, Plus } from "lucide-react";
+import { useCart, useRemoveCartItem, useClearCart, useUpdateCartItems } from "../hooks";
 import { usePlaceOrder } from "../../orders/hooks";
 import { generateUUID } from "../../orders/utils";
 import { Card, Button, Skeleton, Dialog, DialogContent, DialogTitle, DialogDescription } from "../../../shared/ui";
@@ -13,11 +14,15 @@ import { useAuthStore } from "../../../shared/auth/authStore";
 function CartRewardRow({
   reward,
   onRemove,
+  onChangeQuantity,
   isRemoving,
+  isUpdating,
 }: {
   reward: CartReward;
   onRemove: () => void;
+  onChangeQuantity: (quantity: number) => void;
   isRemoving: boolean;
+  isUpdating: boolean;
 }) {
   const unitPrice = reward.unitPrice > 0 ? reward.unitPrice : reward.totalPrice / (reward.quantity || 1);
   const totalPrice = reward.totalPrice > 0 ? reward.totalPrice : unitPrice * reward.quantity;
@@ -26,11 +31,30 @@ function CartRewardRow({
     <li className="flex items-center justify-between border-b border-ink/5 py-3 last:border-none">
       <div className="flex flex-col gap-0.5">
         <span className="font-semibold text-ink">{reward.rewardName}</span>
-        <span className="text-xs text-mist">
-          수량: {reward.quantity}개 · 단가: {unitPrice.toLocaleString()}원
-        </span>
+        <span className="text-xs text-mist">단가: {unitPrice.toLocaleString()}원</span>
       </div>
       <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 rounded-sm border border-ink/20">
+          <button
+            type="button"
+            onClick={() => onChangeQuantity(reward.quantity - 1)}
+            disabled={isUpdating || reward.quantity <= 1}
+            className="p-1.5 text-mist transition-colors hover:text-brand disabled:opacity-30"
+            aria-label="수량 감소"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <span className="w-6 text-center text-sm font-semibold text-ink tabular-nums">{reward.quantity}</span>
+          <button
+            type="button"
+            onClick={() => onChangeQuantity(reward.quantity + 1)}
+            disabled={isUpdating}
+            className="p-1.5 text-mist transition-colors hover:text-brand disabled:opacity-30"
+            aria-label="수량 증가"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </div>
         <span className="tabular-nums text-sm font-semibold text-ink">
           {totalPrice.toLocaleString()}원
         </span>
@@ -51,6 +75,7 @@ export function CartPage() {
   const navigate = useNavigate();
   const { data: cart, isPending, isError } = useCart();
   const removeCartItemMutation = useRemoveCartItem();
+  const updateCartItemsMutation = useUpdateCartItems();
   const clearCartMutation = useClearCart();
   const placeOrderMutation = usePlaceOrder();
   const userId = useAuthStore((state) => state.user?.id);
@@ -177,7 +202,15 @@ export function CartPage() {
                   key={reward.cartItemId}
                   reward={reward}
                   onRemove={() => removeCartItemMutation.mutate(reward.rewardId)}
+                  onChangeQuantity={(quantity) => {
+                    if (quantity < 1) return;
+                    updateCartItemsMutation.mutate({
+                      projectId: project.projectId,
+                      items: [{ rewardId: reward.rewardId, quantity }],
+                    });
+                  }}
                   isRemoving={removeCartItemMutation.isPending}
+                  isUpdating={updateCartItemsMutation.isPending}
                 />
               ))}
             </ul>

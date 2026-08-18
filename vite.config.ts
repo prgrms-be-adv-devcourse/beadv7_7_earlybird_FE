@@ -17,16 +17,8 @@ export default defineConfig({
         target: "http://localhost:8085",
         changeOrigin: true,
       },
-      "^/api/v1/projects": {
-        target: "http://localhost:8081",
-        changeOrigin: true,
-      },
-      "^/api/v1/project-categories": {
-        target: "http://localhost:8081",
-        changeOrigin: true,
-      },
-      "^/api/v1/rewards": {
-        target: "http://localhost:8081",
+      "^/internal/v1/settlements": {
+        target: "http://localhost:8086",
         changeOrigin: true,
       },
       "/api": {

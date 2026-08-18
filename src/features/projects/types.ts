@@ -54,6 +54,7 @@ export interface CreateProjectRequest {
   goalAmount: number;
   startAt: string;
   endAt: string;
+  thumbnailId?: number | null;
 }
 
 export interface CreateRewardRequest {
