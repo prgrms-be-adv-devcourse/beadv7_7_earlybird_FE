@@ -29,7 +29,9 @@ describe("creator feature api", () => {
       creatorName: "스튜디오 얼리",
       category: "패션",
       introduction: "멋진 패션 프로젝트를 준비 중입니다.",
-      bankName: "국민은행",
+      businessNumber: "123-45-67890",
+      bankName: "KB국민은행",
+      bankCode: "004",
       accountNumber: "123-456-789",
       accountHolder: "김후원",
     };
@@ -38,6 +40,8 @@ describe("creator feature api", () => {
 
     expect(app.userId).toBe(99);
     expect(app.creatorName).toBe("스튜디오 얼리");
+    expect(app.businessNumber).toBe("123-45-67890");
+    expect(app.bankCode).toBe("004");
     expect(app.status).toBe("PENDING");
 
     const myApp = await fetchMyCreatorApplication();
@@ -54,6 +58,7 @@ describe("creator feature api", () => {
       category: "전자기기",
       introduction: "IoT 기기 개발",
       bankName: "신한은행",
+      bankCode: "088",
       accountNumber: "987-654-321",
       accountHolder: "김후원",
     });
@@ -73,6 +78,7 @@ describe("creator feature api", () => {
       category: "도서·출판",
       introduction: "그림책 출판",
       bankName: "우리은행",
+      bankCode: "020",
       accountNumber: "111-222-333",
       accountHolder: "김후원",
     });
@@ -90,6 +96,7 @@ describe("creator feature api", () => {
       category: "기타",
       introduction: "취소 테스트",
       bankName: "카카오뱅크",
+      bankCode: "090",
       accountNumber: "3333-01-12345",
       accountHolder: "김후원",
     });

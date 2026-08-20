@@ -181,6 +181,11 @@ export function CreatorApprovalPage() {
                       </span>
                       <span className="text-xs text-mist font-medium">({app.userName})</span>
                       <Badge tone="mint">{app.category}</Badge>
+                      {app.businessNumber && (
+                        <span className="text-[11px] font-mono text-mist border border-ink/15 rounded px-1.5 py-0.5">
+                          사업자: {app.businessNumber}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-mist mt-0.5">
                       <span>이메일: {app.userEmail}</span>
@@ -213,9 +218,11 @@ export function CreatorApprovalPage() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3 text-sm">
                 <div className="rounded-sm bg-white p-3.5 border border-ink/10">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-mist mb-1">
-                    <Building2 className="h-3.5 w-3.5" /> 정산 계좌 정보
+                    <Building2 className="h-3.5 w-3.5" /> 정산 계좌 정보 (토스)
                   </div>
-                  <div className="font-extrabold text-ink">{app.bankName}</div>
+                  <div className="font-extrabold text-ink">
+                    {app.bankName} {app.bankCode && <span className="text-xs text-mist font-mono font-normal">({app.bankCode})</span>}
+                  </div>
                   <div className="text-xs text-mist font-mono mt-0.5">{app.accountNumber}</div>
                   <div className="text-xs text-ink/80 mt-0.5">예금주: {app.accountHolder}</div>
                 </div>

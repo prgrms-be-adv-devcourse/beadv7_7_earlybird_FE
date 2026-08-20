@@ -39,11 +39,13 @@ export async function submitCreatorApplication(payload: SubmitCreatorApplication
     userEmail: user.email,
     userPhone: (user as any).phoneNumber || "010-0000-0000",
     bankName: payload.bankName,
+    bankCode: payload.bankCode,
     accountNumber: payload.accountNumber,
     accountHolder: payload.accountHolder,
     creatorName: payload.creatorName,
     category: payload.category,
     introduction: payload.introduction,
+    businessNumber: payload.businessNumber,
     portfolioUrl: payload.portfolioUrl,
     status: "PENDING",
     appliedAt: new Date().toISOString(),
@@ -85,13 +87,22 @@ export async function approveCreatorApplication(applicationId: number): Promise<
   target.rejectReason = undefined;
   saveApplications(apps);
 
-  // 만약 현재 로그인된 유저 본인의 신청을 승인한 것이라면, 현재 세션을 CREATOR로 자동 승격
+  // 백엔드 creator_profiles 등록 (/api/v1/users/me/creator) 또는 role 승격 (/api/v1/users/me/role)
   const currentUser = useAuthStore.getState().user;
   if (currentUser && currentUser.id === target.userId) {
     try {
-      await apiClient.post(USER_SERVICE.switchRole, { role: "CREATOR" });
-    } catch (err) {
-      console.warn("Backend role upgrade skipped:", err);
+      await apiClient.post("/api/v1/users/me/creator", {
+        bankName: target.bankName,
+        bankCode: target.bankCode,
+        accountNumber: target.accountNumber,
+        accountHolder: target.accountHolder,
+      });
+    } catch {
+      try {
+        await apiClient.post(USER_SERVICE.switchRole, { role: "CREATOR" });
+      } catch (err) {
+        console.warn("Backend role upgrade skipped:", err);
+      }
     }
     useAuthStore.getState().setRole("CREATOR");
   }

@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { CheckCircle2, Clock, AlertCircle, Sparkles, Building2, User, FileText, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Clock, AlertCircle, Sparkles, Building2, User, FileText, ArrowRight, Briefcase } from "lucide-react";
 import { useAuthStore } from "../../../shared/auth/authStore";
 import { useMyCreatorApplication, useSubmitCreatorApplication, useCancelCreatorApplication } from "../hooks";
+import { BANK_LIST } from "../types";
 import { Button, Card, Badge, Mascot, Dialog, DialogContent, DialogTitle, DialogDescription } from "../../../shared/ui";
 
 const CATEGORIES = [
@@ -17,19 +18,6 @@ const CATEGORIES = [
   "기타",
 ];
 
-const BANKS = [
-  "국민은행",
-  "신한은행",
-  "우리은행",
-  "하나은행",
-  "카카오뱅크",
-  "토스뱅크",
-  "NH농협은행",
-  "IBK기업은행",
-  "SC제일은행",
-  "우체국",
-];
-
 export function CreatorApplyPage() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
@@ -40,8 +28,9 @@ export function CreatorApplyPage() {
   const [creatorName, setCreatorName] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [introduction, setIntroduction] = useState("");
+  const [businessNumber, setBusinessNumber] = useState("");
   const [portfolioUrl, setPortfolioUrl] = useState("");
-  const [bankName, setBankName] = useState(BANKS[0]);
+  const [selectedBankCode, setSelectedBankCode] = useState(BANK_LIST[0].code);
   const [accountNumber, setAccountNumber] = useState("");
   const [accountHolder, setAccountHolder] = useState(user?.name || "");
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -57,8 +46,9 @@ export function CreatorApplyPage() {
       setCreatorName(application.creatorName || "");
       setCategory(application.category || CATEGORIES[0]);
       setIntroduction(application.introduction || "");
+      setBusinessNumber(application.businessNumber || "");
       setPortfolioUrl(application.portfolioUrl || "");
-      setBankName(application.bankName || BANKS[0]);
+      setSelectedBankCode(application.bankCode || BANK_LIST[0].code);
       setAccountNumber(application.accountNumber || "");
       setAccountHolder(application.accountHolder || user?.name || "");
     }
@@ -138,6 +128,9 @@ export function CreatorApplyPage() {
               <span className="text-xs text-mist block">창작자 / 팀명</span>
               <span className="font-bold text-ink text-base">{application.creatorName}</span>
               <span className="mt-1 inline-block text-xs text-brand font-semibold">분야: {application.category}</span>
+              {application.businessNumber && (
+                <span className="text-xs text-mist block mt-1">사업자번호: {application.businessNumber}</span>
+              )}
             </div>
             <div className="rounded-sm bg-white p-4 border border-ink/10">
               <span className="text-xs text-mist block">정산 계좌 정보</span>
@@ -258,13 +251,17 @@ export function CreatorApplyPage() {
       return;
     }
 
+    const currentBank = BANK_LIST.find((b) => b.code === selectedBankCode) || BANK_LIST[0];
+
     submitMutation.mutate(
       {
         creatorName: creatorName.trim(),
         category,
         introduction: introduction.trim(),
+        businessNumber: businessNumber.trim() || undefined,
         portfolioUrl: portfolioUrl.trim() || undefined,
-        bankName,
+        bankName: currentBank.name,
+        bankCode: currentBank.code,
         accountNumber: accountNumber.trim(),
         accountHolder: accountHolder.trim(),
       },
@@ -342,7 +339,7 @@ export function CreatorApplyPage() {
           <div className="flex flex-col gap-4">
             <div>
               <label className="mb-1 block text-xs font-semibold text-ink">
-                창작자 / 팀명 *
+                창작자 / 팀명 (상호명) *
               </label>
               <input
                 type="text"
@@ -355,21 +352,36 @@ export function CreatorApplyPage() {
               <p className="mt-1 text-[11px] text-mist">프로젝트 상세 및 프로필에 노출될 브랜드/활동명입니다.</p>
             </div>
 
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-ink">
-                주요 활동 분야 (카테고리) *
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-sm border border-ink/30 px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none bg-surface"
-              >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">
+                  주요 활동 분야 (카테고리) *
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full rounded-sm border border-ink/30 px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none bg-surface"
+                >
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">
+                  사업자등록번호 (선택)
+                </label>
+                <input
+                  type="text"
+                  placeholder="예: 000-00-00000 (개인/법인 사업자)"
+                  value={businessNumber}
+                  onChange={(e) => setBusinessNumber(e.target.value)}
+                  className="w-full rounded-sm border border-ink/30 px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none"
+                />
+              </div>
             </div>
 
             <div>
@@ -405,20 +417,20 @@ export function CreatorApplyPage() {
         <Card className="flex flex-col gap-4">
           <div className="flex items-center gap-2 border-b border-ink/10 pb-3">
             <Building2 className="h-5 w-5 text-brand" />
-            <h2 className="font-bold text-ink text-base">3. 정산 계좌 정보 (필수)</h2>
+            <h2 className="font-bold text-ink text-base">3. 정산 계좌 정보 (토스페이먼츠 연동 필수)</h2>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
               <label className="mb-1 block text-xs font-semibold text-ink">정산 은행 *</label>
               <select
-                value={bankName}
-                onChange={(e) => setBankName(e.target.value)}
+                value={selectedBankCode}
+                onChange={(e) => setSelectedBankCode(e.target.value)}
                 className="w-full rounded-sm border border-ink/30 px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none bg-surface"
               >
-                {BANKS.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
+                {BANK_LIST.map((b) => (
+                  <option key={b.code} value={b.code}>
+                    {b.name} ({b.code})
                   </option>
                 ))}
               </select>
@@ -448,7 +460,7 @@ export function CreatorApplyPage() {
             </div>
           </div>
           <p className="text-[11px] text-mist">
-            💡 펀딩 성공 시 모금액 정산이 입금될 본인 명의의 계좌 정보를 정확히 입력해 주세요.
+            💡 펀딩 성공 시 모금액 정산이 입금될 본인 명의의 계좌 정보를 정확히 입력해 주세요. 토스페이먼츠 지급 대행 기관 코드가 함께 매핑됩니다.
           </p>
         </Card>
 
