@@ -75,6 +75,7 @@ export function RewardEditModal({
             description,
             price: Number(price),
             totalQuantity: totalQuantity ? Number(totalQuantity) : null,
+            clearTotalQuantity: totalQuantity === null,
           };
 
       await updateRewardMutation.mutateAsync({ rewardId: reward.rewardId, data });
