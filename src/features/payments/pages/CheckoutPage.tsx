@@ -64,7 +64,7 @@ export function CheckoutPage() {
         orderId: payment.pgOrderId, // <-- payment-service가 생성한 Toss 주문번호 사용
         orderName,
         customerName: order.receiverName || "김얼리",
-        successUrl: `${window.location.origin}/orders/${orderId}?payment=success`,
+        successUrl: `${window.location.origin}/orders/${orderId}`,
         failUrl: `${window.location.origin}/checkout/${orderId}?payment=fail`,
       });
     } catch (err: any) {
