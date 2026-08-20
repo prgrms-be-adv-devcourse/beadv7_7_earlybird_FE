@@ -222,19 +222,16 @@ export function OrderDetailPage() {
             </Button>
           )}
 
-          {effectiveStatus !== "PAID" &&
-            effectiveStatus !== "CANCELLED" &&
-            effectiveStatus !== "PAYMENT_FAILED" &&
-            effectiveStatus !== "STOCK_FAILED" && (
-              <Button
-                type="button"
-                disabled={isProcessingPayment}
-                onClick={() => navigate(`/checkout/${order.id}`)}
-                className="flex-1 py-3 text-sm font-bold text-white shadow-stamp hover:scale-[1.01] transition-transform disabled:opacity-50"
-              >
-                {isProcessingPayment ? "결제 승인 처리 중..." : `💳 ${order.totalAmount.toLocaleString()}원 결제하기`}
-              </Button>
-            )}
+          {effectiveStatus === "CREATED" && (
+            <Button
+              type="button"
+              disabled={isProcessingPayment}
+              onClick={() => navigate(`/checkout/${order.id}`)}
+              className="flex-1 py-3 text-sm font-bold text-white shadow-stamp hover:scale-[1.01] transition-transform disabled:opacity-50"
+            >
+              {isProcessingPayment ? "결제 승인 처리 중..." : `💳 ${order.totalAmount.toLocaleString()}원 결제하기`}
+            </Button>
+          )}
 
           {effectiveStatus === "PAID" && (
               <AlertDialog>
