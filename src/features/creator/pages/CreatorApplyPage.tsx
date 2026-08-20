@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Clock, AlertCircle, Sparkles, Building2, User, FileText, ArrowRight, Briefcase } from "lucide-react";
+import { Clock, AlertCircle, Sparkles, Building2, User, FileText, ArrowRight } from "lucide-react";
 import { useAuthStore } from "../../../shared/auth/authStore";
 import { useMyCreatorApplication, useSubmitCreatorApplication, useCancelCreatorApplication } from "../hooks";
 import { BANK_LIST } from "../types";
@@ -104,9 +104,18 @@ export function CreatorApplyPage() {
   }
 
   // 심사 대기 중 상태
-  if (application && application.status === "PENDING" && !submitSuccess) {
+  if (application && application.status === "PENDING") {
     return (
       <div className="mx-auto max-w-2xl py-12">
+        {submitSuccess && (
+          <div className="mb-4 flex items-center gap-3 rounded-lg border-2 border-mint bg-mint/20 p-4 text-ink shadow-stamp-sm animate-pulse">
+            <Sparkles className="h-6 w-6 text-brand shrink-0" />
+            <div>
+              <h2 className="font-bold text-sm">🎉 창작자 등록 신청이 성공적으로 완료되었습니다!</h2>
+              <p className="text-xs text-mist">관리자 심사가 완료되면 창작자(CREATOR) 권한으로 전환됩니다.</p>
+            </div>
+          </div>
+        )}
         <Card className="flex flex-col p-8 border-2 border-amber-300 bg-amber-50/40">
           <div className="flex items-center gap-3 border-b border-ink/10 pb-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
@@ -246,8 +255,23 @@ export function CreatorApplyPage() {
       return;
     }
 
+    if (!creatorName.trim()) {
+      setErrorMsg("창작자 / 팀명을 입력해 주세요.");
+      return;
+    }
+
+    if (!introduction.trim()) {
+      setErrorMsg("창작자 소개 및 펀딩 프로젝트 계획을 입력해 주세요.");
+      return;
+    }
+
     if (!accountNumber.trim()) {
       setErrorMsg("정산 계좌번호를 정확히 입력해 주세요.");
+      return;
+    }
+
+    if (!accountHolder.trim()) {
+      setErrorMsg("정산 계좌 예금주명을 입력해 주세요.");
       return;
     }
 
@@ -271,7 +295,12 @@ export function CreatorApplyPage() {
           setIsEditingRejected(false);
         },
         onError: (err: any) => {
-          setErrorMsg(err.message || "창작자 신청 중 오류가 발생했습니다.");
+          const msg =
+            err.response?.data?.error?.message ||
+            err.response?.data?.message ||
+            err.message ||
+            "창작자 신청 중 오류가 발생했습니다.";
+          setErrorMsg(msg);
         },
       }
     );

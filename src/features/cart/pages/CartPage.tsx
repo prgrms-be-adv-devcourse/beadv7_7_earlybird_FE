@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Minus, Plus } from "lucide-react";
 import { useCart, useRemoveCartItem, useClearCart, useUpdateCartItems } from "../hooks";
 import { usePlaceOrder } from "../../orders/hooks";
@@ -73,6 +74,7 @@ function CartRewardRow({
 
 export function CartPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: cart, isPending, isError } = useCart();
   const removeCartItemMutation = useRemoveCartItem();
   const updateCartItemsMutation = useUpdateCartItems();
@@ -149,6 +151,7 @@ export function CartPage() {
           setIsSubmitting(false);
           setIdempotencyKey(null);
           setSelectedProject(null);
+          queryClient.invalidateQueries({ queryKey: ["cart"] });
           navigate(`/checkout/${createdOrder.id}`);
         },
         onError: (err: any) => {

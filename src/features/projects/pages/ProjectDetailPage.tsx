@@ -598,11 +598,18 @@ export function ProjectDetailPage() {
               {isPendingReview && (
                 <>
                   <Button
-                    onClick={() => approveMutation.mutate(projectId)}
+                    onClick={() =>
+                      approveMutation.mutate(projectId, {
+                        onSuccess: () =>
+                          showAdminMsg("✅ 프로젝트 심사가 승인되어 공개(IN_PROGRESS) 상태로 전환되었습니다."),
+                        onError: (error) =>
+                          showAdminMsg(`❌ ${getAdminErrorMsg(error)}`),
+                      })
+                    }
                     disabled={approveMutation.isPending}
                     className="py-1 px-3 text-xs"
                   >
-                    심사 승인
+                    {approveMutation.isPending ? "승인 처리 중..." : "심사 승인"}
                   </Button>
                   <Button
                     variant="secondary"
@@ -627,10 +634,17 @@ export function ProjectDetailPage() {
                   <Button
                     variant="secondary"
                     className="py-1 px-3 text-xs border-red-300 text-red-600 hover:bg-red-50"
-                    onClick={() => adminCancelMutation.mutate(projectId)}
+                    onClick={() =>
+                      adminCancelMutation.mutate(projectId, {
+                        onSuccess: () =>
+                          showAdminMsg("✅ 프로젝트가 관리자에 의해 강제 취소되었습니다."),
+                        onError: (error) =>
+                          showAdminMsg(`❌ ${getAdminErrorMsg(error)}`),
+                      })
+                    }
                     disabled={adminCancelMutation.isPending}
                   >
-                    프로젝트 강제 취소
+                    {adminCancelMutation.isPending ? "취소 처리 중..." : "프로젝트 강제 취소"}
                   </Button>
                 </>
               )}
@@ -865,6 +879,10 @@ export function ProjectDetailPage() {
                     onSuccess: () => {
                       setRejectModalOpen(false);
                       setRejectReason("");
+                      showAdminMsg("✅ 프로젝트 심사가 반려 처리되었습니다.");
+                    },
+                    onError: (error) => {
+                      showAdminMsg(`❌ ${getAdminErrorMsg(error)}`);
                     },
                   }
                 );

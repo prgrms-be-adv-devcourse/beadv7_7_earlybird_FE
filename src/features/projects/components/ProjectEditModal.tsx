@@ -61,8 +61,16 @@ export function ProjectEditModal({
       setStartAt(project.startAt ? new Date(project.startAt).toISOString().slice(0, 16) : "");
       setEndAt(project.endAt || "");
       setNewThumbnailFile(null);
-      setThumbnailPreviewUrl(null);
+      setThumbnailPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
       setErrorMsg(null);
+    } else {
+      setThumbnailPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
     }
   }, [open, project]);
 
@@ -188,9 +196,10 @@ export function ProjectEditModal({
               onChange={(e) => {
                 const file = e.target.files?.[0] ?? null;
                 setNewThumbnailFile(file);
-                if (file) {
-                  setThumbnailPreviewUrl(URL.createObjectURL(file));
-                }
+                setThumbnailPreviewUrl((prev) => {
+                  if (prev) URL.revokeObjectURL(prev);
+                  return file ? URL.createObjectURL(file) : null;
+                });
               }}
               className="w-full text-xs text-ink file:mr-3 file:rounded-sm file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink hover:file:bg-paper/80"
             />

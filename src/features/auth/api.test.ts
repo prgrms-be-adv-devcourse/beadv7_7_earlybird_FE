@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { apiClient } from "../../shared/api/client";
 import { USER_SERVICE } from "../../shared/api/endpoints";
 import { login, signup, switchRoleRequest } from "./api";
+import { SEED_ACCOUNTS } from "./types";
 
 vi.mock("../../shared/api/client", () => ({
   apiClient: { post: vi.fn() },
@@ -37,6 +38,12 @@ describe("auth api", () => {
 
     expect(apiClient.post).toHaveBeenCalledWith(USER_SERVICE.switchRole, { role: "ADMIN" });
     expect(result).toEqual(session);
+  });
+
+  it("SEED_ACCOUNTS는 각 역할별 기본 로그인 계정을 정의한다", () => {
+    expect(SEED_ACCOUNTS.ADMIN.email).toBe("admin@earlybird.co.kr");
+    expect(SEED_ACCOUNTS.CREATOR.email).toBe("seller@earlybird.co.kr");
+    expect(SEED_ACCOUNTS.BACKER.email).toBe("buyer@earlybird.co.kr");
   });
 });
 

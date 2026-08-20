@@ -36,11 +36,15 @@ export function useUploadFile() {
         originalName: file.name,
       });
 
-      // 2. S3 스토리지에 바이너리 PUT 전송 (로컬에서 버킷 미구성 시에도 메타데이터 등록은 진행)
+      // 2. S3 스토리지에 바이너리 PUT 전송 (로컬 개발 시 버킷 미구성 환경에서만 비차단)
       try {
         await uploadToPresignedUrl(presigned.uploadUrl, file, presigned.requiredHeaders);
       } catch (s3Error) {
-        console.warn("Direct S3 PUT upload failed (non-blocking in local dev):", s3Error);
+        if (import.meta.env.DEV) {
+          console.warn("Direct S3 PUT upload failed (non-blocking in local dev):", s3Error);
+        } else {
+          throw s3Error;
+        }
       }
 
       // 3. file-service에 메타데이터 등록

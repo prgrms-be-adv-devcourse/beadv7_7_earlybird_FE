@@ -66,7 +66,7 @@ export function OrderDetailPage() {
             // URL 쿼리 파라미터 즉시 제거
             navigate(`/orders/${orderId}`, { replace: true });
             // 주문 정보 및 관련 캐시 갱신
-            await queryClient.invalidateQueries({ queryKey: ["orders", orderId] });
+            await queryClient.invalidateQueries({ queryKey: ["orders", "detail", orderId] });
             await queryClient.invalidateQueries({ queryKey: ["orders"] });
             await refetchOrder();
           },
@@ -80,7 +80,7 @@ export function OrderDetailPage() {
             setConfirmError(serverMsg);
             // URL 쿼리 파라미터 정리
             navigate(`/orders/${orderId}`, { replace: true });
-            queryClient.invalidateQueries({ queryKey: ["orders", orderId] });
+            queryClient.invalidateQueries({ queryKey: ["orders", "detail", orderId] });
             queryClient.invalidateQueries({ queryKey: ["orders"] });
             refetchOrder();
           },
@@ -92,7 +92,7 @@ export function OrderDetailPage() {
   // Source of Truth: 서버에서 반환된 실제 order.status만 유일한 기준으로 사용!
   const isPaid = order?.status === "PAID";
   const effectiveStatus = order?.status;
-  const isProcessingPayment = isConfirmingPayment || (isRedirectingFromToss && !confirmError && !isPaid);
+  const isProcessingPayment = !isPaid && !confirmError && (isConfirmingPayment || isRedirectingFromToss);
 
   if (isPending) {
     return (
@@ -109,7 +109,7 @@ export function OrderDetailPage() {
   return (
     <div className="flex flex-col gap-4">
       {/* Payment Confirming Progress Banner */}
-      {isProcessingPayment && (
+      {isProcessingPayment && !isPaid && (
         <div className="flex items-center gap-3 rounded-lg border-2 border-brand/40 bg-brand/10 p-4 text-ink shadow-stamp-sm animate-pulse">
           <Loader2 className="h-6 w-6 animate-spin text-brand shrink-0" />
           <div>
@@ -222,7 +222,7 @@ export function OrderDetailPage() {
             </Button>
           )}
 
-          {effectiveStatus === "CREATED" && (
+          {(effectiveStatus === "CREATED" || effectiveStatus === "PAYMENT_PENDING") && (
             <Button
               type="button"
               disabled={isProcessingPayment}

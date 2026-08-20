@@ -74,8 +74,9 @@ export function useApproveProject() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => approveProject(id),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "pendingProjects"] });
+      queryClient.invalidateQueries({ queryKey: ["projects", "detail", id] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
@@ -85,8 +86,9 @@ export function useRejectProject() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, reason }: { id: number; reason: string }) => rejectProject(id, reason),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "pendingProjects"] });
+      queryClient.invalidateQueries({ queryKey: ["projects", "detail", variables.id] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
@@ -98,7 +100,7 @@ export function useExtendProjectDeadline() {
     mutationFn: ({ id, endAt }: { id: number; endAt: string }) => extendProjectDeadline(id, endAt),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "pendingProjects"] });
-      queryClient.invalidateQueries({ queryKey: ["projects", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["projects", "detail", variables.id] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
@@ -115,12 +117,8 @@ export function useTriggerCloseExpired() {
 }
 
 export function useReindexProjects() {
-  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => reindexAllProjects(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
-    },
   });
 }
 
@@ -129,8 +127,7 @@ export function useCancelProjectByAdmin() {
   return useMutation({
     mutationFn: (id: number) => cancelProjectByAdmin(id),
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "pendingProjects"] });
-      queryClient.invalidateQueries({ queryKey: ["projects", id] });
+      queryClient.invalidateQueries({ queryKey: ["projects", "detail", id] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
