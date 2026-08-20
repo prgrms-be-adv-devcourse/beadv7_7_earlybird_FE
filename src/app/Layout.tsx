@@ -160,6 +160,12 @@ export function Layout() {
           </Link>
 
           {/* Role-specific Nav Links */}
+          {user?.role === "BACKER" && (
+            <Link to="/creator/apply" className="font-bold text-brand transition-colors hover:underline">
+              ✨ 창작자 등록 신청
+            </Link>
+          )}
+
           {user?.role === "CREATOR" && (
             <>
               <Link to="/projects/new" className="font-bold text-brand transition-colors hover:underline">
@@ -182,6 +188,9 @@ export function Layout() {
               <Link to="/admin/approvals" className="font-bold text-brand transition-colors hover:underline">
                 🛡️ 프로젝트 심사
               </Link>
+              <Link to="/admin/creators" className="font-bold text-brand transition-colors hover:underline">
+                👤 창작자 심사
+              </Link>
               <Link to="/admin/settlements" className="font-bold text-brand transition-colors hover:underline">
                 💰 정산 관리
               </Link>
@@ -193,9 +202,6 @@ export function Layout() {
           </Link>
           <Link to="/orders" className="font-bold transition-colors hover:text-brand">
             주문
-          </Link>
-          <Link to="/notifications" className="font-bold transition-colors hover:text-brand">
-            알림
           </Link>
 
           {user ? (
@@ -217,10 +223,22 @@ export function Layout() {
                 <DropdownMenuItem asChild>
                   <Link to="/orders">내 주문 내역</Link>
                 </DropdownMenuItem>
-                {user.role === "ADMIN" ? (
+                {user.role === "BACKER" && (
                   <DropdownMenuItem asChild>
-                    <Link to="/admin/settlements">정산 내역 관리</Link>
+                    <Link to="/creator/apply" className="font-semibold text-brand">
+                      ✨ 창작자 등록 신청
+                    </Link>
                   </DropdownMenuItem>
+                )}
+                {user.role === "ADMIN" ? (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin/creators">👤 창작자 심사 관리</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin/settlements">정산 내역 관리</Link>
+                    </DropdownMenuItem>
+                  </>
                 ) : (
                   <DropdownMenuItem asChild>
                     <Link to="/settlements">정산 현황</Link>
@@ -285,13 +303,17 @@ export function Layout() {
             <DropdownMenuItem asChild>
               <Link to="/orders">주문 내역</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to="/notifications">알림</Link>
-            </DropdownMenuItem>
 
             {user && (
               <>
                 <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
+                {user.role === "BACKER" && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/creator/apply" className="font-bold text-brand">
+                      ✨ 창작자 등록 신청
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem asChild>
                   <Link to="/projects/new">+ 프로젝트 만들기</Link>
                 </DropdownMenuItem>
@@ -305,6 +327,9 @@ export function Layout() {
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/admin/approvals">🛡️ 프로젝트 심사</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin/creators">👤 창작자 심사 관리</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/admin/settlements">💰 정산 내역 관리</Link>
