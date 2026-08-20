@@ -43,7 +43,14 @@ import {
   useDeactivateReward,
 } from "../../admin/hooks";
 import type { ProjectDetail, Reward } from "../types";
-import { getStatusLabel, getStatusBadgeTone, getOrderClosedMessage, formatDateKorean, getCreatorDisplayName } from "../utils";
+import {
+  getStatusLabel,
+  getStatusBadgeTone,
+  getOrderClosedMessage,
+  formatDateKorean,
+  getCreatorDisplayName,
+  getCategoryPathString,
+} from "../utils";
 
 function daysLeft(endAt: string): number {
   const end = new Date(`${endAt}T23:59:59`);
@@ -150,6 +157,7 @@ function FundingPanel({
   flightTrigger,
   feedback,
   isOrderable,
+  categoryPath,
 }: {
   project: ProjectDetail;
   rewards: Reward[] | undefined;
@@ -163,6 +171,7 @@ function FundingPanel({
   flightTrigger: number;
   feedback: string | null;
   isOrderable: boolean;
+  categoryPath?: string;
 }) {
   const percent = fundedPercent(project.fundedAmount, project.goalAmount);
   const remaining = daysLeft(project.endAt);
@@ -180,6 +189,17 @@ function FundingPanel({
         <div className="tabular-nums text-xs text-mist">목표 {project.goalAmount.toLocaleString()}원</div>
 
         <div className="mt-3 flex flex-col gap-1 border-t border-ink/10 pt-2 text-xs text-mist">
+          {categoryPath && (
+            <div>
+              📁 카테고리:{" "}
+              <Link
+                to={`/projects?category=${project.categoryId}`}
+                className="font-bold text-brand hover:underline"
+              >
+                {categoryPath}
+              </Link>
+            </div>
+          )}
           <div>🗓️ 시작일: <strong className="text-ink">{formatDateKorean(project.startAt)}</strong></div>
           <div>⏰ 마감일: <strong className="text-ink">{formatDateKorean(project.endAt)} ({remaining > 0 ? `${remaining}일 남음` : "마감"})</strong></div>
           <div>
@@ -320,7 +340,7 @@ export function ProjectDetailPage() {
   const { data: rewards } = useRewards(projectId);
   const { data: categories } = useCategories();
   const { data: projectFiles } = useFilesByOwner("PROJECT", projectId, true);
-  const categoryName = categories?.find((c) => c.id === project?.categoryId)?.name;
+  const categoryPath = getCategoryPathString(categories, project?.categoryId);
   const projectThumbnailUrl = projectFiles && projectFiles.length > 0 ? projectFiles[0].storedUrl : null;
 
   const [selectedRewardId, setSelectedRewardId] = useState<number | null>(null);
@@ -531,23 +551,32 @@ export function ProjectDetailPage() {
               objectFit="contain"
             />
             <div className="p-6">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <h1 className="font-display text-2xl font-bold text-ink">{project.title}</h1>
-                  {isCreator && (
-                    <button
-                      type="button"
-                      aria-label="프로젝트 정보 수정"
-                      onClick={() => setOwnerEditMode((v) => !v)}
-                      className={`flex h-7 w-7 items-center justify-center rounded-full border ${ownerEditMode ? "border-brand bg-brand/10 text-brand" : "border-ink/20 text-mist hover:border-brand hover:text-brand"}`}
-                    >
-                      <Pencil size={14} />
-                    </button>
-                  )}
+              <div className="mb-2 flex flex-col gap-1.5">
+                {categoryPath && (
+                  <Link
+                    to={`/projects?category=${project.categoryId}`}
+                    className="w-fit inline-flex items-center gap-1 text-xs font-bold text-brand hover:underline"
+                  >
+                    📁 {categoryPath}
+                  </Link>
+                )}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <h1 className="font-display text-2xl font-bold text-ink">{project.title}</h1>
+                    {isCreator && (
+                      <button
+                        type="button"
+                        aria-label="프로젝트 정보 수정"
+                        onClick={() => setOwnerEditMode((v) => !v)}
+                        className={`flex h-7 w-7 items-center justify-center rounded-full border ${ownerEditMode ? "border-brand bg-brand/10 text-brand" : "border-ink/20 text-mist hover:border-brand hover:text-brand"}`}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                  </div>
+                  <Badge tone={getStatusBadgeTone(project.status)}>{getStatusLabel(project.status)}</Badge>
                 </div>
-                <Badge tone={getStatusBadgeTone(project.status)}>{getStatusLabel(project.status)}</Badge>
               </div>
-              {categoryName && <p className="mb-1 text-xs font-medium text-brand">📁 {categoryName}</p>}
               <p className="text-mist">{project.summary}</p>
             </div>
           </Card>
@@ -735,6 +764,7 @@ export function ProjectDetailPage() {
           flightTrigger={panelFlight}
           feedback={feedback}
           isOrderable={isPublished}
+          categoryPath={categoryPath}
         />
       </div>
 

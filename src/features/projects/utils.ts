@@ -141,3 +141,24 @@ function collectAllNodeIds(node: ProjectCategory): number[] {
   }
   return ids;
 }
+
+export function findCategoryPath(categories: ProjectCategory[], targetId: number): string[] {
+  for (const cat of categories) {
+    if (cat.id === targetId) {
+      return [cat.name];
+    }
+    if (cat.children && cat.children.length > 0) {
+      const subPath = findCategoryPath(cat.children, targetId);
+      if (subPath.length > 0) {
+        return [cat.name, ...subPath];
+      }
+    }
+  }
+  return [];
+}
+
+export function getCategoryPathString(categories: ProjectCategory[] | undefined, targetId?: number | null): string {
+  if (!categories || !targetId) return "";
+  const path = findCategoryPath(categories, targetId);
+  return path.join(" > ");
+}
