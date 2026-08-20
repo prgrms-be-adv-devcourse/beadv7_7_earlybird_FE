@@ -51,7 +51,7 @@ export function ProjectListPage() {
   const urlKeyword = searchParams.get("keyword") || "";
   const initialCategory = searchParams.get("category") || ALL;
   const initialStatus = searchParams.get("status") || ALL;
-  const initialSort = searchParams.get("sort") || (urlKeyword.trim() ? "RELEVANCE" : "LATEST");
+  const initialSort = searchParams.get("sort") || "RELEVANCE";
   const initialCreatorId = searchParams.get("creatorId") || ALL;
 
   const [inputKeyword, setInputKeyword] = useState(urlKeyword);
@@ -120,7 +120,7 @@ export function ProjectListPage() {
     const currentCreatorId = searchParams.get("creatorId") || ALL;
     const currentCategory = searchParams.get("category") || ALL;
     const currentStatus = searchParams.get("status") || ALL;
-    const currentSort = searchParams.get("sort") || (currentUrlKeyword.trim() ? "RELEVANCE" : "LATEST");
+    const currentSort = searchParams.get("sort") || "RELEVANCE";
 
     setInputKeyword(currentUrlKeyword);
     setKeyword(currentUrlKeyword);
@@ -133,32 +133,20 @@ export function ProjectListPage() {
   // Debounce inputKeyword changes into active query keyword
   useEffect(() => {
     const timer = setTimeout(() => {
-      const trimmed = inputKeyword.trim();
-      setKeyword(trimmed);
-      // 검색어가 새로 입력되었을 때 기존 정렬이 "LATEST"이고 URL에 sort가 명시되지 않은 경우, 연관도순(RELEVANCE)으로 자동 설정
-      setSort((prevSort) => {
-        if (trimmed && prevSort === "LATEST" && !searchParams.get("sort")) {
-          return "RELEVANCE";
-        }
-        if (!trimmed && prevSort === "RELEVANCE") {
-          return "LATEST";
-        }
-        return prevSort;
-      });
+      setKeyword(inputKeyword.trim());
     }, 300);
     return () => clearTimeout(timer);
-  }, [inputKeyword, searchParams]);
+  }, [inputKeyword]);
 
   // Sync URL query params with current filter state
   useEffect(() => {
     const params: Record<string, string> = {};
     const trimmed = keyword.trim();
-    const defaultSort = trimmed ? "RELEVANCE" : "LATEST";
 
     if (trimmed) params.keyword = trimmed;
     if (categoryId !== ALL) params.category = categoryId;
     if (status !== ALL) params.status = status;
-    if (sort !== defaultSort) params.sort = sort;
+    if (sort !== "RELEVANCE") params.sort = sort;
     if (creatorId !== ALL) params.creatorId = creatorId;
     setSearchParams(params, { replace: true });
   }, [keyword, categoryId, status, sort, creatorId, setSearchParams]);
@@ -227,9 +215,6 @@ export function ProjectListPage() {
   const handleClearSearch = () => {
     setInputKeyword("");
     setKeyword("");
-    if (sort === "RELEVANCE") {
-      setSort("LATEST");
-    }
     setShowSuggestions(false);
   };
 
@@ -407,16 +392,14 @@ export function ProjectListPage() {
               <SelectValue placeholder="정렬" />
             </SelectTrigger>
             <SelectContent>
-              {keyword.trim().length > 0 && (
-                <SelectItem value="RELEVANCE">🎯 연관도순</SelectItem>
-              )}
+              <SelectItem value="RELEVANCE">🎯 연관도순</SelectItem>
               <SelectItem value="LATEST">🆕 최신순</SelectItem>
               <SelectItem value="DEADLINE">⏰ 마감임박순</SelectItem>
               <SelectItem value="FUNDED_AMOUNT">🔥 인기순</SelectItem>
             </SelectContent>
           </Select>
 
-          {(keyword.trim() || categoryId !== ALL || status !== ALL || sort !== (keyword.trim() ? "RELEVANCE" : "LATEST") || creatorId !== ALL) && (
+          {(keyword.trim() || categoryId !== ALL || status !== ALL || sort !== "RELEVANCE" || creatorId !== ALL) && (
             <button
               type="button"
               onClick={() => {
@@ -424,7 +407,7 @@ export function ProjectListPage() {
                 setKeyword("");
                 setCategoryId(ALL);
                 setStatus(ALL);
-                setSort("LATEST");
+                setSort("RELEVANCE");
                 setCreatorId(ALL);
               }}
               className="text-xs font-semibold text-brand hover:underline shrink-0"

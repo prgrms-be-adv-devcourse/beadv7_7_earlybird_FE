@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { apiClient } from "../../shared/api/client";
 import { USER_SERVICE } from "../../shared/api/endpoints";
-import { login, signup } from "./api";
+import { login, signup, switchRoleRequest } from "./api";
+import { SEED_ACCOUNTS } from "./types";
 
 vi.mock("../../shared/api/client", () => ({
   apiClient: { post: vi.fn() },
@@ -28,4 +29,22 @@ describe("auth api", () => {
       phoneNumber: "010-0000-0000",
     });
   });
+
+  it("switchRoleRequest는 USER_SERVICE.switchRole로 role을 POST하고 새 세션을 반환한다", async () => {
+    const session = { accessToken: "new-at", refreshToken: "new-rt", user: { id: 1, email: "a@a.com", name: "테스터", role: "ADMIN" } };
+    (apiClient.post as any).mockResolvedValue({ data: { success: true, data: session, error: null } });
+
+    const result = await switchRoleRequest("ADMIN");
+
+    expect(apiClient.post).toHaveBeenCalledWith(USER_SERVICE.switchRole, { role: "ADMIN" });
+    expect(result).toEqual(session);
+  });
+
+  it("SEED_ACCOUNTS는 각 역할별 기본 로그인 계정을 정의한다", () => {
+    expect(SEED_ACCOUNTS.ADMIN.email).toBe("admin@earlybird.co.kr");
+    expect(SEED_ACCOUNTS.CREATOR.email).toBe("seller@earlybird.co.kr");
+    expect(SEED_ACCOUNTS.BACKER.email).toBe("buyer@earlybird.co.kr");
+  });
 });
+
+

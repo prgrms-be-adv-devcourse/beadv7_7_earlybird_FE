@@ -4,6 +4,7 @@ export const USER_SERVICE = {
   refresh: "/api/v1/users/refresh",
   logout: "/api/v1/users/logout",
   me: "/api/v1/users/me",
+  switchRole: "/api/v1/users/me/role",
 };
 
 export const PROJECT_SERVICE = {
@@ -18,10 +19,11 @@ export const PROJECT_SERVICE = {
 
 
 export const CART_SERVICE = {
-  cart: "/api/v1/carts",
-  items: "/api/v1/carts/items",
-  item: (rewardId: number | string) => `/api/v1/carts/items/${rewardId}`,
+  cart: (userId: number | string) => `/api/v1/users/${userId}/cart`,
+  items: (userId: number | string) => `/api/v1/users/${userId}/cart/items`,
+  item: (userId: number | string, rewardId: number | string) => `/api/v1/users/${userId}/cart/items/${rewardId}`,
 };
+
 
 
 export const ORDER_SERVICE = {
@@ -61,16 +63,6 @@ export const BOARD_SERVICE = {
   comments: (targetType: string, targetId: number | string) =>
     `/api/v1/comments?targetType=${targetType}&targetId=${targetId}`,
   commentReplies: (commentId: number | string) => `/api/v1/comments/${commentId}/replies`,
-};
-
-// TODO(FE): notification-service NotificationController도 /api/v1 프리픽스 없이 /notifications뿐.
-// 팀 컨벤션 기준으로 가정 — 배포 서버 켜지면 확인 후 이 값만 고치면 된다.
-// (별개 확인 완료 사항: GET 목록 엔드포인트는 /notifications/me이고 userId가 필수 쿼리 파라미터다 —
-// ORDER_SERVICE.myOrders/fetchOrders와 동일 패턴으로 params에 담아 보낸다.)
-export const NOTIFICATION_SERVICE = {
-  notifications: "/api/v1/notifications/me",
-  read: (notificationId: number | string) => `/api/v1/notifications/${notificationId}/read`,
-  readAll: "/api/v1/notifications/read-all",
 };
 
 // file-service FileController(file/presentation/FileController.java)는 클래스 레벨

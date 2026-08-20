@@ -50,20 +50,26 @@ export function OrderReviewModal({
       setRating(5);
       setContent("");
       setPhotoFile(null);
-      setPhotoPreview(null);
+      setPhotoPreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
       setErrorMsg(null);
       setSuccessMsg(null);
+    } else {
+      setPhotoPreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
     }
   }, [open, defaultRewardId, orderItems]);
 
   const handleFileChange = (file: File | null) => {
     setPhotoFile(file);
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setPhotoPreview(url);
-    } else {
-      setPhotoPreview(null);
-    }
+    setPhotoPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return file ? URL.createObjectURL(file) : null;
+    });
   };
 
   const handleSubmit = async () => {

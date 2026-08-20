@@ -13,7 +13,18 @@ export function useOrders() {
 }
 
 export function useOrder(id: number) {
-  return useQuery({ queryKey: ["orders", "detail", id], queryFn: () => fetchOrder(id) });
+  return useQuery({
+    queryKey: ["orders", "detail", id],
+    queryFn: () => fetchOrder(id),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      // 결제 대기 중인 경우 백엔드 Kafka 이벤트(PAID 전환) 완료를 감지하기 위해 1초 주기로 자동 폴링
+      if (status === "PAYMENT_PENDING" || status === "CREATED") {
+        return 1000;
+      }
+      return false;
+    },
+  });
 }
 
 export function useCancelOrder(id: number) {

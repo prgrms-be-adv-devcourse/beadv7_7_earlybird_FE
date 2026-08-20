@@ -15,3 +15,8 @@ export async function signup(request: SignupRequest): Promise<void> {
 export async function logoutRequest(): Promise<void> {
   await apiClient.post<ApiResponse<null>>(USER_SERVICE.logout);
 }
+
+export async function switchRoleRequest(role: "BACKER" | "CREATOR" | "ADMIN"): Promise<AuthSession> {
+  const response = await apiClient.post<ApiResponse<AuthSession>>(USER_SERVICE.switchRole, { role });
+  return response.data.data as AuthSession;
+}

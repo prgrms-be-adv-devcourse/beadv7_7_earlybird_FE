@@ -22,3 +22,20 @@ export interface AuthSession {
   refreshToken: string;
   user: AuthUser;
 }
+
+export const SEED_ACCOUNTS = {
+  BACKER: {
+    email: "buyer@earlybird.co.kr",
+    password: "rawPassword1!",
+  },
+  CREATOR: {
+    email: "seller@earlybird.co.kr",
+    password: "rawPassword2!",
+  },
+  ADMIN: {
+    email: "admin@earlybird.co.kr",
+    password: "rawPassword3!",
+  },
+} as const;
+
+

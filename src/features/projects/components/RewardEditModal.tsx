@@ -48,8 +48,16 @@ export function RewardEditModal({
       setTotalQuantity(reward.totalQuantity);
       setIncreaseQty(10);
       setNewImageFile(null);
-      setImagePreviewUrl(null);
+      setImagePreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
       setErrorMsg(null);
+    } else {
+      setImagePreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
     }
   }, [open, reward]);
 
@@ -75,6 +83,7 @@ export function RewardEditModal({
             description,
             price: Number(price),
             totalQuantity: totalQuantity ? Number(totalQuantity) : null,
+            clearTotalQuantity: totalQuantity === null,
           };
 
       await updateRewardMutation.mutateAsync({ rewardId: reward.rewardId, data });
@@ -188,9 +197,10 @@ export function RewardEditModal({
               onChange={(e) => {
                 const file = e.target.files?.[0] ?? null;
                 setNewImageFile(file);
-                if (file) {
-                  setImagePreviewUrl(URL.createObjectURL(file));
-                }
+                setImagePreviewUrl((prev) => {
+                  if (prev) URL.revokeObjectURL(prev);
+                  return file ? URL.createObjectURL(file) : null;
+                });
               }}
               className="w-full text-xs text-ink file:mr-3 file:rounded file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink hover:file:bg-paper/80"
             />
