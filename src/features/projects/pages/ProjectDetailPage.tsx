@@ -5,6 +5,12 @@ import { motion } from "framer-motion";
 import axios from "axios";
 import { Pencil } from "lucide-react";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
   Badge,
   Button,
   Card,
@@ -359,6 +365,10 @@ export function ProjectDetailPage() {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
+  // Other project cart replacement confirmation modal
+  const [cartConfirmModalOpen, setCartConfirmModalOpen] = useState(false);
+  const [pendingCartSource, setPendingCartSource] = useState<"panel" | "footer">("panel");
+
   const addCartItems = useAddCartItems();
   const { data: cart } = useCart();
 
@@ -401,15 +411,26 @@ export function ProjectDetailPage() {
         ? selectedReward.projectId
         : projectId;
 
-    // 장바구니는 프로젝트 단일 정책(BE: cart.retainProjectItems)이라 다른 프로젝트 리워드를 담으면
-    // 기존 장바구니 항목이 조용히 삭제된다 — 사용자가 인지할 수 있게 확인을 받는다.
-    const hasOtherProjectItems = cart?.projects.some((p) => p.projectId !== targetProjectId);
+    // 장바구니는 단일 프로젝트 정책(BE: cart.retainProjectItems)이라 다른 프로젝트 리워드를 담으면
+    // 기존 장바구니 항목이 교체된다 — 사용자에게 확인 모달(AlertDialog)로 명확히 안내한다.
+    const hasOtherProjectItems = cart?.projects.some(
+      (p) => p.projectId !== targetProjectId && p.rewards && p.rewards.length > 0
+    );
     if (hasOtherProjectItems) {
-      const confirmed = window.confirm(
-        "장바구니에 다른 프로젝트의 리워드가 담겨 있어요. 이 리워드를 담으면 기존 장바구니 항목이 모두 삭제돼요. 계속할까요?"
-      );
-      if (!confirmed) return;
+      setPendingCartSource(source);
+      setCartConfirmModalOpen(true);
+      return;
     }
+
+    executeAddToCart(source);
+  }
+
+  function executeAddToCart(source: "panel" | "footer") {
+    if (!selectedReward) return;
+    const targetProjectId =
+      selectedReward.projectId && selectedReward.projectId > 0
+        ? selectedReward.projectId
+        : projectId;
 
     addCartItems.mutate(
       { projectId: targetProjectId, items: [{ rewardId: selectedReward.rewardId, quantity: selectedQuantity }] },
@@ -844,6 +865,35 @@ export function ProjectDetailPage() {
           />
         </div>
       </div>
+
+      {/* Other Project Cart Replacement Confirmation Modal */}
+      <AlertDialog open={cartConfirmModalOpen} onOpenChange={setCartConfirmModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogTitle className="font-display text-lg font-bold text-ink">
+            장바구니를 비우고 새로 담을까요?
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-sm text-mist leading-relaxed mt-2">
+            장바구니에는 한 번에 하나의 프로젝트 리워드만 담을 수 있어요.
+            <br />
+            이 리워드를 담으면 기존 장바구니에 담겨 있던 다른 프로젝트의 리워드가 모두 삭제됩니다.
+          </AlertDialogDescription>
+          <div className="mt-5 flex justify-end gap-2">
+            <AlertDialogCancel asChild>
+              <Button variant="secondary">취소</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                onClick={() => {
+                  setCartConfirmModalOpen(false);
+                  executeAddToCart(pendingCartSource);
+                }}
+              >
+                기존 항목 비우고 담기
+              </Button>
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Owner inline edit modals */}
       {editingProject && (
