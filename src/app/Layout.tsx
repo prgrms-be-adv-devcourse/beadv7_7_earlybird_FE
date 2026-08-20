@@ -15,6 +15,8 @@ import { FloatingCartBar } from "../features/cart/components/FloatingCartBar";
 import { useCategories } from "../features/admin/hooks";
 import type { ProjectCategory } from "../features/admin/types";
 import { logoutRequest } from "../features/auth/api";
+import { useSwitchRole } from "../features/auth/hooks";
+
 
 function CategoryTreeItem({
   category,
@@ -111,9 +113,9 @@ function HeaderCategoryNav() {
 
 export function Layout() {
   const user = useAuthStore((state) => state.user);
-  const setRole = useAuthStore((state) => state.setRole);
   const logout = useAuthStore((state) => state.logout);
   const queryClient = useQueryClient();
+  const switchRoleMutation = useSwitchRole();
 
   const handleLogout = () => {
     logoutRequest().catch(() => {
@@ -226,14 +228,26 @@ export function Layout() {
                 )}
 
                 <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
-                <div className="px-2 py-1 text-[11px] font-semibold text-mist">역할 즉시 전환 (테스트용)</div>
-                <DropdownMenuItem onSelect={() => setRole("BACKER")}>
+                <div className="px-2 py-1 text-[11px] font-semibold text-mist">
+                  역할 즉시 전환 (테스트용)
+                  {switchRoleMutation.isPending && " ⏳"}
+                </div>
+                <DropdownMenuItem
+                  disabled={switchRoleMutation.isPending}
+                  onSelect={() => switchRoleMutation.mutate("BACKER")}
+                >
                   후원자(BACKER)로 전환
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setRole("CREATOR")}>
+                <DropdownMenuItem
+                  disabled={switchRoleMutation.isPending}
+                  onSelect={() => switchRoleMutation.mutate("CREATOR")}
+                >
                   창작자(CREATOR)로 전환
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setRole("ADMIN")}>
+                <DropdownMenuItem
+                  disabled={switchRoleMutation.isPending}
+                  onSelect={() => switchRoleMutation.mutate("ADMIN")}
+                >
                   관리자(ADMIN)로 전환
                 </DropdownMenuItem>
 
@@ -298,8 +312,19 @@ export function Layout() {
                   </>
                 )}
                 <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
-                <DropdownMenuItem onSelect={() => setRole(user.role === "ADMIN" ? "CREATOR" : user.role === "CREATOR" ? "BACKER" : "ADMIN")}>
-                  역할 전환 ({user.role} ➔ 토글)
+                <DropdownMenuItem
+                  disabled={switchRoleMutation.isPending}
+                  onSelect={() =>
+                    switchRoleMutation.mutate(
+                      user.role === "ADMIN"
+                        ? "CREATOR"
+                        : user.role === "CREATOR"
+                          ? "BACKER"
+                          : "ADMIN"
+                    )
+                  }
+                >
+                  역할 전환 ({user.role} ➔ 토글) {switchRoleMutation.isPending && "⏳"}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={handleLogout} className="text-red-600">
                   {user.name}님 로그아웃
