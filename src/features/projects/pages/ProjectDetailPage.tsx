@@ -22,7 +22,7 @@ import {
 } from "../../../shared/ui";
 import { useProject, useRewards } from "../hooks";
 import { useCategories } from "../../admin/hooks";
-import { useAddCartItems } from "../../cart/hooks";
+import { useAddCartItems, useCart } from "../../cart/hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
 import { useFilesByOwner } from "../../files/hooks";
 import { ProjectBoardTabs } from "../../board/components/ProjectBoardTabs";
@@ -360,6 +360,7 @@ export function ProjectDetailPage() {
   const [rejectReason, setRejectReason] = useState("");
 
   const addCartItems = useAddCartItems();
+  const { data: cart } = useCart();
 
   const selectedReward = rewards?.find((reward) => reward.rewardId === selectedRewardId);
 
@@ -399,6 +400,16 @@ export function ProjectDetailPage() {
       selectedReward.projectId && selectedReward.projectId > 0
         ? selectedReward.projectId
         : projectId;
+
+    // 장바구니는 프로젝트 단일 정책(BE: cart.retainProjectItems)이라 다른 프로젝트 리워드를 담으면
+    // 기존 장바구니 항목이 조용히 삭제된다 — 사용자가 인지할 수 있게 확인을 받는다.
+    const hasOtherProjectItems = cart?.projects.some((p) => p.projectId !== targetProjectId);
+    if (hasOtherProjectItems) {
+      const confirmed = window.confirm(
+        "장바구니에 다른 프로젝트의 리워드가 담겨 있어요. 이 리워드를 담으면 기존 장바구니 항목이 모두 삭제돼요. 계속할까요?"
+      );
+      if (!confirmed) return;
+    }
 
     addCartItems.mutate(
       { projectId: targetProjectId, items: [{ rewardId: selectedReward.rewardId, quantity: selectedQuantity }] },
