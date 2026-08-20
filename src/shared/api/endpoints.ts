@@ -4,6 +4,7 @@ export const USER_SERVICE = {
   refresh: "/api/v1/users/refresh",
   logout: "/api/v1/users/logout",
   me: "/api/v1/users/me",
+  switchRole: "/api/v1/users/me/role",
 };
 
 export const PROJECT_SERVICE = {
