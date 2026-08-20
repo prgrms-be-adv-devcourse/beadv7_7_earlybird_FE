@@ -100,7 +100,17 @@ export function LoginPage() {
             </Button>
 
             {loginMutation.isError && (
-              <ErrorState error={{ message: "로그인에 실패했습니다.", errors: null }} />
+              <ErrorState
+                error={{
+                  message:
+                    (loginMutation.error as any)?.response?.data?.error?.message ||
+                    (loginMutation.error as any)?.response?.data?.message ||
+                    ((loginMutation.error as any)?.response?.status === 503
+                      ? "사용자 서비스(user-service)가 실행되지 않았거나 연결할 수 없습니다. (503 Service Unavailable)"
+                      : (loginMutation.error as any)?.message || "로그인에 실패했습니다."),
+                  errors: null,
+                }}
+              />
             )}
           </form>
 
