@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Star } from "lucide-react";
+import { CheckCircle2, Loader2, Star } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,13 +28,14 @@ export function OrderDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const orderId = Number(id);
-  const { data: order, isPending, isError } = useOrder(orderId);
+  const { data: order, isPending, isError, refetch: refetchOrder } = useOrder(orderId);
   const { data: myOrders } = useOrders();
   const displayNumber = getOrderDisplayNumber(orderId, myOrders?.map((o) => o.id) ?? [orderId]);
   const cancelMutation = useCancelOrder(orderId);
-  const { mutate: confirmPayment } = useConfirmPayment();
+  const { mutate: confirmPayment, isPending: isConfirmingPayment } = useConfirmPayment();
   const hasRequestedConfirmation = useRef(false);
 
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [selectedRewardIdForReview, setSelectedRewardIdForReview] = useState<number | undefined>(undefined);
 
@@ -51,7 +52,9 @@ export function OrderDetailPage() {
 
   useEffect(() => {
     if (isRedirectingFromToss && !hasRequestedConfirmation.current) {
-      hasRequestedConfirmation.current = true; // <-- 동일 Toss 콜백 중복 승인 방지
+      hasRequestedConfirmation.current = true; // 동일 Toss 콜백 중복 승인 방지
+      setConfirmError(null);
+
       confirmPayment(
         {
           paymentKey: paymentKeyParam!,
@@ -59,26 +62,37 @@ export function OrderDetailPage() {
           amount: Number(amountParam!),
         },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
+            // URL 쿼리 파라미터 즉시 제거
+            navigate(`/orders/${orderId}`, { replace: true });
+            // 주문 정보 및 관련 캐시 갱신
+            await queryClient.invalidateQueries({ queryKey: ["orders", orderId] });
+            await queryClient.invalidateQueries({ queryKey: ["orders"] });
+            await refetchOrder();
+          },
+          onError: (err: any) => {
+            console.error("Payment confirm error:", err);
+            const serverMsg =
+              err?.response?.data?.error?.message ||
+              err?.response?.data?.message ||
+              err?.message ||
+              "결제 승인 처리 중 오류가 발생했습니다.";
+            setConfirmError(serverMsg);
+            // URL 쿼리 파라미터 정리
+            navigate(`/orders/${orderId}`, { replace: true });
             queryClient.invalidateQueries({ queryKey: ["orders", orderId] });
             queryClient.invalidateQueries({ queryKey: ["orders"] });
-            navigate(`/orders/${orderId}`, { replace: true, state: { paymentSuccess: true } });
-          },
-          onError: (err) => {
-            console.error("Payment confirm error:", err);
+            refetchOrder();
           },
         }
       );
     }
-  }, [isRedirectingFromToss, paymentKeyParam, pgOrderIdParam, amountParam, orderId, navigate, confirmPayment, queryClient]);
+  }, [isRedirectingFromToss, paymentKeyParam, pgOrderIdParam, amountParam, orderId, navigate, confirmPayment, queryClient, refetchOrder]);
 
-  const isPaymentSuccess = Boolean(
-    (location.state as any)?.paymentSuccess ||
-    location.search.includes("payment=success") ||
-    isRedirectingFromToss ||
-    order?.status === "PAID"
-  );
-  const effectiveStatus = isPaymentSuccess ? "PAID" : order?.status;
+  // Source of Truth: 서버에서 반환된 실제 order.status만 유일한 기준으로 사용!
+  const isPaid = order?.status === "PAID";
+  const effectiveStatus = order?.status;
+  const isProcessingPayment = isConfirmingPayment || (isRedirectingFromToss && !confirmError && !isPaid);
 
   if (isPending) {
     return (
@@ -94,8 +108,19 @@ export function OrderDetailPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Payment Success Toast Banner */}
-      {isPaymentSuccess && (
+      {/* Payment Confirming Progress Banner */}
+      {isProcessingPayment && (
+        <div className="flex items-center gap-3 rounded-lg border-2 border-brand/40 bg-brand/10 p-4 text-ink shadow-stamp-sm animate-pulse">
+          <Loader2 className="h-6 w-6 animate-spin text-brand shrink-0" />
+          <div>
+            <h2 className="font-bold text-sm">결제 승인 확인 중...</h2>
+            <p className="text-xs text-mist">토스페이먼츠 결제 승인을 확인하고 있습니다. 잠시만 기다려주세요.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Success Toast Banner (실제 order.status === "PAID"일 때만 표시) */}
+      {isPaid && (
         <div className="flex items-center gap-3 rounded-lg border-2 border-mint bg-mint/15 p-4 text-ink shadow-stamp-sm">
           <CheckCircle2 className="h-6 w-6 text-mint shrink-0" />
           <div>
@@ -105,8 +130,18 @@ export function OrderDetailPage() {
         </div>
       )}
 
+      {/* Payment Confirmation Failure Banner */}
+      {confirmError && (
+        <div className="flex items-center gap-3 rounded-lg border-2 border-red-200 bg-red-50 p-4 text-red-700 shadow-stamp-sm">
+          <div>
+            <h2 className="font-bold text-sm">⚠️ 결제 승인 실패</h2>
+            <p className="text-xs text-red-600 mt-0.5">{confirmError}</p>
+          </div>
+        </div>
+      )}
+
       {/* Payment Failure / Timeout Alert Banner */}
-      {(effectiveStatus === "PAYMENT_FAILED" || effectiveStatus === "STOCK_FAILED") && (
+      {(effectiveStatus === "PAYMENT_FAILED" || effectiveStatus === "STOCK_FAILED") && !confirmError && (
         <div className="flex items-center gap-3 rounded-lg border-2 border-red-200 bg-red-50 p-4 text-red-700 shadow-stamp-sm">
           <div>
             <h2 className="font-bold text-sm">⚠️ 결제를 완료할 수 없는 주문입니다</h2>
@@ -187,22 +222,18 @@ export function OrderDetailPage() {
             </Button>
           )}
 
-          {effectiveStatus !== "PAID" &&
-            effectiveStatus !== "CANCELLED" &&
-            effectiveStatus !== "PAYMENT_FAILED" &&
-            effectiveStatus !== "STOCK_FAILED" && (
-              <Button
-                type="button"
-                onClick={() => navigate(`/checkout/${order.id}`)}
-                className="flex-1 py-3 text-sm font-bold text-white shadow-stamp hover:scale-[1.01] transition-transform"
-              >
-                💳 {order.totalAmount.toLocaleString()}원 결제하기
-              </Button>
-            )}
+          {effectiveStatus === "CREATED" && (
+            <Button
+              type="button"
+              disabled={isProcessingPayment}
+              onClick={() => navigate(`/checkout/${order.id}`)}
+              className="flex-1 py-3 text-sm font-bold text-white shadow-stamp hover:scale-[1.01] transition-transform disabled:opacity-50"
+            >
+              {isProcessingPayment ? "결제 승인 처리 중..." : `💳 ${order.totalAmount.toLocaleString()}원 결제하기`}
+            </Button>
+          )}
 
-          {effectiveStatus !== "CANCELLED" &&
-            effectiveStatus !== "PAYMENT_FAILED" &&
-            effectiveStatus !== "STOCK_FAILED" && (
+          {effectiveStatus === "PAID" && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="secondary" disabled={cancelMutation.isPending} className="py-3">

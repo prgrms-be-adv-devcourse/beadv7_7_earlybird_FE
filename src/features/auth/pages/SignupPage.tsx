@@ -81,7 +81,17 @@ export function SignupPage() {
             </Button>
 
             {signupMutation.isError && (
-              <ErrorState error={{ message: "회원가입에 실패했습니다.", errors: null }} />
+              <ErrorState
+                error={{
+                  message:
+                    (signupMutation.error as any)?.response?.data?.error?.message ||
+                    (signupMutation.error as any)?.response?.data?.message ||
+                    ((signupMutation.error as any)?.response?.status === 503
+                      ? "사용자 서비스(user-service)가 실행되지 않았거나 연결할 수 없습니다. (503 Service Unavailable)"
+                      : (signupMutation.error as any)?.message || "회원가입에 실패했습니다."),
+                  errors: null,
+                }}
+              />
             )}
           </form>
 

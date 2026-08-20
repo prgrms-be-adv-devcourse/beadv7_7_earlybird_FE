@@ -9,22 +9,21 @@ export function useCart() {
     queryKey: ["cart", "detail", userId],
     queryFn: () => {
       if (!userId) throw new Error("로그인이 필요합니다.");
-      return fetchCart(userId);
+      return fetchCart();
     },
     enabled: !!userId,
   });
 }
 
 export function useAddCartItems() {
-  const userId = useAuthStore((state) => state.user?.id);
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: AddCartItemsPayload) => {
-      const currentUserId = userId ?? useAuthStore.getState().user?.id;
-      if (!currentUserId) {
+      const user = useAuthStore.getState().user;
+      if (!user) {
         throw new Error("로그인이 필요한 서비스입니다.");
       }
-      return addCartItems(currentUserId, payload);
+      return addCartItems(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
@@ -33,15 +32,14 @@ export function useAddCartItems() {
 }
 
 export function useUpdateCartItems() {
-  const userId = useAuthStore((state) => state.user?.id);
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: UpdateCartItemsPayload) => {
-      const currentUserId = userId ?? useAuthStore.getState().user?.id;
-      if (!currentUserId) {
+      const user = useAuthStore.getState().user;
+      if (!user) {
         throw new Error("로그인이 필요한 서비스입니다.");
       }
-      return updateCartItems(currentUserId, payload);
+      return updateCartItems(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
@@ -50,15 +48,14 @@ export function useUpdateCartItems() {
 }
 
 export function useRemoveCartItem() {
-  const userId = useAuthStore((state) => state.user?.id);
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (rewardId: number) => {
-      const currentUserId = userId ?? useAuthStore.getState().user?.id;
-      if (!currentUserId) {
+      const user = useAuthStore.getState().user;
+      if (!user) {
         throw new Error("로그인이 필요한 서비스입니다.");
       }
-      return removeCartItem(currentUserId, rewardId);
+      return removeCartItem(rewardId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
@@ -67,15 +64,14 @@ export function useRemoveCartItem() {
 }
 
 export function useClearCart() {
-  const userId = useAuthStore((state) => state.user?.id);
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => {
-      const currentUserId = userId ?? useAuthStore.getState().user?.id;
-      if (!currentUserId) {
+      const user = useAuthStore.getState().user;
+      if (!user) {
         throw new Error("로그인이 필요한 서비스입니다.");
       }
-      return clearCart(currentUserId);
+      return clearCart();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
