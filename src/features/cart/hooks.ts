@@ -9,7 +9,7 @@ export function useCart() {
     queryKey: ["cart", "detail", userId],
     queryFn: () => {
       if (!userId) throw new Error("로그인이 필요합니다.");
-      return fetchCart();
+      return fetchCart(userId);
     },
     enabled: !!userId,
   });
@@ -23,7 +23,7 @@ export function useAddCartItems() {
       if (!user) {
         throw new Error("로그인이 필요한 서비스입니다.");
       }
-      return addCartItems(payload);
+      return addCartItems(user.id, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
@@ -39,7 +39,7 @@ export function useUpdateCartItems() {
       if (!user) {
         throw new Error("로그인이 필요한 서비스입니다.");
       }
-      return updateCartItems(payload);
+      return updateCartItems(user.id, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
@@ -55,7 +55,7 @@ export function useRemoveCartItem() {
       if (!user) {
         throw new Error("로그인이 필요한 서비스입니다.");
       }
-      return removeCartItem(rewardId);
+      return removeCartItem(user.id, rewardId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
@@ -71,7 +71,7 @@ export function useClearCart() {
       if (!user) {
         throw new Error("로그인이 필요한 서비스입니다.");
       }
-      return clearCart();
+      return clearCart(user.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });

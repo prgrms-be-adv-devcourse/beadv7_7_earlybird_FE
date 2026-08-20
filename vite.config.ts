@@ -13,10 +13,15 @@ export default defineConfig({
         target: "http://localhost:8086",
         changeOrigin: true,
       },
+      "^/api/v1/users/[^/]+/cart": {
+        target: "http://localhost:8085",
+        changeOrigin: true,
+      },
       "/api": {
         target: "http://localhost:8000",
         changeOrigin: true,
       },
+
     },
   },
   test: {
