@@ -26,7 +26,7 @@ export async function fetchProjects(params?: FetchProjectsParams): Promise<Proje
   if (params?.keyword) searchParams.set("keyword", params.keyword);
   if (params?.categoryId && params.categoryId !== "ALL") searchParams.set("categoryId", String(params.categoryId));
   if (params?.status && params.status !== "ALL") searchParams.set("status", params.status);
-  if (params?.sort) searchParams.set("sort", params.sort);
+  if (params?.sort && params.sort !== "RELEVANCE") searchParams.set("sort", params.sort);
 
   const queryString = searchParams.toString();
   const url = queryString ? `${PROJECT_SERVICE.projects}?${queryString}` : PROJECT_SERVICE.projects;
