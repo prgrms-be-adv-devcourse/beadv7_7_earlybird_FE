@@ -512,13 +512,13 @@ export function ProjectDetailPage() {
       <div className="flex flex-col gap-6">
         {project.isOwnerPreview && project.status === "REJECTED" && (
           <div className="rounded-sm border-2 border-red-300 bg-red-50 px-4 py-3 text-xs font-semibold text-red-800">
-            ❌ 심사가 반려됐어요. 창작자 본인에게만 보이는 미리보기입니다.
+            {isAdmin ? "❌ 심사가 반려된 프로젝트예요. (관리자 열람 모드)" : "❌ 심사가 반려됐어요. 창작자 본인에게만 보이는 미리보기입니다."}
             {project.rejectReason && <div className="mt-1 font-normal">반려 사유: {project.rejectReason}</div>}
           </div>
         )}
         {project.isOwnerPreview && project.status !== "REJECTED" && (
           <div className="rounded-sm border-2 border-amber-300 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
-            ⌛ 심사 대기 중인 프로젝트예요. 창작자 본인에게만 보이는 미리보기입니다.
+            {isAdmin ? "⌛ 심사 대기 중인 프로젝트예요. (관리자 심사 모드)" : "⌛ 심사 대기 중인 프로젝트예요. 창작자 본인에게만 보이는 미리보기입니다."}
           </div>
         )}
 

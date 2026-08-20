@@ -19,6 +19,7 @@ import {
 } from "./api";
 import type { CreateProjectRequest, CreateRewardRequest, ProjectDetail } from "./types";
 import { useAuthStore } from "../../shared/auth/authStore";
+import { fetchPendingProjects } from "../admin/api";
 
 export function useProjects(params?: FetchProjectsParams) {
   return useQuery({
@@ -39,20 +40,41 @@ export function useProject(id: number) {
       } catch (error) {
         // Backend GET /api/v1/projects/{id} only serves single-project detail for published statuses
         // (e.g. IN_PROGRESS), throwing 404 EntityNotFoundException for PENDING_REVIEW / REJECTED projects.
-        // Fall back to fetchMyProjects() (for creator) or fetchProjects() (for admin/list viewer).
+        // Fall back to fetchPendingProjects() (for admin), fetchMyProjects() (for creator), or fetchProjects().
         const accessToken = useAuthStore.getState().accessToken;
         if (axios.isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 500) && accessToken) {
           try {
+            const user = useAuthStore.getState().user;
+            if (user?.role === "ADMIN") {
+              const pending = await fetchPendingProjects();
+              const foundPending = pending.find((project) => project.projectId === id);
+              if (foundPending) {
+                return { ...foundPending, summary: foundPending.summary ?? null, description: foundPending.description ?? null, isOwnerPreview: true };
+              }
+            }
+
             const mine = await fetchMyProjects();
             const foundMy = mine.find((project) => project.projectId === id);
             if (foundMy) {
               return { ...foundMy, summary: foundMy.summary ?? null, description: foundMy.description ?? null, isOwnerPreview: true };
             }
 
+            const pendingProjects = await fetchProjects({ status: "PENDING_REVIEW" });
+            const foundPending = pendingProjects.find((project) => project.projectId === id);
+            if (foundPending) {
+              return { ...foundPending, summary: foundPending.summary ?? null, description: foundPending.description ?? null, isOwnerPreview: true };
+            }
+
             const allProjects = await fetchProjects();
             const foundAll = allProjects.find((project) => project.projectId === id);
             if (foundAll) {
               return { ...foundAll, summary: foundAll.summary ?? null, description: foundAll.description ?? null, isOwnerPreview: true };
+            }
+
+            const rejectedProjects = await fetchProjects({ status: "REJECTED" });
+            const foundRejected = rejectedProjects.find((project) => project.projectId === id);
+            if (foundRejected) {
+              return { ...foundRejected, summary: foundRejected.summary ?? null, description: foundRejected.description ?? null, isOwnerPreview: true };
             }
           } catch {
             // Ignore fallback fetch error
