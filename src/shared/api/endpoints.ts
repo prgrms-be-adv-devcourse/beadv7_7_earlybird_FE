@@ -36,9 +36,7 @@ export const ORDER_SERVICE = {
 
 export const PAYMENT_SERVICE = {
   confirm: "/api/v1/payments/confirm",
-  payment: (id: number | string) => `/api/v1/payments/${id}`,
-  paymentByOrder: (orderId: number | string) => `/api/v1/payments/orders/${orderId}`,
-  cancel: (id: number | string) => `/api/v1/payments/${id}/cancel`,
+  paymentByOrder: (orderId: number | string) => `/api/v1/payments?orderId=${orderId}`,
 };
 
 export const SETTLEMENT_SERVICE = {
