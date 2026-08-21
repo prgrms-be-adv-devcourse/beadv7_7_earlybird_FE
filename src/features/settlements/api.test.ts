@@ -156,7 +156,7 @@ describe("settlements api", () => {
     const result = await runProjectPayout("2026-08");
 
     expect(apiClient.post).toHaveBeenCalledWith(
-      SETTLEMENT_SERVICE.runPayout,
+      "/api/v1/settlements/project-payouts/runs",
       { payoutMonth: "2026-08" }
     );
     expect(result).toEqual({ status: "OK" });
@@ -170,7 +170,7 @@ describe("settlements api", () => {
     const result = await runPgReconciliation("2026-08");
 
     expect(apiClient.post).toHaveBeenCalledWith(
-      SETTLEMENT_SERVICE.runPgReconciliation,
+      "/api/v1/settlements/pg-reconciliations/runs",
       { settlementMonth: "2026-08" }
     );
     expect(result).toEqual({ status: "OK" });

@@ -9,10 +9,6 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      "^/internal/v1/settlements": {
-        target: "http://localhost:8086",
-        changeOrigin: true,
-      },
       "^/api/v1/users/[^/]+/cart": {
         target: "http://localhost:8085",
         changeOrigin: true,
