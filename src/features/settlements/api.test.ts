@@ -77,9 +77,7 @@ describe("settlements api", () => {
 
     const result = await fetchSettlementDetail(1);
 
-    expect(apiClient.get).toHaveBeenCalledWith(SETTLEMENT_SERVICE.settlementDetail(1), {
-      headers: { "X-User-Role": "ADMIN" },
-    });
+    expect(apiClient.get).toHaveBeenCalledWith(SETTLEMENT_SERVICE.settlementDetail(1));
     expect(result).toEqual(detail);
   });
 
@@ -140,8 +138,7 @@ describe("settlements api", () => {
 
     expect(apiClient.post).toHaveBeenCalledWith(
       SETTLEMENT_SERVICE.runPayout,
-      { payoutMonth: "2026-08" },
-      { headers: { "X-User-Role": "ADMIN" } }
+      { payoutMonth: "2026-08" }
     );
     expect(result).toEqual({ status: "OK" });
   });
@@ -155,8 +152,7 @@ describe("settlements api", () => {
 
     expect(apiClient.post).toHaveBeenCalledWith(
       SETTLEMENT_SERVICE.runPgReconciliation,
-      { settlementMonth: "2026-08" },
-      { headers: { "X-User-Role": "ADMIN" } }
+      { settlementMonth: "2026-08" }
     );
     expect(result).toEqual({ status: "OK" });
   });
