@@ -19,9 +19,9 @@ export const PROJECT_SERVICE = {
 
 
 export const CART_SERVICE = {
-  cart: (userId: number | string) => `/api/v1/users/${userId}/cart`,
-  items: (userId: number | string) => `/api/v1/users/${userId}/cart/items`,
-  item: (userId: number | string, rewardId: number | string) => `/api/v1/users/${userId}/cart/items/${rewardId}`,
+  cart: "/api/v1/carts",
+  items: "/api/v1/carts/items",
+  item: (rewardId: number | string) => `/api/v1/carts/items/${rewardId}`,
 };
 
 
