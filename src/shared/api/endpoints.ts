@@ -4,6 +4,7 @@ export const USER_SERVICE = {
   refresh: "/api/v1/users/refresh",
   logout: "/api/v1/users/logout",
   me: "/api/v1/users/me",
+  creator: (userId: number | string) => `/api/v1/users/creators/${userId}`,
   switchRole: "/api/v1/users/me/role",
 };
 
@@ -44,6 +45,9 @@ export const SETTLEMENT_SERVICE = {
   mySettlements: "/api/v1/settlements",
   allSettlements: "/api/v1/settlements/all",
   settlementDetail: (id: number | string) => `/api/v1/settlements/all/${id}`,
+  refundDetail: (refundRequestId: string) => `/api/v1/settlements/all/refunds/${refundRequestId}`,
+  registerCreatorPayoutProfile: (creatorId: number) =>
+    `/api/v1/settlements/creator-payout-profiles/${creatorId}/registration`,
   runPayout: "/internal/v1/settlements/project-payouts/runs",
   runPgReconciliation: "/internal/v1/settlements/pg-reconciliations/runs",
 };
