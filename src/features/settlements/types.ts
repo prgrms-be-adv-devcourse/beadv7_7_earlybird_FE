@@ -33,6 +33,15 @@ export type AdminSettlementSort = "NAME" | "PUBLISHED_AT" | "PROCESSED_AT";
 
 export type RefundStatus = "REQUESTED" | "PROCESSING" | "COMPLETED" | "ACTION_REQUIRED";
 
+export interface AdminCreatorProfile {
+  userId: number;
+  name: string;
+  phoneNumber: string;
+  bankName: string;
+  bankCode: string;
+  accountHolder: string;
+}
+
 /** GET /api/v1/settlements/all 관리자 통합 목록 항목. */
 export type AdminSettlementEntry =
   | {

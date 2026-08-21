@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../../shared/auth/authStore";
 import {
   fetchAllSettlements,
+  fetchCreatorProfile,
   fetchMySettlements,
   fetchSettlementDetail,
   runPgReconciliation,
@@ -25,6 +26,15 @@ export function useAllSettlements(sort: AdminSettlementSort = "PUBLISHED_AT") {
     queryKey: ["settlements", "all", sort],
     queryFn: () => fetchAllSettlements(sort),
     enabled: isAdmin,
+  });
+}
+
+export function useCreatorProfile(creatorId: number | null) {
+  const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN");
+  return useQuery({
+    queryKey: ["users", "creator", creatorId],
+    queryFn: () => fetchCreatorProfile(creatorId as number),
+    enabled: isAdmin && creatorId !== null,
   });
 }
 

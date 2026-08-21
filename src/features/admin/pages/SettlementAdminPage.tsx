@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import axios from "axios";
 import { Link } from "react-router-dom";
 import {
   Badge,
@@ -15,6 +16,7 @@ import {
 } from "../../../shared/ui";
 import {
   useAllSettlements,
+  useCreatorProfile,
   useSettlementDetail,
   useRunProjectPayout,
   useRunPgReconciliation,
@@ -51,6 +53,48 @@ function formatDate(isoString: string | null | undefined) {
   } catch {
     return isoString;
   }
+}
+
+function CreatorProfileDialog({
+  creatorId,
+  open,
+  onOpenChange,
+}: {
+  creatorId: number | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: creator, isPending, isError, error } = useCreatorProfile(open ? creatorId : null);
+  const isForbidden = axios.isAxiosError(error) && error.response?.status === 403;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogTitle>창작자 정보</DialogTitle>
+        <DialogDescription>현재 User 서비스에 등록된 창작자 정보입니다.</DialogDescription>
+        {isPending && <RowSkeleton />}
+        {isError && (
+          <ErrorState
+            error={{
+              message: isForbidden ? "창작자 정보를 조회할 권한이 없습니다." : "창작자 정보를 불러오지 못했습니다.",
+              errors: null,
+            }}
+          />
+        )}
+        {creator && (
+          <dl className="grid grid-cols-2 gap-3 rounded border border-ink/15 bg-paper/60 p-3 text-sm">
+            <dt className="text-mist">이름</dt><dd className="font-semibold">{creator.name}</dd>
+            <dt className="text-mist">전화번호</dt><dd>{creator.phoneNumber}</dd>
+            <dt className="text-mist">은행</dt><dd>{creator.bankName} ({creator.bankCode})</dd>
+            <dt className="text-mist">예금주</dt><dd>{creator.accountHolder}</dd>
+          </dl>
+        )}
+        <div className="flex justify-end">
+          <DialogClose asChild><Button variant="secondary">닫기</Button></DialogClose>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function SettlementDetailDialog({
@@ -266,6 +310,8 @@ export function SettlementAdminPage() {
 
   const [selectedSettlementId, setSelectedSettlementId] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedCreatorId, setSelectedCreatorId] = useState<number | null>(null);
+  const [creatorDialogOpen, setCreatorDialogOpen] = useState(false);
 
   const [actionFeedback, setActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -529,6 +575,7 @@ export function SettlementAdminPage() {
                 <th className="py-3 px-4">대상 프로젝트</th>
                 <th className="py-3 px-4 text-right">정산 기준액</th>
                 <th className="py-3 px-4 text-right">창작자 실지급액</th>
+                <th className="py-3 px-4">창작자</th>
                 <th className="py-3 px-4">기준 시각</th>
                 <th className="py-3 px-4 text-center">상태</th>
                 <th className="py-3 px-4 text-center">상세</th>
@@ -564,6 +611,22 @@ export function SettlementAdminPage() {
                     <td className="py-3 px-4 text-right font-mono font-extrabold text-ink tabular-nums">
                       {payout?.creatorPayoutAmount?.toLocaleString() ?? registrationPending?.creatorPayoutAmount?.toLocaleString() ?? "-"}
                       {(payout || registrationPending) && "원"}
+                    </td>
+                    <td className="py-3 px-4">
+                      {(payout || registrationPending) ? (
+                        <button
+                          type="button"
+                          className="font-mono text-brand hover:underline"
+                          onClick={() => {
+                            setSelectedCreatorId(payout?.creatorId ?? registrationPending?.creatorId ?? null);
+                            setCreatorDialogOpen(true);
+                          }}
+                        >
+                          #{payout?.creatorId ?? registrationPending?.creatorId}
+                        </button>
+                      ) : (
+                        "-"
+                      )}
                     </td>
                     <td className="py-3 px-4 font-mono text-mist text-[11px]">
                       {formatDate(payout?.confirmedAt ?? registrationPending?.confirmedAt ?? refund?.requestedAt)}
@@ -602,6 +665,11 @@ export function SettlementAdminPage() {
         settlementId={selectedSettlementId}
         open={detailOpen}
         onOpenChange={setDetailOpen}
+      />
+      <CreatorProfileDialog
+        creatorId={selectedCreatorId}
+        open={creatorDialogOpen}
+        onOpenChange={setCreatorDialogOpen}
       />
     </div>
   );

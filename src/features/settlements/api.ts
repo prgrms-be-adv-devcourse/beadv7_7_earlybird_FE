@@ -1,7 +1,7 @@
 import { apiClient } from "../../shared/api/client";
-import { SETTLEMENT_SERVICE } from "../../shared/api/endpoints";
+import { SETTLEMENT_SERVICE, USER_SERVICE } from "../../shared/api/endpoints";
 import type { ApiResponse } from "../../shared/types/ApiResponse";
-import type { AdminSettlementDetail, AdminSettlementEntry, AdminSettlementSort, Settlement } from "./types";
+import type { AdminCreatorProfile, AdminSettlementDetail, AdminSettlementEntry, AdminSettlementSort, Settlement } from "./types";
 
 export async function fetchMySettlements(): Promise<Settlement[]> {
   const response = await apiClient.get<ApiResponse<Settlement[]>>(SETTLEMENT_SERVICE.mySettlements);
@@ -13,6 +13,11 @@ export async function fetchAllSettlements(sort: AdminSettlementSort = "PUBLISHED
     params: { sort },
   });
   return response.data.data ?? [];
+}
+
+export async function fetchCreatorProfile(creatorId: number): Promise<AdminCreatorProfile> {
+  const response = await apiClient.get<ApiResponse<AdminCreatorProfile>>(USER_SERVICE.creator(creatorId));
+  return response.data.data as AdminCreatorProfile;
 }
 
 export async function fetchSettlementDetail(settlementId: number): Promise<AdminSettlementDetail | null> {

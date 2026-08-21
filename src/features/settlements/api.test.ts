@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { apiClient } from "../../shared/api/client";
-import { SETTLEMENT_SERVICE } from "../../shared/api/endpoints";
+import { SETTLEMENT_SERVICE, USER_SERVICE } from "../../shared/api/endpoints";
 import {
   fetchAllSettlements,
+  fetchCreatorProfile,
   fetchMySettlements,
   fetchSettlementDetail,
   runPgReconciliation,
@@ -78,6 +79,25 @@ describe("settlements api", () => {
       headers: { "X-User-Role": "ADMIN" },
     });
     expect(result).toEqual(detail);
+  });
+
+  it("fetchCreatorProfile은 창작자 단건 조회 API를 GET한다", async () => {
+    const creator = {
+      userId: 10,
+      name: "창작자",
+      phoneNumber: "010-0000-0000",
+      bankName: "신한은행",
+      bankCode: "88",
+      accountHolder: "창작자",
+    };
+    (apiClient.get as any).mockResolvedValue({
+      data: { success: true, data: creator, error: null },
+    });
+
+    const result = await fetchCreatorProfile(10);
+
+    expect(apiClient.get).toHaveBeenCalledWith(USER_SERVICE.creator(10));
+    expect(result).toEqual(creator);
   });
 
   it("runProjectPayout은 SETTLEMENT_SERVICE.runPayout에 payoutMonth를 POST한다", async () => {
