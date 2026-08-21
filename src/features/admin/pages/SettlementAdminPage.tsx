@@ -406,10 +406,6 @@ export function SettlementAdminPage() {
     setActionFeedback(null);
     runPayout.mutate(selectedMonth, {
       onSuccess: () => {
-        setActionFeedback({
-          type: "success",
-          message: `${selectedMonth} 정산 지급 배치가 성공적으로 실행되었습니다.`,
-        });
         refetch();
       },
       onError: (err: any) => {
@@ -425,10 +421,6 @@ export function SettlementAdminPage() {
     setActionFeedback(null);
     runPgReconciliation.mutate(selectedMonth, {
       onSuccess: () => {
-        setActionFeedback({
-          type: "success",
-          message: `${selectedMonth} PG 결제 대사 배치가 성공적으로 실행되었습니다.`,
-        });
         refetch();
       },
       onError: (err: any) => {
