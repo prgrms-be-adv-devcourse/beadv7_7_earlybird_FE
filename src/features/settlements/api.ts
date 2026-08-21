@@ -34,6 +34,10 @@ export async function fetchRefundDetail(refundRequestId: string): Promise<AdminP
   return response.data.data ?? null;
 }
 
+export async function registerCreatorPayoutProfile(creatorId: number): Promise<void> {
+  await apiClient.post<ApiResponse<null>>(SETTLEMENT_SERVICE.registerCreatorPayoutProfile(creatorId));
+}
+
 export async function fetchSettlementDetail(settlementId: number): Promise<AdminSettlementDetail | null> {
   const response = await apiClient.get<ApiResponse<AdminSettlementDetail>>(
     SETTLEMENT_SERVICE.settlementDetail(settlementId),

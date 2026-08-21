@@ -9,6 +9,7 @@ import {
   fetchSettlementDetail,
   runPgReconciliation,
   runProjectPayout,
+  registerCreatorPayoutProfile,
 } from "./api";
 
 vi.mock("../../shared/api/client", () => ({
@@ -120,6 +121,14 @@ describe("settlements api", () => {
 
     expect(apiClient.get).toHaveBeenCalledWith(SETTLEMENT_SERVICE.refundDetail("refund-5"));
     expect(result).toEqual(detail);
+  });
+
+  it("registerCreatorPayoutProfile은 creatorId로 셀러 등록을 POST한다", async () => {
+    (apiClient.post as any).mockResolvedValue({ data: { success: true, data: null, error: null } });
+
+    await registerCreatorPayoutProfile(10);
+
+    expect(apiClient.post).toHaveBeenCalledWith(SETTLEMENT_SERVICE.registerCreatorPayoutProfile(10));
   });
 
   it("runProjectPayout은 SETTLEMENT_SERVICE.runPayout에 payoutMonth를 POST한다", async () => {

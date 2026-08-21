@@ -8,6 +8,7 @@ import {
   fetchSettlementDetail,
   runPgReconciliation,
   runProjectPayout,
+  registerCreatorPayoutProfile,
 } from "./api";
 import type { AdminSettlementSort } from "./types";
 
@@ -45,6 +46,16 @@ export function useRefundDetail(refundRequestId: string | null) {
     queryKey: ["settlements", "refund-detail", refundRequestId],
     queryFn: () => fetchRefundDetail(refundRequestId as string),
     enabled: isAdmin && refundRequestId !== null,
+  });
+}
+
+export function useRegisterCreatorPayoutProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: registerCreatorPayoutProfile,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settlements", "all"] });
+    },
   });
 }
 

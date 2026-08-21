@@ -18,6 +18,7 @@ import {
   useAllSettlements,
   useCreatorProfile,
   useRefundDetail,
+  useRegisterCreatorPayoutProfile,
   useSettlementDetail,
   useRunProjectPayout,
   useRunPgReconciliation,
@@ -347,6 +348,7 @@ export function SettlementAdminPage() {
   const triggerCloseExpired = useTriggerCloseExpired();
   const runPayout = useRunProjectPayout();
   const runPgReconciliation = useRunPgReconciliation();
+  const registerCreatorPayoutProfile = useRegisterCreatorPayoutProfile();
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -452,6 +454,23 @@ export function SettlementAdminPage() {
         setActionFeedback({
           type: "error",
           message: err?.response?.data?.error?.message || "만료 프로젝트 마감 처리 중 오류가 발생했습니다.",
+        });
+      },
+    });
+  };
+
+  const handleRegisterCreator = (creatorId: number) => {
+    if (!window.confirm("이 창작자의 셀러 등록을 대행할까요?")) return;
+    setActionFeedback(null);
+    registerCreatorPayoutProfile.mutate(creatorId, {
+      onSuccess: () => {
+        setActionFeedback({ type: "success", message: "셀러 등록을 완료했습니다." });
+        refetch();
+      },
+      onError: (err: any) => {
+        setActionFeedback({
+          type: "error",
+          message: err?.response?.data?.error?.message || "셀러 등록 중 오류가 발생했습니다.",
         });
       },
     });
@@ -707,6 +726,15 @@ export function SettlementAdminPage() {
                           }}
                         >
                           상세
+                        </Button>
+                      ) : registrationPending ? (
+                        <Button
+                          variant="primary"
+                          className="py-0.5 px-2 text-[11px] font-bold"
+                          disabled={registerCreatorPayoutProfile.isPending}
+                          onClick={() => handleRegisterCreator(registrationPending.creatorId)}
+                        >
+                          {registerCreatorPayoutProfile.isPending ? "등록 중..." : "셀러 등록 대행"}
                         </Button>
                       ) : (
                         "-"
