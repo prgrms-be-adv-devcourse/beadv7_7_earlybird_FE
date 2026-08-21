@@ -17,6 +17,7 @@ import {
 import {
   useAllSettlements,
   useCreatorProfile,
+  useRefundDetail,
   useSettlementDetail,
   useRunProjectPayout,
   useRunPgReconciliation,
@@ -88,6 +89,52 @@ function CreatorProfileDialog({
             <dt className="text-mist">은행</dt><dd>{creator.bankName} ({creator.bankCode})</dd>
             <dt className="text-mist">예금주</dt><dd>{creator.accountHolder}</dd>
           </dl>
+        )}
+        <div className="flex justify-end">
+          <DialogClose asChild><Button variant="secondary">닫기</Button></DialogClose>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RefundDetailDialog({
+  refundRequestId,
+  open,
+  onOpenChange,
+}: {
+  refundRequestId: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: detail, isPending, isError } = useRefundDetail(open ? refundRequestId : null);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogTitle>프로젝트 일괄 환불 상세</DialogTitle>
+        <DialogDescription>환불 요청 batch와 대상 결제 목록입니다.</DialogDescription>
+        {isPending && <RowSkeleton />}
+        {isError && <ErrorState error={{ message: "환불 상세를 불러오지 못했습니다.", errors: null }} />}
+        {detail && (
+          <div className="flex flex-col gap-4 text-sm">
+            <dl className="grid grid-cols-2 gap-3 rounded border border-ink/15 bg-paper/60 p-3">
+              <dt className="text-mist">프로젝트</dt><dd>{detail.projectName}</dd>
+              <dt className="text-mist">환불 사유</dt><dd>{detail.reason}</dd>
+              <dt className="text-mist">환불 상태</dt><dd>{detail.refundStatus}</dd>
+              <dt className="text-mist">요청 시각</dt><dd>{formatDate(detail.requestedAt)}</dd>
+              <dt className="text-mist">결과 수신 시각</dt><dd>{formatDate(detail.paymentResultAt)}</dd>
+            </dl>
+            <div>
+              <h3 className="mb-2 font-bold">대상 결제</h3>
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-ink/20"><tr><th className="p-2">주문 ID</th><th className="p-2">PG 주문 ID</th></tr></thead>
+                <tbody>{detail.payments.map((payment) => (
+                  <tr key={payment.orderId} className="border-b border-ink/10"><td className="p-2">{payment.orderId}</td><td className="p-2 font-mono">{payment.pgOrderId}</td></tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </div>
         )}
         <div className="flex justify-end">
           <DialogClose asChild><Button variant="secondary">닫기</Button></DialogClose>
@@ -312,6 +359,8 @@ export function SettlementAdminPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedCreatorId, setSelectedCreatorId] = useState<number | null>(null);
   const [creatorDialogOpen, setCreatorDialogOpen] = useState(false);
+  const [selectedRefundRequestId, setSelectedRefundRequestId] = useState<string | null>(null);
+  const [refundDetailOpen, setRefundDetailOpen] = useState(false);
 
   const [actionFeedback, setActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -648,6 +697,17 @@ export function SettlementAdminPage() {
                         >
                           명세서
                         </Button>
+                      ) : settlement.type === "REFUND" ? (
+                        <Button
+                          variant="secondary"
+                          className="py-0.5 px-2 text-[11px] font-bold"
+                          onClick={() => {
+                            setSelectedRefundRequestId(settlement.refundRequestId);
+                            setRefundDetailOpen(true);
+                          }}
+                        >
+                          상세
+                        </Button>
                       ) : (
                         "-"
                       )}
@@ -670,6 +730,11 @@ export function SettlementAdminPage() {
         creatorId={selectedCreatorId}
         open={creatorDialogOpen}
         onOpenChange={setCreatorDialogOpen}
+      />
+      <RefundDetailDialog
+        refundRequestId={selectedRefundRequestId}
+        open={refundDetailOpen}
+        onOpenChange={setRefundDetailOpen}
       />
     </div>
   );

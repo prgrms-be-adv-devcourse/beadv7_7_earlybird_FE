@@ -4,6 +4,7 @@ import { SETTLEMENT_SERVICE, USER_SERVICE } from "../../shared/api/endpoints";
 import {
   fetchAllSettlements,
   fetchCreatorProfile,
+  fetchRefundDetail,
   fetchMySettlements,
   fetchSettlementDetail,
   runPgReconciliation,
@@ -98,6 +99,27 @@ describe("settlements api", () => {
 
     expect(apiClient.get).toHaveBeenCalledWith(USER_SERVICE.creator(10));
     expect(result).toEqual(creator);
+  });
+
+  it("fetchRefundDetail은 refundRequestId로 환불 상세를 GET한다", async () => {
+    const detail = {
+      refundRequestId: "refund-5",
+      projectId: 5,
+      projectName: "프로젝트 5",
+      reason: "PROJECT_FAILED",
+      refundStatus: "COMPLETED",
+      requestedAt: "2026-08-01T00:00:00+09:00",
+      paymentResultAt: "2026-08-01T00:01:00+09:00",
+      payments: [{ orderId: 1, pgOrderId: "pg-1", actionRequired: false }],
+    };
+    (apiClient.get as any).mockResolvedValue({
+      data: { success: true, data: detail, error: null },
+    });
+
+    const result = await fetchRefundDetail("refund-5");
+
+    expect(apiClient.get).toHaveBeenCalledWith(SETTLEMENT_SERVICE.refundDetail("refund-5"));
+    expect(result).toEqual(detail);
   });
 
   it("runProjectPayout은 SETTLEMENT_SERVICE.runPayout에 payoutMonth를 POST한다", async () => {

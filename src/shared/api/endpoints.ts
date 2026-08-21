@@ -45,6 +45,7 @@ export const SETTLEMENT_SERVICE = {
   mySettlements: "/api/v1/settlements",
   allSettlements: "/api/v1/settlements/all",
   settlementDetail: (id: number | string) => `/api/v1/settlements/all/${id}`,
+  refundDetail: (refundRequestId: string) => `/api/v1/settlements/all/refunds/${refundRequestId}`,
   runPayout: "/internal/v1/settlements/project-payouts/runs",
   runPgReconciliation: "/internal/v1/settlements/pg-reconciliations/runs",
 };

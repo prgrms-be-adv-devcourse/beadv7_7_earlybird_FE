@@ -4,6 +4,7 @@ import {
   fetchAllSettlements,
   fetchCreatorProfile,
   fetchMySettlements,
+  fetchRefundDetail,
   fetchSettlementDetail,
   runPgReconciliation,
   runProjectPayout,
@@ -35,6 +36,15 @@ export function useCreatorProfile(creatorId: number | null) {
     queryKey: ["users", "creator", creatorId],
     queryFn: () => fetchCreatorProfile(creatorId as number),
     enabled: isAdmin && creatorId !== null,
+  });
+}
+
+export function useRefundDetail(refundRequestId: string | null) {
+  const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN");
+  return useQuery({
+    queryKey: ["settlements", "refund-detail", refundRequestId],
+    queryFn: () => fetchRefundDetail(refundRequestId as string),
+    enabled: isAdmin && refundRequestId !== null,
   });
 }
 

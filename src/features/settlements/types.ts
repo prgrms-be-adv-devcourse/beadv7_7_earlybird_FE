@@ -42,6 +42,17 @@ export interface AdminCreatorProfile {
   accountHolder: string;
 }
 
+export interface AdminProjectRefundDetail {
+  refundRequestId: string;
+  projectId: number;
+  projectName: string;
+  reason: "PROJECT_FAILED" | "PROJECT_CANCELLED";
+  refundStatus: RefundStatus;
+  requestedAt: string;
+  paymentResultAt: string | null;
+  payments: { orderId: number; pgOrderId: string; actionRequired: boolean }[];
+}
+
 /** GET /api/v1/settlements/all 관리자 통합 목록 항목. */
 export type AdminSettlementEntry =
   | {
