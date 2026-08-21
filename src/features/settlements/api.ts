@@ -39,27 +39,16 @@ export async function registerCreatorPayoutProfile(creatorId: number): Promise<v
 }
 
 export async function fetchSettlementDetail(settlementId: number): Promise<AdminSettlementDetail | null> {
-  const response = await apiClient.get<ApiResponse<AdminSettlementDetail>>(
-    SETTLEMENT_SERVICE.settlementDetail(settlementId),
-    { headers: { "X-User-Role": "ADMIN" } }
-  );
+  const response = await apiClient.get<ApiResponse<AdminSettlementDetail>>(SETTLEMENT_SERVICE.settlementDetail(settlementId));
   return response.data.data ?? null;
 }
 
 export async function runProjectPayout(payoutMonth: string): Promise<any> {
-  const response = await apiClient.post<ApiResponse<any>>(
-    SETTLEMENT_SERVICE.runPayout,
-    { payoutMonth },
-    { headers: { "X-User-Role": "ADMIN" } }
-  );
+  const response = await apiClient.post<ApiResponse<any>>(SETTLEMENT_SERVICE.runPayout, { payoutMonth });
   return response.data.data;
 }
 
 export async function runPgReconciliation(settlementMonth: string): Promise<any> {
-  const response = await apiClient.post<ApiResponse<any>>(
-    SETTLEMENT_SERVICE.runPgReconciliation,
-    { settlementMonth },
-    { headers: { "X-User-Role": "ADMIN" } }
-  );
+  const response = await apiClient.post<ApiResponse<any>>(SETTLEMENT_SERVICE.runPgReconciliation, { settlementMonth });
   return response.data.data;
 }
