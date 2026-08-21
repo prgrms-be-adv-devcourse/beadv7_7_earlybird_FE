@@ -236,6 +236,7 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
 
   // Comment Compose State
   const [newCommentContent, setNewCommentContent] = useState("");
+  const [commentError, setCommentError] = useState<string | null>(null);
 
   const openCreateNotice = () => {
     setEditingNoticeId(null);
@@ -352,8 +353,12 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
 
   const handleCreateComment = () => {
     if (!newCommentContent.trim()) return;
+    setCommentError(null);
     createCommentMutation.mutate(newCommentContent.trim(), {
       onSuccess: () => setNewCommentContent(""),
+      onError: (err: any) => {
+        setCommentError(err.response?.data?.error?.message || "문의 등록에 실패했습니다.");
+      },
     });
   };
 
@@ -630,6 +635,9 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
               >
                 {createCommentMutation.isPending ? "등록 중..." : "문의 등록"}
               </Button>
+              {commentError && (
+                <p className="text-xs font-semibold text-red-500">{commentError}</p>
+              )}
             </div>
           )}
 
