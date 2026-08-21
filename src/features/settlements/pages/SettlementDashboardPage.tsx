@@ -1,28 +1,31 @@
 import { Link } from "react-router-dom";
-import { Badge, Button, Card, EmptyState, ErrorState, RowSkeleton } from "../../../shared/ui";
+import { Badge, Card, EmptyState, ErrorState, RowSkeleton } from "../../../shared/ui";
 import { useAuthStore } from "../../../shared/auth/authStore";
 import { useMySettlements } from "../hooks";
 import type { Settlement } from "../types";
+import { formatSettlementDate, getSettlementStatusInfo } from "../presentation";
 
 function SettlementRow({ settlement }: { settlement: Settlement }) {
   return (
     <Card className="flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <Link
-          to={`/projects/${settlement.projectId}`}
-          className="text-sm font-bold text-brand hover:underline"
-        >
-          프로젝트 #{settlement.projectId}
-        </Link>
-        <span className="text-xs text-mist">
-          예정일: {settlement.scheduledDate || "-"}
-        </span>
+        <div className="flex flex-col gap-1">
+          <Link to={`/projects/${settlement.projectId}`} className="text-sm font-bold text-brand hover:underline">
+            프로젝트 #{settlement.projectId}
+          </Link>
+          <span className="text-xs text-mist">확정일: {formatSettlementDate(settlement.confirmedAt)}</span>
+          <span className="text-xs text-mist">
+            {settlement.status === "COMPLETED" ? "완료일" : "지급 예정일"}: {formatSettlementDate(settlement.status === "COMPLETED" ? settlement.completedAt : settlement.scheduledDate)}
+          </span>
+        </div>
       </div>
       <div className="flex items-center gap-3">
-        <Badge tone="lavender">{settlement.status}</Badge>
-        <span className="tabular-nums text-sm font-bold text-ink">
-          {settlement.creatorPayoutAmount.toLocaleString()}원
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <Badge tone={getSettlementStatusInfo(settlement.status).tone}>{getSettlementStatusInfo(settlement.status).label}</Badge>
+          <span className="text-xs text-mist">{getSettlementStatusInfo(settlement.status).description}</span>
+          <span className="tabular-nums text-sm font-bold text-ink">{settlement.creatorPayoutAmount.toLocaleString()}원</span>
+          <Link to={`/settlements/${settlement.settlementId}`} className="text-xs font-bold text-brand hover:underline">상세 보기 →</Link>
+        </div>
       </div>
     </Card>
   );
@@ -30,7 +33,6 @@ function SettlementRow({ settlement }: { settlement: Settlement }) {
 
 export function SettlementDashboardPage() {
   const user = useAuthStore((state) => state.user);
-  const isAdmin = user?.role === "ADMIN";
   const isCreator = user?.role === "CREATOR";
   const { data: settlements, isPending, isError } = useMySettlements();
 
@@ -51,22 +53,6 @@ export function SettlementDashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      {isAdmin && (
-        <div className="flex items-center justify-between rounded-lg border-2 border-ink bg-mint/20 p-4 shadow-stamp-sm">
-          <div>
-            <span className="text-xs font-bold text-emerald-900 block mb-0.5">ADMIN MODE</span>
-            <p className="text-sm font-extrabold text-ink">
-              관리자 계정으로 접속 중입니다. 전체 프로젝트의 정산 내역 및 지급 배치를 관리하세요.
-            </p>
-          </div>
-          <Link to="/admin/settlements">
-            <Button variant="primary" className="text-xs font-bold">
-              💰 관리자 정산 관리 바로가기
-            </Button>
-          </Link>
-        </div>
-      )}
-
       <div className="flex flex-col gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold text-ink">창작자 정산 대시보드</h1>

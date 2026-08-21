@@ -41,6 +41,7 @@ export const PAYMENT_SERVICE = {
 
 export const SETTLEMENT_SERVICE = {
   mySettlements: "/api/v1/settlements",
+  creatorSettlementDetail: (id: number | string) => `/api/v1/settlements/${id}`,
   allSettlements: "/api/v1/settlements/all",
   settlementDetail: (id: number | string) => `/api/v1/settlements/all/${id}`,
   refundDetail: (refundRequestId: string) => `/api/v1/settlements/all/refunds/${refundRequestId}`,

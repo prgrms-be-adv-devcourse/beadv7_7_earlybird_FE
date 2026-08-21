@@ -7,6 +7,7 @@ import type {
   AdminSettlementDetail,
   AdminSettlementEntry,
   AdminSettlementSort,
+  CreatorProjectSettlementDetail,
   Settlement,
 } from "./types";
 
@@ -40,6 +41,13 @@ export async function registerCreatorPayoutProfile(creatorId: number): Promise<v
 
 export async function fetchSettlementDetail(settlementId: number): Promise<AdminSettlementDetail | null> {
   const response = await apiClient.get<ApiResponse<AdminSettlementDetail>>(SETTLEMENT_SERVICE.settlementDetail(settlementId));
+  return response.data.data ?? null;
+}
+
+export async function fetchCreatorSettlementDetail(settlementId: number): Promise<CreatorProjectSettlementDetail | null> {
+  const response = await apiClient.get<ApiResponse<CreatorProjectSettlementDetail>>(
+    SETTLEMENT_SERVICE.creatorSettlementDetail(settlementId),
+  );
   return response.data.data ?? null;
 }
 

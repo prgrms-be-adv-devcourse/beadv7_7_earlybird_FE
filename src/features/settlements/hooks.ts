@@ -3,6 +3,7 @@ import { useAuthStore } from "../../shared/auth/authStore";
 import {
   fetchAllSettlements,
   fetchCreatorProfile,
+  fetchCreatorSettlementDetail,
   fetchMySettlements,
   fetchRefundDetail,
   fetchSettlementDetail,
@@ -65,6 +66,15 @@ export function useSettlementDetail(settlementId: number | null) {
     queryKey: ["settlements", "detail", settlementId],
     queryFn: () => (settlementId ? fetchSettlementDetail(settlementId) : Promise.resolve(null)),
     enabled: isAdmin && !!settlementId,
+  });
+}
+
+export function useCreatorSettlementDetail(settlementId: number | null) {
+  const isCreator = useAuthStore((state) => state.user?.role === "CREATOR");
+  return useQuery({
+    queryKey: ["settlements", "creator-detail", settlementId],
+    queryFn: () => (settlementId ? fetchCreatorSettlementDetail(settlementId) : Promise.resolve(null)),
+    enabled: isCreator && !!settlementId,
   });
 }
 
