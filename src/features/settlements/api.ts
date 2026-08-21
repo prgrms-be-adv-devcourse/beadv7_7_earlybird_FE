@@ -1,16 +1,16 @@
 import { apiClient } from "../../shared/api/client";
 import { SETTLEMENT_SERVICE } from "../../shared/api/endpoints";
 import type { ApiResponse } from "../../shared/types/ApiResponse";
-import type { AdminSettlementDetail, Settlement } from "./types";
+import type { AdminSettlementDetail, AdminSettlementEntry, AdminSettlementSort, Settlement } from "./types";
 
 export async function fetchMySettlements(): Promise<Settlement[]> {
   const response = await apiClient.get<ApiResponse<Settlement[]>>(SETTLEMENT_SERVICE.mySettlements);
   return response.data.data ?? [];
 }
 
-export async function fetchAllSettlements(): Promise<Settlement[]> {
-  const response = await apiClient.get<ApiResponse<Settlement[]>>(SETTLEMENT_SERVICE.allSettlements, {
-    headers: { "X-User-Role": "ADMIN" },
+export async function fetchAllSettlements(sort: AdminSettlementSort = "PUBLISHED_AT"): Promise<AdminSettlementEntry[]> {
+  const response = await apiClient.get<ApiResponse<AdminSettlementEntry[]>>(SETTLEMENT_SERVICE.allSettlements, {
+    params: { sort },
   });
   return response.data.data ?? [];
 }
@@ -40,4 +40,3 @@ export async function runPgReconciliation(settlementMonth: string): Promise<any>
   );
   return response.data.data;
 }
-

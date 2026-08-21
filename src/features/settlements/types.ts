@@ -29,6 +29,52 @@ export interface Settlement {
   completedAt: string | null;
 }
 
+export type AdminSettlementSort = "NAME" | "PUBLISHED_AT" | "PROCESSED_AT";
+
+export type RefundStatus = "REQUESTED" | "PROCESSING" | "COMPLETED" | "ACTION_REQUIRED";
+
+/** GET /api/v1/settlements/all 관리자 통합 목록 항목. */
+export type AdminSettlementEntry =
+  | {
+      type: "PAYOUT";
+      projectId: number;
+      projectName: string;
+      payout: {
+        settlementId: number;
+        creatorId: number;
+        settlementBaseAmount: number;
+        creatorPayoutAmount: number;
+        status: Exclude<PayoutObligationStatus, "CREATOR_PAYOUT_PROFILE_WAITING">;
+        confirmedAt: string;
+        scheduledDate: string;
+      };
+    }
+  | {
+      type: "REFUND";
+      projectId: number;
+      projectName: string;
+      refundRequestId: string;
+      refund: {
+        reason: "PROJECT_FAILED" | "PROJECT_CANCELLED";
+        requestedAt: string;
+        refundStatus: RefundStatus;
+        paymentResultAt: string | null;
+        paymentCount: number;
+      };
+    }
+  | {
+      type: "REGISTRATION_PENDING";
+      projectId: number;
+      projectName: string;
+      registrationPending: {
+        settlementId: number;
+        creatorId: number;
+        settlementBaseAmount: number;
+        creatorPayoutAmount: number;
+        confirmedAt: string;
+      };
+    };
+
 export interface FeeDetail {
   rate: number;
   amount: number;
@@ -80,4 +126,3 @@ export interface AdminSettlementDetail {
   breakdown: SettlementBreakdown;
   payout: PayoutDetail;
 }
-

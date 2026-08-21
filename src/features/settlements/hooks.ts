@@ -7,6 +7,7 @@ import {
   runPgReconciliation,
   runProjectPayout,
 } from "./api";
+import type { AdminSettlementSort } from "./types";
 
 export function useMySettlements() {
   const user = useAuthStore((state) => state.user);
@@ -18,11 +19,11 @@ export function useMySettlements() {
   });
 }
 
-export function useAllSettlements() {
+export function useAllSettlements(sort: AdminSettlementSort = "PUBLISHED_AT") {
   const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN");
   return useQuery({
-    queryKey: ["settlements", "all"],
-    queryFn: fetchAllSettlements,
+    queryKey: ["settlements", "all", sort],
+    queryFn: () => fetchAllSettlements(sort),
     enabled: isAdmin,
   });
 }
@@ -55,4 +56,3 @@ export function useRunPgReconciliation() {
     },
   });
 }
-

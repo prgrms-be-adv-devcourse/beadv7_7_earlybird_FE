@@ -35,27 +35,30 @@ describe("settlements api", () => {
     expect(result).toEqual([settlement]);
   });
 
-  it("fetchAllSettlements는 SETTLEMENT_SERVICE.allSettlements를 ADMIN 헤더와 함께 GET한다", async () => {
-    const settlement = {
-      settlementId: 1,
+  it("fetchAllSettlements는 서버 정렬 query로 관리자 통합 목록을 GET한다", async () => {
+    const entry = {
+      type: "REFUND",
       projectId: 5,
-      settlementBaseAmount: 100000,
-      creatorPayoutAmount: 90000,
-      status: "SCHEDULED",
-      confirmedAt: "2026-08-01T00:00:00Z",
-      scheduledDate: "2026-08-10",
-      completedAt: null,
+      projectName: "프로젝트 5",
+      refundRequestId: "refund-5",
+      refund: {
+        reason: "PROJECT_FAILED",
+        requestedAt: "2026-08-01T00:00:00+09:00",
+        refundStatus: "PROCESSING",
+        paymentResultAt: null,
+        paymentCount: 1,
+      },
     };
     (apiClient.get as any).mockResolvedValue({
-      data: { success: true, data: [settlement], error: null },
+      data: { success: true, data: [entry], error: null },
     });
 
-    const result = await fetchAllSettlements();
+    const result = await fetchAllSettlements("NAME");
 
     expect(apiClient.get).toHaveBeenCalledWith(SETTLEMENT_SERVICE.allSettlements, {
-      headers: { "X-User-Role": "ADMIN" },
+      params: { sort: "NAME" },
     });
-    expect(result).toEqual([settlement]);
+    expect(result).toEqual([entry]);
   });
 
   it("fetchSettlementDetail은 settlementId에 해당하는 상세 내역을 GET한다", async () => {
@@ -107,4 +110,3 @@ describe("settlements api", () => {
     expect(result).toEqual({ status: "OK" });
   });
 });
-
