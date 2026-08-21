@@ -35,8 +35,6 @@ function getPayoutStatusInfo(status: PayoutObligationStatus) {
       return { label: "지급 처리중", tone: "lavender" as const, bg: "bg-lavender/30 text-indigo-800" };
     case "SCHEDULED":
       return { label: "지급 예정", tone: "peach" as const, bg: "bg-peach/30 text-amber-900" };
-    case "CREATOR_PAYOUT_PROFILE_WAITING":
-      return { label: "정산 프로필 대기", tone: "peach" as const, bg: "bg-peach/20 text-amber-800" };
     case "RETRY_WAITING":
       return { label: "재시도 대기", tone: "lavender" as const, bg: "bg-orange-100 text-orange-800" };
     case "ACTION_REQUIRED":

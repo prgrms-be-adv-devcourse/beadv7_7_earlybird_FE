@@ -4,6 +4,7 @@ import { SETTLEMENT_SERVICE, USER_SERVICE } from "../../shared/api/endpoints";
 import {
   fetchAllSettlements,
   fetchCreatorProfile,
+  fetchCreatorSettlementDetail,
   fetchRefundDetail,
   fetchMySettlements,
   fetchSettlementDetail,
@@ -78,6 +79,24 @@ describe("settlements api", () => {
     const result = await fetchSettlementDetail(1);
 
     expect(apiClient.get).toHaveBeenCalledWith(SETTLEMENT_SERVICE.settlementDetail(1));
+    expect(result).toEqual(detail);
+  });
+
+  it("fetchCreatorSettlementDetail은 창작자 상세 경로를 GET한다", async () => {
+    const detail = {
+      settlementId: 1,
+      project: { projectId: 5 },
+      confirmedAt: "2026-08-01T00:00:00+09:00",
+      breakdown: { settlementBaseAmount: 100000, creatorPayoutAmount: 90000 },
+      payout: { status: "SCHEDULED", scheduledDate: "2026-08-10", completedAt: null },
+    };
+    (apiClient.get as any).mockResolvedValue({
+      data: { success: true, data: detail, error: null },
+    });
+
+    const result = await fetchCreatorSettlementDetail(1);
+
+    expect(apiClient.get).toHaveBeenCalledWith(SETTLEMENT_SERVICE.creatorSettlementDetail(1));
     expect(result).toEqual(detail);
   });
 
