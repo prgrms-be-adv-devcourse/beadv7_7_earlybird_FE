@@ -1,5 +1,6 @@
-import { Link, Outlet, useNavigate } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
 import { Menu } from "lucide-react";
 import {
   ChevronDownIcon,
@@ -111,11 +112,23 @@ function HeaderCategoryNav() {
   );
 }
 
+// 페이지마다 배경 톤을 미묘하게 다르게 줘서 "다 똑같은 흰 배경"처럼 보이지 않게 한다.
+function getPageTintClass(pathname: string): string {
+  if (pathname === "/") return "bg-peach/10";
+  if (pathname.startsWith("/projects")) return "bg-mint/10";
+  if (pathname.startsWith("/cart") || pathname.startsWith("/orders") || pathname.startsWith("/checkout")) {
+    return "bg-lavender/10";
+  }
+  if (pathname.startsWith("/admin")) return "bg-ink/5";
+  return "";
+}
+
 export function Layout() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const queryClient = useQueryClient();
   const switchRoleMutation = useSwitchRole();
+  const location = useLocation();
 
   const handleLogout = () => {
     logoutRequest().catch(() => {
@@ -137,7 +150,10 @@ export function Layout() {
   };
 
   return (
-    <div className="min-h-screen pb-16">
+    <div
+      className={`min-h-screen pb-16 transition-colors duration-500 ${getPageTintClass(location.pathname)}`}
+      style={{ backgroundImage: "radial-gradient(rgba(43,36,24,0.05) 1px, transparent 1px)", backgroundSize: "18px 18px" }}
+    >
       <header className="sticky top-0 z-40 flex items-center justify-between border-b-2 border-ink bg-surface px-6 py-3.5 gap-4">
         {/* Left Section: Earlybird Logo Mark & Categories Dropdown Navigation */}
         <div className="flex items-center gap-3">
@@ -245,29 +261,33 @@ export function Layout() {
                   </DropdownMenuItem>
                 )}
 
-                <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
-                <div className="px-2 py-1 text-[11px] font-semibold text-mist">
-                  역할 즉시 전환 (테스트용)
-                  {switchRoleMutation.isPending && " ⏳"}
-                </div>
-                <DropdownMenuItem
-                  disabled={switchRoleMutation.isPending}
-                  onSelect={() => switchRoleMutation.mutate("BACKER")}
-                >
-                  후원자(BACKER)로 전환
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={switchRoleMutation.isPending}
-                  onSelect={() => switchRoleMutation.mutate("CREATOR")}
-                >
-                  창작자(CREATOR)로 전환
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={switchRoleMutation.isPending}
-                  onSelect={() => switchRoleMutation.mutate("ADMIN")}
-                >
-                  관리자(ADMIN)로 전환
-                </DropdownMenuItem>
+                {import.meta.env.DEV && (
+                  <>
+                    <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
+                    <div className="px-2 py-1 text-[11px] font-semibold text-mist">
+                      역할 즉시 전환 (개발 전용)
+                      {switchRoleMutation.isPending && " ⏳"}
+                    </div>
+                    <DropdownMenuItem
+                      disabled={switchRoleMutation.isPending}
+                      onSelect={() => switchRoleMutation.mutate("BACKER")}
+                    >
+                      후원자(BACKER)로 전환
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={switchRoleMutation.isPending}
+                      onSelect={() => switchRoleMutation.mutate("CREATOR")}
+                    >
+                      창작자(CREATOR)로 전환
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={switchRoleMutation.isPending}
+                      onSelect={() => switchRoleMutation.mutate("ADMIN")}
+                    >
+                      관리자(ADMIN)로 전환
+                    </DropdownMenuItem>
+                  </>
+                )}
 
                 <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
                 <DropdownMenuItem onSelect={handleLogout} className="text-red-600">
@@ -366,7 +386,17 @@ export function Layout() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-8">
-        <Outlet />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            <Outlet />
+          </motion.div>
+        </AnimatePresence>
       </main>
       <FloatingCartBar />
     </div>
