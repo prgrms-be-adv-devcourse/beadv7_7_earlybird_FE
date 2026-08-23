@@ -21,6 +21,7 @@ import { useCancelOrder, useOrder, useOrders } from "../hooks";
 import { useConfirmPayment } from "../../payments/hooks";
 import { getOrderStatusBadgeTone, getOrderStatusLabel, getOrderDisplayNumber } from "../utils";
 import { OrderReviewModal } from "../components/OrderReviewModal";
+import { PaymentSuccessMascot } from "../components/PaymentSuccessMascot";
 
 export function OrderDetailPage() {
   const { id } = useParams();
@@ -36,6 +37,7 @@ export function OrderDetailPage() {
   const hasRequestedConfirmation = useRef(false);
 
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [selectedRewardIdForReview, setSelectedRewardIdForReview] = useState<number | undefined>(undefined);
 
@@ -69,6 +71,9 @@ export function OrderDetailPage() {
             await queryClient.invalidateQueries({ queryKey: ["orders", "detail", orderId] });
             await queryClient.invalidateQueries({ queryKey: ["orders"] });
             await refetchOrder();
+            // 방금 결제를 완료한 이 세션에서만 마스코트 인사 연출 — 이미 결제된 주문을 나중에 다시
+            // 봤을 때는 재생되지 않도록 order.status가 아니라 이 콜백에서만 트리거한다.
+            setShowCelebration(true);
           },
           onError: (err: any) => {
             console.error("Payment confirm error:", err);
@@ -121,11 +126,12 @@ export function OrderDetailPage() {
 
       {/* Payment Success Toast Banner (실제 order.status === "PAID"일 때만 표시) */}
       {isPaid && (
-        <div className="flex items-center gap-3 rounded-lg border-2 border-mint bg-mint/15 p-4 text-ink shadow-stamp-sm">
+        <div className="relative flex items-center gap-3 rounded-lg border-2 border-mint bg-mint/15 p-4 text-ink shadow-stamp-sm">
+          {showCelebration && <PaymentSuccessMascot />}
           <CheckCircle2 className="h-6 w-6 text-mint shrink-0" />
           <div>
-            <h2 className="font-bold text-sm">🎉 결제가 완료되었습니다!</h2>
-            <p className="text-xs text-mist">주문이 성공적으로 접수되었습니다. 마이페이지 ➔ 주문 내역에서 언제든 확인할 수 있습니다.</p>
+            <h2 className="font-bold text-sm">🎉 후원이 잘 전달됐어요</h2>
+            <p className="text-xs text-mist">덕분에 이 프로젝트가 한 걸음 자랐어요. 마이페이지 ➔ 주문 내역에서 언제든 확인할 수 있습니다.</p>
           </div>
         </div>
       )}
