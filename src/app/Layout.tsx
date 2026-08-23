@@ -12,6 +12,7 @@ import {
 } from "../shared/ui";
 import { useAuthStore } from "../shared/auth/authStore";
 import { FloatingCartBar } from "../features/cart/components/FloatingCartBar";
+import { ChatWidget } from "../features/chat/components/ChatWidget";
 import { useCategories } from "../features/admin/hooks";
 import type { ProjectCategory } from "../features/admin/types";
 import { logoutRequest } from "../features/auth/api";
@@ -369,6 +370,7 @@ export function Layout() {
         <Outlet />
       </main>
       <FloatingCartBar />
+      <ChatWidget />
     </div>
   );
 }

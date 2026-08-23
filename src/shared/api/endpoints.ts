@@ -68,6 +68,11 @@ export const BOARD_SERVICE = {
   commentReplies: (commentId: number | string) => `/api/v1/comments/${commentId}/replies`,
 };
 
+export const CHAT_SERVICE = {
+  messages: "/api/v1/chat/messages",
+  resetSession: "/api/v1/chat/sessions/reset",
+};
+
 // file-service FileController(file/presentation/FileController.java)는 클래스 레벨
 // @RequestMapping("/files")뿐이라 게이트웨이 라우트(Path=/api/v1/files/**)와 프리픽스가 어긋난다 —
 // notification-service와 동일한 종류의 기존 미스매치. 팀 컨벤션(/api/v1/{svc}/xxx)대로 아래 경로를
