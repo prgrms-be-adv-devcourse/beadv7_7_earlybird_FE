@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import axios from "axios";
 import { Link } from "react-router-dom";
 import {
   Badge,
@@ -15,13 +16,16 @@ import {
 } from "../../../shared/ui";
 import {
   useAllSettlements,
+  useCreatorProfile,
+  useRefundDetail,
+  useRegisterCreatorPayoutProfile,
   useSettlementDetail,
   useRunProjectPayout,
   useRunPgReconciliation,
 } from "../../settlements/hooks";
 import { useTriggerCloseExpired } from "../hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
-import type { PayoutObligationStatus } from "../../settlements/types";
+import type { AdminSettlementSort, PayoutObligationStatus } from "../../settlements/types";
 
 function getPayoutStatusInfo(status: PayoutObligationStatus) {
   switch (status) {
@@ -31,8 +35,6 @@ function getPayoutStatusInfo(status: PayoutObligationStatus) {
       return { label: "지급 처리중", tone: "lavender" as const, bg: "bg-lavender/30 text-indigo-800" };
     case "SCHEDULED":
       return { label: "지급 예정", tone: "peach" as const, bg: "bg-peach/30 text-amber-900" };
-    case "CREATOR_PAYOUT_PROFILE_WAITING":
-      return { label: "정산 프로필 대기", tone: "peach" as const, bg: "bg-peach/20 text-amber-800" };
     case "RETRY_WAITING":
       return { label: "재시도 대기", tone: "lavender" as const, bg: "bg-orange-100 text-orange-800" };
     case "ACTION_REQUIRED":
@@ -51,6 +53,94 @@ function formatDate(isoString: string | null | undefined) {
   } catch {
     return isoString;
   }
+}
+
+function CreatorProfileDialog({
+  creatorId,
+  open,
+  onOpenChange,
+}: {
+  creatorId: number | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: creator, isPending, isError, error } = useCreatorProfile(open ? creatorId : null);
+  const isForbidden = axios.isAxiosError(error) && error.response?.status === 403;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogTitle>창작자 정보</DialogTitle>
+        <DialogDescription>현재 User 서비스에 등록된 창작자 정보입니다.</DialogDescription>
+        {isPending && <RowSkeleton />}
+        {isError && (
+          <ErrorState
+            error={{
+              message: isForbidden ? "창작자 정보를 조회할 권한이 없습니다." : "창작자 정보를 불러오지 못했습니다.",
+              errors: null,
+            }}
+          />
+        )}
+        {creator && (
+          <dl className="grid grid-cols-2 gap-3 rounded border border-ink/15 bg-paper/60 p-3 text-sm">
+            <dt className="text-mist">이름</dt><dd className="font-semibold">{creator.name}</dd>
+            <dt className="text-mist">전화번호</dt><dd>{creator.phoneNumber}</dd>
+            <dt className="text-mist">은행</dt><dd>{creator.bankName} ({creator.bankCode})</dd>
+            <dt className="text-mist">예금주</dt><dd>{creator.accountHolder}</dd>
+          </dl>
+        )}
+        <div className="flex justify-end">
+          <DialogClose asChild><Button variant="secondary">닫기</Button></DialogClose>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RefundDetailDialog({
+  refundRequestId,
+  open,
+  onOpenChange,
+}: {
+  refundRequestId: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: detail, isPending, isError } = useRefundDetail(open ? refundRequestId : null);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogTitle>프로젝트 일괄 환불 상세</DialogTitle>
+        <DialogDescription>환불 요청 batch와 대상 결제 목록입니다.</DialogDescription>
+        {isPending && <RowSkeleton />}
+        {isError && <ErrorState error={{ message: "환불 상세를 불러오지 못했습니다.", errors: null }} />}
+        {detail && (
+          <div className="flex flex-col gap-4 text-sm">
+            <dl className="grid grid-cols-2 gap-3 rounded border border-ink/15 bg-paper/60 p-3">
+              <dt className="text-mist">프로젝트</dt><dd>{detail.projectName}</dd>
+              <dt className="text-mist">환불 사유</dt><dd>{detail.reason}</dd>
+              <dt className="text-mist">환불 상태</dt><dd>{detail.refundStatus}</dd>
+              <dt className="text-mist">요청 시각</dt><dd>{formatDate(detail.requestedAt)}</dd>
+              <dt className="text-mist">결과 수신 시각</dt><dd>{formatDate(detail.paymentResultAt)}</dd>
+            </dl>
+            <div>
+              <h3 className="mb-2 font-bold">대상 결제</h3>
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-ink/20"><tr><th className="p-2">주문 ID</th><th className="p-2">PG 주문 ID</th></tr></thead>
+                <tbody>{detail.payments.map((payment) => (
+                  <tr key={payment.orderId} className="border-b border-ink/10"><td className="p-2">{payment.orderId}</td><td className="p-2 font-mono">{payment.pgOrderId}</td></tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        <div className="flex justify-end">
+          <DialogClose asChild><Button variant="secondary">닫기</Button></DialogClose>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function SettlementDetailDialog({
@@ -251,63 +341,53 @@ function SettlementDetailDialog({
 export function SettlementAdminPage() {
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.role === "ADMIN";
-  const { data: settlements, isPending, isError, refetch } = useAllSettlements();
+  const [sort, setSort] = useState<AdminSettlementSort>("PUBLISHED_AT");
+  const { data: settlements, isPending, isError, refetch } = useAllSettlements(sort);
   const triggerCloseExpired = useTriggerCloseExpired();
   const runPayout = useRunProjectPayout();
   const runPgReconciliation = useRunPgReconciliation();
+  const registerCreatorPayoutProfile = useRegisterCreatorPayoutProfile();
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchProjectId, setSearchProjectId] = useState<string>("");
-  const [sortOrder, setSortOrder] = useState<"NEWEST" | "AMOUNT_DESC" | "AMOUNT_ASC">("NEWEST");
 
   const [selectedSettlementId, setSelectedSettlementId] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedCreatorId, setSelectedCreatorId] = useState<number | null>(null);
+  const [creatorDialogOpen, setCreatorDialogOpen] = useState(false);
+  const [selectedRefundRequestId, setSelectedRefundRequestId] = useState<string | null>(null);
+  const [refundDetailOpen, setRefundDetailOpen] = useState(false);
 
   const [actionFeedback, setActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // Summary statistics
   const summary = useMemo(() => {
     const list = settlements ?? [];
-    const totalCount = list.length;
-    const totalBase = list.reduce((sum, s) => sum + (s.settlementBaseAmount || 0), 0);
-    const totalPayout = list.reduce((sum, s) => sum + (s.creatorPayoutAmount || 0), 0);
-    const completedCount = list.filter((s) => s.status === "COMPLETED").length;
-    const processingCount = list.filter((s) => s.status === "PROCESSING").length;
-    const pendingCount = list.filter(
-      (s) => s.status === "SCHEDULED" || s.status === "CREATOR_PAYOUT_PROFILE_WAITING" || s.status === "RETRY_WAITING"
-    ).length;
+    const payoutEntries = list.filter((entry) => entry.type === "PAYOUT");
+    const registrationPendingEntries = list.filter((entry) => entry.type === "REGISTRATION_PENDING");
+    const totalBase = [...payoutEntries, ...registrationPendingEntries].reduce(
+      (sum, entry) => sum + (entry.type === "PAYOUT" ? entry.payout.settlementBaseAmount : entry.registrationPending.settlementBaseAmount),
+      0,
+    );
+    const totalPayout = payoutEntries.reduce((sum, entry) => sum + entry.payout.creatorPayoutAmount, 0);
+    const completedCount = payoutEntries.filter((entry) => entry.payout.status === "COMPLETED").length;
+    const processingCount = payoutEntries.filter((entry) => entry.payout.status === "PROCESSING").length;
+    const pendingCount = payoutEntries.filter(
+      (entry) => entry.payout.status === "SCHEDULED" || entry.payout.status === "RETRY_WAITING",
+    ).length + registrationPendingEntries.length;
 
-    return { totalCount, totalBase, totalPayout, completedCount, processingCount, pendingCount };
+    return { totalCount: list.length, totalBase, totalPayout, completedCount, processingCount, pendingCount };
   }, [settlements]);
 
-  // Filtered and sorted settlements
+  // The server owns ordering; the search only narrows its returned entries.
   const filteredSettlements = useMemo(() => {
-    let result = [...(settlements ?? [])];
-
-    if (statusFilter !== "ALL") {
-      result = result.filter((s) => s.status === statusFilter);
-    }
-
-    if (searchProjectId.trim()) {
-      const pid = searchProjectId.trim();
-      result = result.filter((s) => String(s.projectId).includes(pid) || String(s.settlementId).includes(pid));
-    }
-
-    if (sortOrder === "AMOUNT_DESC") {
-      result.sort((a, b) => b.creatorPayoutAmount - a.creatorPayoutAmount);
-    } else if (sortOrder === "AMOUNT_ASC") {
-      result.sort((a, b) => a.creatorPayoutAmount - b.creatorPayoutAmount);
-    } else {
-      result.sort((a, b) => b.settlementId - a.settlementId);
-    }
-
-    return result;
-  }, [settlements, statusFilter, searchProjectId, sortOrder]);
+    const query = searchProjectId.trim();
+    return query ? (settlements ?? []).filter((entry) => String(entry.projectId).includes(query)) : settlements ?? [];
+  }, [settlements, searchProjectId]);
 
   if (!isAdmin) {
     return (
@@ -324,10 +404,6 @@ export function SettlementAdminPage() {
     setActionFeedback(null);
     runPayout.mutate(selectedMonth, {
       onSuccess: () => {
-        setActionFeedback({
-          type: "success",
-          message: `${selectedMonth} 정산 지급 배치가 성공적으로 실행되었습니다.`,
-        });
         refetch();
       },
       onError: (err: any) => {
@@ -343,10 +419,6 @@ export function SettlementAdminPage() {
     setActionFeedback(null);
     runPgReconciliation.mutate(selectedMonth, {
       onSuccess: () => {
-        setActionFeedback({
-          type: "success",
-          message: `${selectedMonth} PG 결제 대사 배치가 성공적으로 실행되었습니다.`,
-        });
         refetch();
       },
       onError: (err: any) => {
@@ -372,6 +444,23 @@ export function SettlementAdminPage() {
         setActionFeedback({
           type: "error",
           message: err?.response?.data?.error?.message || "만료 프로젝트 마감 처리 중 오류가 발생했습니다.",
+        });
+      },
+    });
+  };
+
+  const handleRegisterCreator = (creatorId: number) => {
+    if (!window.confirm("이 창작자의 셀러 등록을 대행할까요?")) return;
+    setActionFeedback(null);
+    registerCreatorPayoutProfile.mutate(creatorId, {
+      onSuccess: () => {
+        setActionFeedback({ type: "success", message: "셀러 등록을 완료했습니다." });
+        refetch();
+      },
+      onError: (err: any) => {
+        setActionFeedback({
+          type: "error",
+          message: err?.response?.data?.error?.message || "셀러 등록 중 오류가 발생했습니다.",
         });
       },
     });
@@ -406,26 +495,22 @@ export function SettlementAdminPage() {
             />
           </div>
 
-          {/* runPayout/runPgReconciliation은 백엔드 /internal/v1(서비스 간 전용) 엔드포인트만 있고
-              브라우저에서 호출 가능한 관리자용 엔드포인트가 아직 없다 — 백엔드에 공개 API 추가 전까지 비활성화 */}
           <Button
             variant="primary"
             className="py-1 px-3 text-xs font-bold whitespace-nowrap"
             onClick={handleRunPayout}
-            disabled
-            title="백엔드에 관리자용 공개 API가 아직 없어 실행할 수 없습니다."
+            disabled={runPayout.isPending}
           >
-            ⚡ 정산 지급 실행 (백엔드 API 없음)
+            {runPayout.isPending ? "지급 실행 중..." : "⚡ 정산 지급 실행"}
           </Button>
 
           <Button
             variant="secondary"
             className="py-1 px-2.5 text-xs font-bold whitespace-nowrap"
             onClick={handleRunPgReconcile}
-            disabled
-            title="백엔드에 관리자용 공개 API가 아직 없어 실행할 수 없습니다."
+            disabled={runPgReconciliation.isPending}
           >
-            🔄 PG 대사 실행 (백엔드 API 없음)
+            {runPgReconciliation.isPending ? "대사 중..." : "🔄 PG 대사 실행"}
           </Button>
 
           <Button
@@ -499,52 +584,25 @@ export function SettlementAdminPage() {
         </Card>
       </div>
 
-      {/* Filter & Search Bar */}
+      {/* Search & server ordering */}
       <div className="flex flex-col gap-3 rounded-lg border-2 border-ink bg-surface p-3 shadow-stamp-sm md:flex-row md:items-center md:justify-between">
-        {/* Status Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-1">
-          {[
-            { id: "ALL", label: "전체" },
-            { id: "COMPLETED", label: "지급 완료" },
-            { id: "PROCESSING", label: "처리중" },
-            { id: "SCHEDULED", label: "예정" },
-            { id: "CREATOR_PAYOUT_PROFILE_WAITING", label: "프로필 대기" },
-            { id: "RETRY_WAITING", label: "재시도 대기" },
-            { id: "ACTION_REQUIRED", label: "조치 필요" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setStatusFilter(tab.id)}
-              className={`rounded px-2.5 py-1 text-xs font-extrabold transition-colors ${
-                statusFilter === tab.id
-                  ? "bg-ink text-surface"
-                  : "bg-paper text-mist hover:bg-paper/80 hover:text-ink"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Search & Sort Controls */}
         <div className="flex items-center gap-2">
           <input
             type="text"
-            placeholder="프로젝트/정산 ID 검색"
+            placeholder="프로젝트 ID 검색"
             value={searchProjectId}
             onChange={(e) => setSearchProjectId(e.target.value)}
             className="w-40 rounded border border-ink/30 bg-surface px-2.5 py-1 text-xs text-ink outline-none focus:border-brand"
           />
 
           <select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value as any)}
+            value={sort}
+            onChange={(e) => setSort(e.target.value as AdminSettlementSort)}
             className="rounded border border-ink/30 bg-surface px-2 py-1 text-xs font-bold text-ink outline-none focus:border-brand"
           >
-            <option value="NEWEST">최신 정산순</option>
-            <option value="AMOUNT_DESC">지급액 높은순</option>
-            <option value="AMOUNT_ASC">지급액 낮은순</option>
+            <option value="PUBLISHED_AT">발행 시간순</option>
+            <option value="PROCESSED_AT">처리 시간순</option>
+            <option value="NAME">프로젝트명순</option>
           </select>
         </div>
       </div>
@@ -571,23 +629,29 @@ export function SettlementAdminPage() {
           <table className="w-full text-left text-xs">
             <thead className="border-b-2 border-ink bg-paper font-extrabold text-ink">
               <tr>
-                <th className="py-3 px-4">정산 ID</th>
+                <th className="py-3 px-4">유형</th>
                 <th className="py-3 px-4">대상 프로젝트</th>
                 <th className="py-3 px-4 text-right">정산 기준액</th>
                 <th className="py-3 px-4 text-right">창작자 실지급액</th>
-                <th className="py-3 px-4">확정일시</th>
-                <th className="py-3 px-4">지급예정일</th>
+                <th className="py-3 px-4">창작자</th>
+                <th className="py-3 px-4">기준 시각</th>
                 <th className="py-3 px-4 text-center">상태</th>
                 <th className="py-3 px-4 text-center">상세</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink/10">
               {filteredSettlements.map((settlement) => {
-                const statusInfo = getPayoutStatusInfo(settlement.status);
+                const payout = settlement.type === "PAYOUT" ? settlement.payout : null;
+                const registrationPending = settlement.type === "REGISTRATION_PENDING" ? settlement.registrationPending : null;
+                const refund = settlement.type === "REFUND" ? settlement.refund : null;
+                const statusInfo = payout ? getPayoutStatusInfo(payout.status) : null;
                 return (
-                  <tr key={settlement.settlementId} className="hover:bg-paper/50 transition-colors">
+                  <tr
+                    key={settlement.type === "REFUND" ? settlement.refundRequestId : payout?.settlementId ?? registrationPending?.settlementId}
+                    className="hover:bg-paper/50 transition-colors"
+                  >
                     <td className="py-3 px-4 font-mono font-bold text-ink">
-                      #{settlement.settlementId}
+                      {settlement.type === "PAYOUT" ? "지급" : settlement.type === "REFUND" ? "환불" : "등록 대기"}
                     </td>
                     <td className="py-3 px-4">
                       <Link
@@ -595,37 +659,76 @@ export function SettlementAdminPage() {
                         target="_blank"
                         className="font-bold text-brand hover:underline"
                       >
-                        프로젝트 #{settlement.projectId} ↗
+                        {settlement.projectName} ↗
                       </Link>
                     </td>
                     <td className="py-3 px-4 text-right font-mono font-medium text-ink tabular-nums">
-                      {settlement.settlementBaseAmount.toLocaleString()}원
+                      {payout?.settlementBaseAmount?.toLocaleString() ?? registrationPending?.settlementBaseAmount?.toLocaleString() ?? "-"}
+                      {(payout || registrationPending) && "원"}
                     </td>
                     <td className="py-3 px-4 text-right font-mono font-extrabold text-ink tabular-nums">
-                      {settlement.creatorPayoutAmount.toLocaleString()}원
+                      {payout?.creatorPayoutAmount?.toLocaleString() ?? registrationPending?.creatorPayoutAmount?.toLocaleString() ?? "-"}
+                      {(payout || registrationPending) && "원"}
+                    </td>
+                    <td className="py-3 px-4">
+                      {(payout || registrationPending) ? (
+                        <button
+                          type="button"
+                          className="font-mono text-brand hover:underline"
+                          onClick={() => {
+                            setSelectedCreatorId(payout?.creatorId ?? registrationPending?.creatorId ?? null);
+                            setCreatorDialogOpen(true);
+                          }}
+                        >
+                          #{payout?.creatorId ?? registrationPending?.creatorId}
+                        </button>
+                      ) : (
+                        "-"
+                      )}
                     </td>
                     <td className="py-3 px-4 font-mono text-mist text-[11px]">
-                      {formatDate(settlement.confirmedAt)}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-ink text-[11px]">
-                      {settlement.scheduledDate || "-"}
+                      {formatDate(payout?.confirmedAt ?? registrationPending?.confirmedAt ?? refund?.requestedAt)}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-extrabold ${statusInfo.bg}`}>
-                        {statusInfo.label}
+                      <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-extrabold ${statusInfo?.bg ?? "bg-paper text-ink"}`}>
+                        {statusInfo?.label ?? refund?.refundStatus ?? "등록 대기"}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <Button
-                        variant="secondary"
-                        className="py-0.5 px-2 text-[11px] font-bold"
-                        onClick={() => {
-                          setSelectedSettlementId(settlement.settlementId);
-                          setDetailOpen(true);
-                        }}
-                      >
-                        명세서
-                      </Button>
+                      {payout ? (
+                        <Button
+                          variant="secondary"
+                          className="py-0.5 px-2 text-[11px] font-bold"
+                          onClick={() => {
+                            setSelectedSettlementId(payout.settlementId);
+                            setDetailOpen(true);
+                          }}
+                        >
+                          명세서
+                        </Button>
+                      ) : settlement.type === "REFUND" ? (
+                        <Button
+                          variant="secondary"
+                          className="py-0.5 px-2 text-[11px] font-bold"
+                          onClick={() => {
+                            setSelectedRefundRequestId(settlement.refundRequestId);
+                            setRefundDetailOpen(true);
+                          }}
+                        >
+                          상세
+                        </Button>
+                      ) : registrationPending ? (
+                        <Button
+                          variant="primary"
+                          className="py-0.5 px-2 text-[11px] font-bold"
+                          disabled={registerCreatorPayoutProfile.isPending}
+                          onClick={() => handleRegisterCreator(registrationPending.creatorId)}
+                        >
+                          {registerCreatorPayoutProfile.isPending ? "등록 중..." : "셀러 등록 대행"}
+                        </Button>
+                      ) : (
+                        "-"
+                      )}
                     </td>
                   </tr>
                 );
@@ -640,6 +743,16 @@ export function SettlementAdminPage() {
         settlementId={selectedSettlementId}
         open={detailOpen}
         onOpenChange={setDetailOpen}
+      />
+      <CreatorProfileDialog
+        creatorId={selectedCreatorId}
+        open={creatorDialogOpen}
+        onOpenChange={setCreatorDialogOpen}
+      />
+      <RefundDetailDialog
+        refundRequestId={selectedRefundRequestId}
+        open={refundDetailOpen}
+        onOpenChange={setRefundDetailOpen}
       />
     </div>
   );

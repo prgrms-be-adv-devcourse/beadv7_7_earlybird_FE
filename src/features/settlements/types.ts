@@ -5,17 +5,18 @@
 // - id 필드가 아니라 settlementId이다.
 // - amount 하나가 아니라 정산 기준액(settlementBaseAmount)과 창작자에게 실제 지급되는 금액
 //   (creatorPayoutAmount) 두 개로 나뉘어 내려온다.
-// - status는 자유 문자열이 아니라 실제 6개 값의 enum(PayoutObligationStatus)이다.
+// - status는 자유 문자열이 아니라 실제 5개 값의 enum(PayoutStatus)이다.
 // - 브리프가 언급하지 않은 날짜 필드가 세 개 더 있다: confirmedAt(OffsetDateTime),
 //   scheduledDate(LocalDate), completedAt(OffsetDateTime, COMPLETED 상태가 되기 전까지는 null).
 //   JSON으로는 전부 ISO 문자열로 내려오므로 string(및 completedAt만 string | null)으로 둔다.
 export type PayoutObligationStatus =
-  | "CREATOR_PAYOUT_PROFILE_WAITING"
   | "SCHEDULED"
   | "PROCESSING"
   | "RETRY_WAITING"
   | "COMPLETED"
   | "ACTION_REQUIRED";
+
+export type CreatorSettlementStatus = PayoutObligationStatus | "REGISTRATION_PENDING";
 
 /** GET /api/v1/settlements 목록 항목 (CreatorProjectSettlementListItemResponse / AdminProjectSettlementListItemResponse). */
 export interface Settlement {
@@ -23,11 +24,77 @@ export interface Settlement {
   projectId: number;
   settlementBaseAmount: number;
   creatorPayoutAmount: number;
-  status: PayoutObligationStatus;
+  status: CreatorSettlementStatus;
   confirmedAt: string;
   scheduledDate: string;
   completedAt: string | null;
 }
+
+export type AdminSettlementSort = "NAME" | "PUBLISHED_AT" | "PROCESSED_AT";
+
+export type RefundStatus = "REQUESTED" | "PROCESSING" | "COMPLETED" | "ACTION_REQUIRED";
+
+export interface AdminCreatorProfile {
+  userId: number;
+  name: string;
+  phoneNumber: string;
+  bankName: string;
+  bankCode: string;
+  accountHolder: string;
+}
+
+export interface AdminProjectRefundDetail {
+  refundRequestId: string;
+  projectId: number;
+  projectName: string;
+  reason: "PROJECT_FAILED" | "PROJECT_CANCELLED";
+  refundStatus: RefundStatus;
+  requestedAt: string;
+  paymentResultAt: string | null;
+  payments: { orderId: number; pgOrderId: string; actionRequired: boolean }[];
+}
+
+/** GET /api/v1/settlements/all 관리자 통합 목록 항목. */
+export type AdminSettlementEntry =
+  | {
+      type: "PAYOUT";
+      projectId: number;
+      projectName: string;
+      payout: {
+        settlementId: number;
+        creatorId: number;
+        settlementBaseAmount: number;
+        creatorPayoutAmount: number;
+        status: Exclude<PayoutObligationStatus, "CREATOR_PAYOUT_PROFILE_WAITING">;
+        confirmedAt: string;
+        scheduledDate: string;
+      };
+    }
+  | {
+      type: "REFUND";
+      projectId: number;
+      projectName: string;
+      refundRequestId: string;
+      refund: {
+        reason: "PROJECT_FAILED" | "PROJECT_CANCELLED";
+        requestedAt: string;
+        refundStatus: RefundStatus;
+        paymentResultAt: string | null;
+        paymentCount: number;
+      };
+    }
+  | {
+      type: "REGISTRATION_PENDING";
+      projectId: number;
+      projectName: string;
+      registrationPending: {
+        settlementId: number;
+        creatorId: number;
+        settlementBaseAmount: number;
+        creatorPayoutAmount: number;
+        confirmedAt: string;
+      };
+    };
 
 export interface FeeDetail {
   rate: number;
@@ -42,6 +109,18 @@ export interface SettlementBreakdown {
   platformFee: FeeDetail;
   otherDeductionAmount: number;
   creatorPayoutAmount: number;
+}
+
+export interface CreatorProjectSettlementDetail {
+  settlementId: number;
+  project: { projectId: number };
+  confirmedAt: string;
+  breakdown: SettlementBreakdown;
+  payout: {
+    status: CreatorSettlementStatus;
+    scheduledDate: string;
+    completedAt: string | null;
+  };
 }
 
 export interface PayoutDestination {
@@ -80,4 +159,3 @@ export interface AdminSettlementDetail {
   breakdown: SettlementBreakdown;
   payout: PayoutDetail;
 }
-

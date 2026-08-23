@@ -4,6 +4,7 @@ export const USER_SERVICE = {
   refresh: "/api/v1/users/refresh",
   logout: "/api/v1/users/logout",
   me: "/api/v1/users/me",
+  creator: (userId: number | string) => `/api/v1/users/creators/${userId}`,
   switchRole: "/api/v1/users/me/role",
 };
 
@@ -35,17 +36,19 @@ export const ORDER_SERVICE = {
 
 export const PAYMENT_SERVICE = {
   confirm: "/api/v1/payments/confirm",
-  payment: (id: number | string) => `/api/v1/payments/${id}`,
-  paymentByOrder: (orderId: number | string) => `/api/v1/payments/orders/${orderId}`,
-  cancel: (id: number | string) => `/api/v1/payments/${id}/cancel`,
+  paymentByOrder: (orderId: number | string) => `/api/v1/payments?orderId=${orderId}`,
 };
 
 export const SETTLEMENT_SERVICE = {
   mySettlements: "/api/v1/settlements",
+  creatorSettlementDetail: (id: number | string) => `/api/v1/settlements/${id}`,
   allSettlements: "/api/v1/settlements/all",
   settlementDetail: (id: number | string) => `/api/v1/settlements/all/${id}`,
-  runPayout: "/internal/v1/settlements/project-payouts/runs",
-  runPgReconciliation: "/internal/v1/settlements/pg-reconciliations/runs",
+  refundDetail: (refundRequestId: string) => `/api/v1/settlements/all/refunds/${refundRequestId}`,
+  registerCreatorPayoutProfile: (creatorId: number) =>
+    `/api/v1/settlements/creator-payout-profiles/${creatorId}/registration`,
+  runPayout: "/api/v1/settlements/project-payouts/runs",
+  runPgReconciliation: "/api/v1/settlements/pg-reconciliations/runs",
 };
 
 // 강대혁/project/settlement-kafka-closed-event 브랜치의 실제 컨트롤러 코드로 확인 완료:
