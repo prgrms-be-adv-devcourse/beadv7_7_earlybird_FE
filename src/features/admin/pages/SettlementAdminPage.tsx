@@ -406,22 +406,26 @@ export function SettlementAdminPage() {
             />
           </div>
 
+          {/* runPayout/runPgReconciliation은 백엔드 /internal/v1(서비스 간 전용) 엔드포인트만 있고
+              브라우저에서 호출 가능한 관리자용 엔드포인트가 아직 없다 — 백엔드에 공개 API 추가 전까지 비활성화 */}
           <Button
             variant="primary"
             className="py-1 px-3 text-xs font-bold whitespace-nowrap"
             onClick={handleRunPayout}
-            disabled={runPayout.isPending}
+            disabled
+            title="백엔드에 관리자용 공개 API가 아직 없어 실행할 수 없습니다."
           >
-            {runPayout.isPending ? "지급 실행 중..." : "⚡ 정산 지급 실행"}
+            ⚡ 정산 지급 실행 (백엔드 API 없음)
           </Button>
 
           <Button
             variant="secondary"
             className="py-1 px-2.5 text-xs font-bold whitespace-nowrap"
             onClick={handleRunPgReconcile}
-            disabled={runPgReconciliation.isPending}
+            disabled
+            title="백엔드에 관리자용 공개 API가 아직 없어 실행할 수 없습니다."
           >
-            {runPgReconciliation.isPending ? "대사 중..." : "🔄 PG 대사 실행"}
+            🔄 PG 대사 실행 (백엔드 API 없음)
           </Button>
 
           <Button

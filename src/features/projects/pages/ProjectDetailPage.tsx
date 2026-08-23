@@ -158,6 +158,7 @@ function FundingPanel({
   feedback,
   isOrderable,
   categoryPath,
+  currentUser,
 }: {
   project: ProjectDetail;
   rewards: Reward[] | undefined;
@@ -172,6 +173,7 @@ function FundingPanel({
   feedback: string | null;
   isOrderable: boolean;
   categoryPath?: string;
+  currentUser?: { id?: number; name?: string } | null;
 }) {
   const percent = fundedPercent(project.fundedAmount, project.goalAmount);
   const remaining = daysLeft(project.endAt);
@@ -209,10 +211,10 @@ function FundingPanel({
                 to={`/projects?creatorId=${project.creatorId}`}
                 className="font-bold text-brand hover:underline"
               >
-                {getCreatorDisplayName(project.creatorId)}
+                {getCreatorDisplayName(project.creatorId, currentUser)}
               </Link>
             ) : (
-              <strong className="text-ink">{getCreatorDisplayName(project.creatorId)}</strong>
+              <strong className="text-ink">{getCreatorDisplayName(project.creatorId, currentUser)}</strong>
             )}
           </div>
         </div>
@@ -777,6 +779,7 @@ export function ProjectDetailPage() {
           isAddingToCart={addCartItems.isPending}
           flightTrigger={panelFlight}
           feedback={feedback}
+          currentUser={user}
           isOrderable={isPublished}
           categoryPath={categoryPath}
         />

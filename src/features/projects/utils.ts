@@ -72,6 +72,8 @@ export function formatDateKorean(dateStr?: string | null): string {
   }
 }
 
+// 백엔드는 creatorId만 내려주고 다른 사용자의 이름을 조회할 공개 API가 없다 — 로그인한
+// 본인이 곧 그 creatorId일 때만 실제 이름을 알 수 있고, 그 외에는 정직하게 ID만 표시한다.
 export function getCreatorDisplayName(
   creatorId?: number | null,
   currentUser?: { id?: number; name?: string } | null
@@ -79,16 +81,10 @@ export function getCreatorDisplayName(
   if (!creatorId) return "Earlybird 공식 메이커";
 
   if (currentUser && (currentUser.id === creatorId || String(currentUser.id) === String(creatorId))) {
-    return currentUser.name || "강대혁";
+    return currentUser.name || `창작자 #${creatorId}`;
   }
 
-  const knownCreators: Record<number, string> = {
-    1: "어리버리 팀",
-    2: "펫하우스 메이커",
-    8: "강대혁",
-  };
-
-  return knownCreators[creatorId] || (currentUser?.name ? currentUser.name : "강대혁");
+  return `창작자 #${creatorId}`;
 }
 
 export interface FlatCategory {
