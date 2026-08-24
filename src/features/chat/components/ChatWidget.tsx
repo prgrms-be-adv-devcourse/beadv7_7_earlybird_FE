@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { MessageCircle, RotateCcw, SendHorizontal, X } from "lucide-react";
 import { Mascot } from "../../../shared/ui";
-import { useSendChatMessage, useResetChatSession } from "../hooks";
+import { useChatIdentitySync, useSendChatMessage, useResetChatSession } from "../hooks";
 import { useChatStore } from "../store";
 
 // 서버 reply에 **굵게**/### 제목/- 목록 같은 마크다운 문법이 섞여 오는데, 이 챗봇 응답 범위가
@@ -89,14 +89,27 @@ function ChatWindow() {
   const resetSession = useResetChatSession();
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
+  // 응답이 스트리밍되는 동안 계속 addMessage가 일어나 매번 강제로 바닥까지 스크롤하면
+  // 사용자가 위로 스크롤해 이전 내용을 봐도 곧바로 다시 끌려 내려온다 — 이미 바닥 근처에
+  // 있을 때만 따라 내려가고, 위로 올려 읽는 중이면 그 위치를 유지한다.
+  const stickToBottomRef = useRef(true);
+  const BOTTOM_THRESHOLD_PX = 32;
 
   useEffect(() => {
+    if (!stickToBottomRef.current) return;
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isSending]);
+
+  const handleScroll = () => {
+    const el = listRef.current;
+    if (!el) return;
+    stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < BOTTOM_THRESHOLD_PX;
+  };
 
   const handleSend = () => {
     const trimmed = input.trim();
     if (!trimmed || isSending) return;
+    stickToBottomRef.current = true;
     sendMessage.mutate(trimmed);
     setInput("");
   };
@@ -133,17 +146,23 @@ function ChatWindow() {
         </div>
       </div>
 
-      <div ref={listRef} className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+      <div ref={listRef} onScroll={handleScroll} className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 && (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-mist">
             <Mascot variant="face" className="h-12 w-12" />
             <p>안녕하세요! 오목눈이예요.{"\n"}프로젝트나 이용 방법이 궁금하면 물어보세요.</p>
           </div>
         )}
-        {messages.map((message) => (
-          <ChatBubble key={message.id} role={message.role} content={message.content} references={message.references} />
-        ))}
-        {isSending && <TypingIndicator />}
+        {messages.map((message, index) => {
+          const isStreamingPlaceholder =
+            isSending && index === messages.length - 1 && message.role === "assistant" && message.content === "";
+          if (isStreamingPlaceholder) {
+            return <TypingIndicator key={message.id} />;
+          }
+          return (
+            <ChatBubble key={message.id} role={message.role} content={message.content} references={message.references} />
+          );
+        })}
       </div>
 
       <div className="flex items-end gap-2 border-t-2 border-ink bg-surface p-3">
@@ -175,6 +194,7 @@ function ChatWindow() {
 }
 
 export function ChatWidget() {
+  useChatIdentitySync();
   const isOpen = useChatStore((state) => state.isOpen);
   const toggle = useChatStore((state) => state.toggle);
 

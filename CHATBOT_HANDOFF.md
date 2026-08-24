@@ -80,6 +80,45 @@ export async function sendChatMessage(message: string, callbacks: ChatStreamCall
 
 여전히 유효. 서버는 LLM 컨텍스트용 내부 메모리(Caffeine, 30분 idle)만 갖고, 화면에 보여줄 이력은 프론트(`store.ts`의 zustand+localStorage)가 직접 관리.
 
+## 로그인/로그아웃 시 대화 이력을 프론트가 직접 비워줘야 함 (2026-08-24 확인)
+
+**증상**: 비로그인 상태로 챗봇을 쓰다가 로그인하면, 화면엔 예전 비로그인 대화가 그대로 남아 새 대화와 이어붙어 보임 — 마치 로그인해도 이전 대화를 "기억"하는 것처럼 보이지만 실제로는 그렇지 않음.
+
+**BE는 이미 올바르게 동작함**(소스로 확인, `ConversationIdentityResolver.resolve()`):
+```java
+public ConversationIdentity resolve(Long userId, String anonId) {
+    if (userId != null) {
+        return new ConversationIdentity(USER_KEY_PREFIX + userId, null);  // anonId는 무조건 무시
+    }
+    ...
+}
+```
+`userId`(로그인 후 게이트웨이가 채워주는 `X-User-Id`)가 있으면 `anonId` 쿠키가 남아있어도 무조건 무시하고 `"user:" + userId`라는 새 키로 대화를 시작함 — 로그인하는 순간 서버 쪽 컨텍스트는 이미 완전히 새로 시작됨. **원인은 순수 프론트**: `store.ts`의 `messages`가 로그인 여부와 무관하게 localStorage에 계속 남아있어서, 화면만 예전 기록을 안 지우고 보여주는 것.
+
+**해결 — `useAuthStore`의 유저 식별자가 바뀌는 시점에 `useChatStore.resetMessages()` 호출**:
+```ts
+// src/features/chat/hooks.ts에 추가
+import { useEffect, useRef } from "react";
+import { useAuthStore } from "../../shared/auth/authStore";
+import { useChatStore } from "./store";
+
+export function useChatIdentitySync() {
+  const userId = useAuthStore((state) => state.user?.id ?? null);
+  const resetMessages = useChatStore((state) => state.resetMessages);
+  const previousUserId = useRef(userId);
+
+  useEffect(() => {
+    if (previousUserId.current !== userId) {
+      resetMessages();
+      previousUserId.current = userId;
+    }
+  }, [userId, resetMessages]);
+}
+```
+`ChatWidget.tsx`(또는 앱 셸 최상단, 위젯이 닫혀있어도 로그인 전환을 놓치지 않도록)에서 한 번 호출. 처음 마운트 시엔 `ref`가 같은 값으로 시작해 안 지워지고(localStorage 복원 기록 보존), 실제 로그인/로그아웃/유저 전환으로 `userId`가 바뀌는 순간에만 비워짐 — 로그인(`null`→숫자), 로그아웃(숫자→`null`) 둘 다 커버.
+
+**`resetChatSession()`(서버 세션 폐기 API)까지 같이 호출할 필요는 없음** — 위 확인대로 서버는 `userId`가 있으면 어차피 별도 키로 새 대화를 시작하므로, 화면(로컬) 정리만으로 충분함.
+
 ## 마스코트
 
 챗봇 페르소나("오목눈이")는 이 레포 브랜드 마스코트("뱁새", `public/character.png`, `Mascot` 컴포넌트)와 같은 새 — `ChatWidget.tsx`에서 이미 재사용하고 있는지 확인. 안 쓰고 있다면 반영 권장.

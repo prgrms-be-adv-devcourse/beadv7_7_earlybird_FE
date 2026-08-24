@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { ChatMessage } from "./types";
+import type { ChatMessage, PolicyReference } from "./types";
 
 interface ChatState {
   isOpen: boolean;
@@ -10,6 +10,8 @@ interface ChatState {
   close: () => void;
   toggle: () => void;
   addMessage: (message: ChatMessage) => void;
+  appendToLastMessage: (text: string) => void;
+  setLastMessageReferences: (references: PolicyReference[]) => void;
   setSending: (isSending: boolean) => void;
   resetMessages: () => void;
 }
@@ -26,6 +28,22 @@ export const useChatStore = create<ChatState>()(
       close: () => set({ isOpen: false }),
       toggle: () => set((state) => ({ isOpen: !state.isOpen })),
       addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
+      appendToLastMessage: (text) =>
+        set((state) => {
+          if (state.messages.length === 0) return state;
+          const messages = state.messages.slice();
+          const last = messages[messages.length - 1];
+          messages[messages.length - 1] = { ...last, content: last.content + text };
+          return { messages };
+        }),
+      setLastMessageReferences: (references) =>
+        set((state) => {
+          if (state.messages.length === 0) return state;
+          const messages = state.messages.slice();
+          const last = messages[messages.length - 1];
+          messages[messages.length - 1] = { ...last, references };
+          return { messages };
+        }),
       setSending: (isSending) => set({ isSending }),
       resetMessages: () => set({ messages: [] }),
     }),
