@@ -280,7 +280,7 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
 
   const openCreateReview = () => {
     setEditingReviewId(null);
-    setSelectedRewardId(undefined);
+    setSelectedRewardId(rewards && rewards.length > 0 ? rewards[0].rewardId : undefined);
     setRating(5);
     setReviewContent("");
     setReviewError(null);
@@ -297,6 +297,10 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
   };
 
   const handleSubmitReview = async () => {
+    if (rewards && rewards.length > 0 && !selectedRewardId && !editingReviewId) {
+      setReviewError("후기를 작성할 리워드를 선택해주세요.");
+      return;
+    }
     if (!reviewContent.trim()) {
       setReviewError("후기 내용을 입력해주세요.");
       return;
@@ -334,8 +338,18 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
       setEditingReviewId(null);
     } catch (err: any) {
       const status = err?.response?.status;
-      const rawMessage = err?.response?.data?.error?.message || err?.response?.data?.message || "";
+      let rawMessage = err?.response?.data?.error?.message || err?.response?.data?.message || "";
+      rawMessage = rawMessage.replace(/\s*\(?projectId=\d+,?\s*authorId=\d+\)?/g, "").trim();
+
       if (
+        status === 409 ||
+        rawMessage.includes("이미 이 프로젝트에 리뷰를 작성했습니다") ||
+        rawMessage.includes("작성했습니다")
+      ) {
+        setReviewError("이미 이 프로젝트에 작성하신 후기가 등록되어 있습니다.");
+      } else if (status === 400 && rawMessage.includes("Invalid request content")) {
+        setReviewError("후기 작성 정보가 올바르지 않습니다. 리워드 선택 및 내용을 확인해주세요.");
+      } else if (
         status === 403 ||
         rawMessage.includes("구매") ||
         rawMessage.includes("PurchaseNotVerified")
@@ -751,7 +765,7 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
             {/* Reward Selector */}
             {!editingReviewId && rewards && rewards.length > 0 && (
               <div>
-                <label className="mb-1 block text-xs font-bold text-ink">후원한 리워드 선택 (선택사항)</label>
+                <label className="mb-1 block text-xs font-bold text-ink">후원한 리워드 선택 *</label>
                 <select
                   value={selectedRewardId ?? ""}
                   onChange={(e) =>
@@ -759,7 +773,7 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
                   }
                   className="w-full rounded-md border border-ink/20 px-3 py-2 text-sm text-ink outline-none focus:border-brand bg-white"
                 >
-                  <option value="">-- 리워드 선택 없음 --</option>
+                  <option value="">-- 후기 작성할 리워드를 선택해주세요 --</option>
                   {rewards.map((r) => (
                     <option key={r.rewardId} value={r.rewardId}>
                       {r.name} ({r.price.toLocaleString()}원)
@@ -775,10 +789,13 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
                 <label className="mb-1 block text-xs font-bold text-ink">사진 첨부 (선택)</label>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/png, image/jpeg, image/jpg, image/webp, image/gif, image/svg+xml, .svg, .img"
                   onChange={(e) => setReviewPhotoFile(e.target.files?.[0] ?? null)}
                   className="w-full text-xs text-ink file:mr-3 file:rounded-sm file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink"
                 />
+                <p className="mt-1 text-[11px] text-mist">
+                  * 지원 형식: JPG, JPEG, PNG, WEBP, GIF, SVG
+                </p>
               </div>
             )}
 

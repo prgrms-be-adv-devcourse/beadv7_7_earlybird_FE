@@ -75,14 +75,28 @@ export function OrderDetailPage() {
             },
             onError: async (err: any) => {
               console.error("Payment confirm error:", err);
-              const serverMsg =
+              const rawMsg =
                   err?.response?.data?.error?.message ||
                   err?.response?.data?.message ||
                   err?.message ||
-                  "결제 승인 처리 중 오류가 발생했습니다.";
-              setConfirmError(serverMsg);
-              await queryClient.invalidateQueries({queryKey: ["orders", "detail", orderId]});
-              await queryClient.invalidateQueries({queryKey: ["orders"]});
+                  "";
+
+              // 이미 승인된 결제는 실패가 아니라 결제 완료 상태이므로 성공으로 수렴 처리
+              if (rawMsg.includes("이미 승인된 결제") || rawMsg.includes("ALREADY_APPROVED")) {
+                setConfirmError(null);
+                await queryClient.invalidateQueries({ queryKey: ["orders", "detail", orderId] });
+                await queryClient.invalidateQueries({ queryKey: ["orders"] });
+                await refetchOrder();
+                return;
+              }
+
+              const cleanMsg =
+                rawMsg.replace(/\s*\(?pgOrderId\s*=\s*[a-zA-Z0-9_-]+\)?/gi, "").trim() ||
+                "결제 승인 처리 중 오류가 발생했습니다.";
+
+              setConfirmError(cleanMsg);
+              await queryClient.invalidateQueries({ queryKey: ["orders", "detail", orderId] });
+              await queryClient.invalidateQueries({ queryKey: ["orders"] });
               await refetchOrder();
             },
           }

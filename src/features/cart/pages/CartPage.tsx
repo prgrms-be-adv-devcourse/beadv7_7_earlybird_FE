@@ -170,7 +170,7 @@ export function CartPage() {
         <div>
           <h1 className="font-display text-2xl font-bold text-ink">장바구니</h1>
           <p className="mt-1 text-xs text-mist">
-            💡 펀딩 결제 정책에 따라 동일 프로젝트의 리워드 단위로 프로젝트별 개별 주문이 진행됩니다.
+            💡 크라우드펀딩 특성상 창작자 및 프로젝트 단위로 배송 일정과 혜택이 상이하여 프로젝트별 개별 주문·결제가 진행됩니다.
           </p>
         </div>
         <Button

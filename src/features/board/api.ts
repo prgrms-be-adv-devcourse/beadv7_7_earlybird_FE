@@ -69,8 +69,11 @@ export async function createComment(
   content: string
 ): Promise<ProjectComment> {
   const response = await apiClient.post<ApiResponse<ProjectComment>>(
-    BOARD_SERVICE.comments(targetType, targetId),
-    { content }
+    "/api/v1/comments",
+    { content },
+    {
+      params: { targetType, targetId },
+    }
   );
   return response.data.data as ProjectComment;
 }

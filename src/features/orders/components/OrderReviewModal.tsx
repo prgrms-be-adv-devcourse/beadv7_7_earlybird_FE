@@ -220,10 +220,13 @@ export function OrderReviewModal({
               </label>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/png, image/jpeg, image/jpg, image/webp, image/gif, image/svg+xml, .svg, .img"
                 onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
                 className="w-full text-xs text-ink file:mr-3 file:rounded file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-bold file:text-ink hover:file:bg-paper/80"
               />
+              <p className="mt-1 text-[11px] text-mist">
+                * 지원 형식: JPG, JPEG, PNG, WEBP, GIF, SVG
+              </p>
 
               {photoPreview && (
                 <div className="mt-2 relative inline-block">

@@ -66,7 +66,7 @@ function HeaderCategoryNav() {
   };
 
   return (
-    <div className="hidden lg:flex items-center gap-1 border-l-2 border-ink/15 pl-4 ml-1">
+    <div className="flex items-center gap-1">
       {topCategories.map((topCat) => {
         const hasChildren = topCat.children && topCat.children.length > 0;
         return (
@@ -129,13 +129,18 @@ export function Layout() {
   const queryClient = useQueryClient();
   const switchRoleMutation = useSwitchRole();
   const location = useLocation();
+  const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logoutRequest().catch(() => {
+  const handleLogout = async () => {
+    try {
+      await logoutRequest();
+    } catch {
       // 서버 로그아웃 실패해도 로컬 세션은 항상 정리한다 (토큰 만료 등으로 흔히 발생).
-    });
-    logout();
-    queryClient.clear();
+    } finally {
+      logout();
+      queryClient.clear();
+      navigate("/login");
+    }
   };
 
   const getRoleBadge = (role?: string) => {
@@ -154,235 +159,256 @@ export function Layout() {
       className={`min-h-screen pb-16 transition-colors duration-500 ${getPageTintClass(location.pathname)}`}
       style={{ backgroundImage: "radial-gradient(rgba(43,36,24,0.05) 1px, transparent 1px)", backgroundSize: "18px 18px" }}
     >
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b-2 border-ink bg-surface px-6 py-3.5 gap-4">
-        {/* Left Section: Earlybird Logo Mark & Categories Dropdown Navigation */}
-        <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-40 border-b-2 border-ink bg-surface">
+        {/* Upper Main Nav Bar (GNB) */}
+        <div className="flex items-center justify-between px-6 py-3 gap-4">
+          {/* Logo */}
           <Link to="/" className="flex items-center gap-2 font-display text-xl font-extrabold tracking-tight text-ink shrink-0">
             <Mascot variant="face" className="h-8 w-8" />
             Earlybird
           </Link>
 
-          {/* Top Categories with Hover Menus (Placed BETWEEN Earlybird Logo and Home) */}
-          <HeaderCategoryNav />
-        </div>
-
-        {/* Right Section Navigation: Home, Projects, Cart, Orders, Notifications, User Menu */}
-        <nav className="hidden items-center gap-4 text-sm font-medium text-ink/80 md:flex">
-          <Link to="/" className="font-bold transition-colors hover:text-brand">
-            홈
-          </Link>
-          <Link to="/projects" className="font-bold transition-colors hover:text-brand">
-            전체 프로젝트
-          </Link>
-
-          {/* Role-specific Nav Links */}
-          {user?.role === "BACKER" && (
-            <Link to="/creator/apply" className="font-bold text-brand transition-colors hover:underline">
-              ✨ 창작자 등록 신청
+          {/* Right Section Navigation */}
+          <nav className="hidden items-center gap-4 text-sm font-medium text-ink/80 md:flex">
+            <Link to="/" className="font-bold transition-colors hover:text-brand">
+              홈
             </Link>
-          )}
-
-          {user?.role === "CREATOR" && (
-            <>
-              <Link to="/projects/new" className="font-bold text-brand transition-colors hover:underline">
-                + 프로젝트 만들기
-              </Link>
-              <Link to="/projects/me" className="font-bold transition-colors hover:text-brand">
-                내 프로젝트
-              </Link>
-              <Link to="/settlements" className="font-bold transition-colors hover:text-brand">
-                정산 관리
-              </Link>
-            </>
-          )}
-
-          {user?.role === "ADMIN" && (
-            <>
-              <Link to="/admin/categories" className="font-bold text-brand transition-colors hover:underline">
-                📁 카테고리 관리
-              </Link>
-              <Link to="/admin/approvals" className="font-bold text-brand transition-colors hover:underline">
-                🛡️ 프로젝트 심사
-              </Link>
-              <Link to="/admin/creators" className="font-bold text-brand transition-colors hover:underline">
-                👤 창작자 심사
-              </Link>
-              <Link to="/admin/settlements" className="font-bold text-brand transition-colors hover:underline">
-                💰 정산 관리
-              </Link>
-            </>
-          )}
-
-          <Link to="/cart" className="font-bold transition-colors hover:text-brand">
-            장바구니
-          </Link>
-          <Link to="/orders" className="font-bold transition-colors hover:text-brand">
-            주문
-          </Link>
-
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1.5 outline-none transition-colors hover:text-brand ml-2">
-                {getRoleBadge(user.role)}
-                <span className="font-bold text-ink">{user.name}님</span>
-                <ChevronDownIcon className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <div className="px-2 py-1.5 text-xs text-mist">
-                  역할: <strong className="text-ink">{user.role}</strong>
-                </div>
-                <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
-
-                <DropdownMenuItem asChild>
-                  <Link to="/projects/me">내 프로젝트 목록</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/orders">내 주문 내역</Link>
-                </DropdownMenuItem>
-                {user.role === "BACKER" && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/creator/apply" className="font-semibold text-brand">
-                      ✨ 창작자 등록 신청
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                {user.role === "ADMIN" ? (
-                  <>
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin/creators">👤 창작자 심사 관리</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin/settlements">정산 내역 관리</Link>
-                    </DropdownMenuItem>
-                  </>
-                ) : (
-                  <DropdownMenuItem asChild>
-                    <Link to="/settlements">정산 현황</Link>
-                  </DropdownMenuItem>
-                )}
-
-                {import.meta.env.DEV && (
-                  <>
-                    <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
-                    <div className="px-2 py-1 text-[11px] font-semibold text-mist">
-                      역할 즉시 전환 (개발 전용)
-                      {switchRoleMutation.isPending && " ⏳"}
-                    </div>
-                    <DropdownMenuItem
-                      disabled={switchRoleMutation.isPending}
-                      onSelect={() => switchRoleMutation.mutate("BACKER")}
-                    >
-                      후원자(BACKER)로 전환
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={switchRoleMutation.isPending}
-                      onSelect={() => switchRoleMutation.mutate("CREATOR")}
-                    >
-                      창작자(CREATOR)로 전환
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={switchRoleMutation.isPending}
-                      onSelect={() => switchRoleMutation.mutate("ADMIN")}
-                    >
-                      관리자(ADMIN)로 전환
-                    </DropdownMenuItem>
-                  </>
-                )}
-
-                <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
-                <DropdownMenuItem onSelect={handleLogout} className="text-red-600">
-                  로그아웃
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Link to="/login" className="transition-colors hover:text-brand font-bold ml-2">
-              로그인
+            <Link to="/projects" className="font-bold transition-colors hover:text-brand">
+              전체 프로젝트
             </Link>
-          )}
-        </nav>
 
-        {/* Mobile Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            aria-label="메뉴 열기"
-            className="flex items-center justify-center rounded-sm border-2 border-ink p-1.5 text-ink outline-none md:hidden"
-          >
-            <Menu className="h-5 w-5" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[14rem]">
-            <DropdownMenuItem asChild>
-              <Link to="/">홈</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to="/projects">전체 프로젝트 / 검색</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to="/cart">장바구니</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to="/orders">주문 내역</Link>
-            </DropdownMenuItem>
+            {/* Role-specific Nav Links */}
+            {user?.role === "BACKER" && (
+              <Link to="/creator/apply" className="font-bold text-brand transition-colors hover:underline">
+                ✨ 창작자 등록 신청
+              </Link>
+            )}
 
-            {user && (
+            {user?.role === "CREATOR" && (
               <>
-                <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
-                {user.role === "BACKER" && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/creator/apply" className="font-bold text-brand">
-                      ✨ 창작자 등록 신청
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem asChild>
-                  <Link to="/projects/new">+ 프로젝트 만들기</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/projects/me">내 프로젝트 관리</Link>
-                </DropdownMenuItem>
-                {user.role === "ADMIN" && (
-                  <>
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin/categories">📁 카테고리 관리</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin/approvals">🛡️ 프로젝트 심사</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin/creators">👤 창작자 심사 관리</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin/settlements">💰 정산 내역 관리</Link>
-                    </DropdownMenuItem>
-                  </>
-                )}
-                <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
-                <DropdownMenuItem
-                  disabled={switchRoleMutation.isPending}
-                  onSelect={() =>
-                    switchRoleMutation.mutate(
-                      user.role === "ADMIN"
-                        ? "CREATOR"
-                        : user.role === "CREATOR"
-                          ? "BACKER"
-                          : "ADMIN"
-                    )
-                  }
-                >
-                  역할 전환 ({user.role} ➔ 토글) {switchRoleMutation.isPending && "⏳"}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleLogout} className="text-red-600">
-                  {user.name}님 로그아웃
-                </DropdownMenuItem>
+                <Link to="/projects/new" className="font-bold text-brand transition-colors hover:underline">
+                  + 프로젝트 만들기
+                </Link>
+                <Link to="/projects/me" className="font-bold transition-colors hover:text-brand">
+                  내 프로젝트
+                </Link>
+                <Link to="/settlements" className="font-bold transition-colors hover:text-brand">
+                  정산 관리
+                </Link>
               </>
             )}
-            {!user && (
-              <DropdownMenuItem asChild>
-                <Link to="/login">로그인</Link>
-              </DropdownMenuItem>
+
+            {user?.role === "ADMIN" && (
+              <>
+                <Link to="/admin/categories" className="font-bold text-brand transition-colors hover:underline">
+                  📁 카테고리 관리
+                </Link>
+                <Link to="/admin/approvals" className="font-bold text-brand transition-colors hover:underline">
+                  🛡️ 프로젝트 심사
+                </Link>
+                <Link to="/admin/creators" className="font-bold text-brand transition-colors hover:underline">
+                  👤 창작자 심사
+                </Link>
+                <Link to="/admin/settlements" className="font-bold text-brand transition-colors hover:underline">
+                  💰 정산 관리
+                </Link>
+              </>
             )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+
+            <Link to="/cart" className="font-bold transition-colors hover:text-brand">
+              장바구니
+            </Link>
+            <Link to="/orders" className="font-bold transition-colors hover:text-brand">
+              주문
+            </Link>
+
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-1.5 outline-none transition-colors hover:text-brand ml-2">
+                  {getRoleBadge(user.role)}
+                  <span className="font-bold text-ink">{user.name}님</span>
+                  <ChevronDownIcon className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <div className="px-2 py-1.5 text-xs text-mist">
+                    역할: <strong className="text-ink">{user.role}</strong>
+                  </div>
+                  <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
+
+                  {user.role === "CREATOR" && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/projects/me">내 프로젝트 목록</Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem asChild>
+                    <Link to="/orders">내 주문 내역</Link>
+                  </DropdownMenuItem>
+                  {user.role === "BACKER" && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/creator/apply" className="font-semibold text-brand">
+                        ✨ 창작자 등록 신청
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {user.role === "ADMIN" && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin/creators">👤 창작자 심사 관리</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin/settlements">정산 내역 관리</Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {user.role === "CREATOR" && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/settlements">정산 현황</Link>
+                    </DropdownMenuItem>
+                  )}
+
+                  {import.meta.env.DEV && (
+                    <>
+                      <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
+                      <div className="px-2 py-1 text-[11px] font-semibold text-mist">
+                        역할 즉시 전환 (개발 전용)
+                        {switchRoleMutation.isPending && " ⏳"}
+                      </div>
+                      <DropdownMenuItem
+                        disabled={switchRoleMutation.isPending}
+                        onSelect={() => switchRoleMutation.mutate("BACKER")}
+                      >
+                        후원자(BACKER)로 전환
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={switchRoleMutation.isPending}
+                        onSelect={() => switchRoleMutation.mutate("CREATOR")}
+                      >
+                        창작자(CREATOR)로 전환
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={switchRoleMutation.isPending}
+                        onSelect={() => switchRoleMutation.mutate("ADMIN")}
+                      >
+                        관리자(ADMIN)로 전환
+                      </DropdownMenuItem>
+                    </>
+                  )}
+
+                  <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
+                  <DropdownMenuItem onSelect={handleLogout} className="text-red-600">
+                    로그아웃
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link to="/login" className="transition-colors hover:text-brand font-bold ml-2">
+                로그인
+              </Link>
+            )}
+          </nav>
+
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="메뉴 열기"
+                className="flex items-center justify-center rounded-sm border-2 border-ink p-1.5 text-ink outline-none"
+              >
+                <Menu className="h-5 w-5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[14rem]">
+                <DropdownMenuItem asChild>
+                  <Link to="/">홈</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/projects">전체 프로젝트 / 검색</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/cart">장바구니</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/orders">주문 내역</Link>
+                </DropdownMenuItem>
+
+                {user && (
+                  <>
+                    <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
+                    {user.role === "BACKER" && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/creator/apply" className="font-bold text-brand">
+                          ✨ 창작자 등록 신청
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    {user.role === "CREATOR" && (
+                      <>
+                        <DropdownMenuItem asChild>
+                          <Link to="/projects/new">+ 프로젝트 만들기</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to="/projects/me">내 프로젝트 관리</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to="/settlements">정산 관리</Link>
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {user.role === "ADMIN" && (
+                      <>
+                        <DropdownMenuItem asChild>
+                          <Link to="/admin/categories">📁 카테고리 관리</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to="/admin/approvals">🛡️ 프로젝트 심사</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to="/admin/creators">👤 창작자 심사 관리</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to="/admin/settlements">💰 정산 내역 관리</Link>
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
+                    <DropdownMenuItem
+                      disabled={switchRoleMutation.isPending}
+                      onSelect={() =>
+                        switchRoleMutation.mutate(
+                          user.role === "ADMIN"
+                            ? "CREATOR"
+                            : user.role === "CREATOR"
+                              ? "BACKER"
+                              : "ADMIN"
+                        )
+                      }
+                    >
+                      역할 전환 ({user.role} ➔ 토글) {switchRoleMutation.isPending && "⏳"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={handleLogout} className="text-red-600">
+                      {user.name}님 로그아웃
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {!user && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/login">로그인</Link>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        {/* Lower Sub Category Bar (LNB) - 상시 표시 2단 바 */}
+        <div className="border-t border-ink/10 bg-paper/60 px-6 py-2 flex items-center gap-2 relative z-30 overflow-visible">
+          <Link
+            to="/projects"
+            className="text-xs font-black text-brand hover:underline shrink-0 pr-3 border-r border-ink/15"
+          >
+            📁 전체 카테고리
+          </Link>
+          <HeaderCategoryNav />
+        </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-8">

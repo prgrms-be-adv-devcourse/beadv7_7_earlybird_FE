@@ -26,13 +26,48 @@ export interface UploadFileInput {
   sortOrder?: number;
 }
 
+export function resolveImageContentType(file: File): string {
+  if (file.type && file.type.trim().length > 0) {
+    const lower = file.type.toLowerCase().trim();
+    if (lower === "image/jpg" || lower === "image/pjpeg") return "image/jpeg";
+    if (lower.startsWith("image/")) return lower;
+  }
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  switch (ext) {
+    case "jpg":
+    case "jpeg":
+    case "img":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    case "svg":
+      return "image/svg+xml";
+    case "avif":
+      return "image/avif";
+    case "bmp":
+      return "image/bmp";
+    case "heic":
+      return "image/heic";
+    case "heif":
+      return "image/heif";
+    default:
+      return "image/jpeg";
+  }
+}
+
 // presign → 스토리지에 직접 PUT → 메타데이터 등록, 세 단계를 하나로 묶는다.
 export function useUploadFile() {
   return useMutation<FileRecord, unknown, UploadFileInput>({
     mutationFn: async ({ file, ownerType, ownerId, sortOrder = 0 }) => {
+      const contentType = resolveImageContentType(file);
+
       // 1. file-service에 presigned upload 요청
       const presigned = await requestPresignedUpload({
-        contentType: file.type,
+        contentType,
         originalName: file.name,
       });
 
@@ -53,7 +88,7 @@ export function useUploadFile() {
         ownerId,
         storedUrl: presigned.storedUrl,
         originalName: file.name,
-        contentType: file.type,
+        contentType,
         fileSize: file.size,
         sortOrder,
       });

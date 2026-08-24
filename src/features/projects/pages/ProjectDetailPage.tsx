@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import axios from "axios";
-import { Pencil } from "lucide-react";
+import { Pencil, AlertCircle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -366,7 +366,8 @@ export function ProjectDetailPage() {
 
   // Admin decrease reward modal
   const [targetRewardId, setTargetRewardId] = useState<number | null>(null);
-  const [decreaseAmount, setDecreaseAmount] = useState<number>(10);
+  const [decreaseAmount, setDecreaseAmount] = useState<number | string>(10);
+  const [decreaseErrorMsg, setDecreaseErrorMsg] = useState<string | null>(null);
 
   // Admin panel success/error feedback (deactivate, decrease qty, extend deadline)
   const [adminMsg, setAdminMsg] = useState<string | null>(null);
@@ -382,6 +383,7 @@ export function ProjectDetailPage() {
   // Admin extend deadline modal
   const [extendModalOpen, setExtendModalOpen] = useState(false);
   const [newEndAt, setNewEndAt] = useState("2026-12-31");
+  const [extendErrorMsg, setExtendErrorMsg] = useState<string | null>(null);
 
   // Admin project reject modal
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -549,7 +551,7 @@ export function ProjectDetailPage() {
             <Thumbnail
               src={projectThumbnailUrl}
               alt={project.title}
-              className="w-full min-h-[280px] max-h-[580px] bg-paper/40 transition-all duration-300"
+              className="w-full aspect-[16/9] max-h-[580px] bg-paper/40 transition-all duration-300"
               objectFit="contain"
             />
             <div className="p-6">
@@ -580,6 +582,16 @@ export function ProjectDetailPage() {
                 </div>
               </div>
               <p className="text-mist">{project.summary}</p>
+              {project.status === "REJECTED" && (
+                <div className="mt-3 rounded-sm border-2 border-red-300 bg-red-50 p-3.5 text-xs text-red-800 flex flex-col gap-1">
+                  <div className="flex items-center gap-1 font-bold text-red-900 text-sm">
+                    <span>❌ 프로젝트 심사 반려 안내</span>
+                  </div>
+                  <p className="text-red-950 font-medium whitespace-pre-line leading-relaxed">
+                    {project.rejectReason || "관리자에 의해 심사가 반려되었습니다. 프로젝트 정보를 수정한 후 다시 등록해주세요."}
+                  </p>
+                </div>
+              )}
             </div>
           </Card>
         </motion.div>
@@ -636,14 +648,20 @@ export function ProjectDetailPage() {
                   <Button
                     variant="secondary"
                     className="py-1 px-3 text-xs border-red-300 text-red-600 hover:bg-red-50"
-                    onClick={() =>
-                      adminCancelMutation.mutate(projectId, {
-                        onSuccess: () =>
-                          showAdminMsg("✅ 프로젝트가 관리자에 의해 강제 취소되었습니다."),
-                        onError: (error) =>
-                          showAdminMsg(`❌ ${getAdminErrorMsg(error)}`),
-                      })
-                    }
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          "정말 이 프로젝트를 관리자 권한으로 강제 취소하시겠습니까?\n\n취소 후에는 복구할 수 없으며, 후원자들에게 환불 절차가 진행됩니다."
+                        )
+                      ) {
+                        adminCancelMutation.mutate(projectId, {
+                          onSuccess: () =>
+                            showAdminMsg("✅ 프로젝트가 관리자에 의해 강제 취소되었습니다."),
+                          onError: (error) =>
+                            showAdminMsg(`❌ ${getAdminErrorMsg(error)}`),
+                        });
+                      }
+                    }}
                     disabled={adminCancelMutation.isPending}
                   >
                     {adminCancelMutation.isPending ? "취소 처리 중..." : "프로젝트 강제 취소"}
@@ -671,12 +689,18 @@ export function ProjectDetailPage() {
                         <Button
                           variant="secondary"
                           className="py-0.5 px-2 text-[11px] border-red-300 text-red-600 hover:bg-red-50"
-                          onClick={() =>
-                            deactivateRewardMutation.mutate(r.rewardId, {
-                              onSuccess: () => showAdminMsg(`✅ "${r.name}" 리워드가 비활성화 되었습니다.`),
-                              onError: (error) => showAdminMsg(`❌ ${getAdminErrorMsg(error)}`),
-                            })
-                          }
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `"${r.name}" 리워드를 비활성화하시겠습니까?\n\n비활성화 후에는 후원자가 더 이상 해당 리워드를 선택하거나 구매할 수 없습니다.`
+                              )
+                            ) {
+                              deactivateRewardMutation.mutate(r.rewardId, {
+                                onSuccess: () => showAdminMsg(`✅ "${r.name}" 리워드가 비활성화 되었습니다.`),
+                                onError: (error) => showAdminMsg(`❌ ${getAdminErrorMsg(error)}`),
+                              });
+                            }
+                          }}
                           disabled={deactivateRewardMutation.isPending}
                         >
                           비활성화
@@ -786,40 +810,92 @@ export function ProjectDetailPage() {
       </div>
 
       {/* Admin extend deadline dialog */}
-      <Dialog open={extendModalOpen} onOpenChange={setExtendModalOpen}>
+      <Dialog
+        open={extendModalOpen}
+        onOpenChange={(v) => {
+          setExtendModalOpen(v);
+          if (v) setExtendErrorMsg(null);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogTitle>마감일 연장 (관리자 전용)</DialogTitle>
-          <DialogDescription>새로운 마감 날짜를 지정하세요.</DialogDescription>
-          <input
-            type="date"
-            value={newEndAt}
-            onChange={(e) => setNewEndAt(e.target.value)}
-            className="mt-3 w-full rounded-sm border border-ink/30 px-3 py-2 text-ink"
-          />
-          <div className="mt-4 flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setExtendModalOpen(false)}>
-              취소
-            </Button>
-            <Button
-              onClick={() => {
-                extendDeadlineMutation.mutate(
-                  { id: projectId, endAt: newEndAt },
-                  {
-                    onSuccess: () => setExtendModalOpen(false),
-                    onError: (error) => showAdminMsg(`❌ ${getAdminErrorMsg(error)}`),
-                  }
-                );
-              }}
-              disabled={extendDeadlineMutation.isPending}
-            >
-              {extendDeadlineMutation.isPending ? "연장 중..." : "마감일 연장 적용"}
-            </Button>
-          </div>
+          <DialogDescription>
+            새로운 마감 날짜를 지정하세요. (프로젝트 시작일로부터 최대 3개월까지 가능)
+          </DialogDescription>
+          {(() => {
+            const maxEndAt = project.startAt
+              ? (() => {
+                  const d = new Date(project.startAt);
+                  d.setMonth(d.getMonth() + 3);
+                  return d.toISOString().split("T")[0];
+                })()
+              : undefined;
+
+            return (
+              <>
+                <input
+                  type="date"
+                  value={newEndAt}
+                  max={maxEndAt}
+                  onChange={(e) => setNewEndAt(e.target.value)}
+                  className="mt-3 w-full rounded-sm border border-ink/30 px-3 py-2 text-ink"
+                />
+                {extendErrorMsg && (
+                  <div className="mt-3 flex items-start gap-2 rounded-md border-2 border-red-400 bg-red-50 p-2.5 text-xs font-bold text-red-900 shadow-sm">
+                    <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                    <span>{extendErrorMsg}</span>
+                  </div>
+                )}
+                <div className="mt-4 flex justify-end gap-2">
+                  <Button variant="secondary" onClick={() => setExtendModalOpen(false)}>
+                    취소
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setExtendErrorMsg(null);
+                      if (maxEndAt && newEndAt > maxEndAt) {
+                        setExtendErrorMsg(`마감일은 시작일 기준 최대 3개월(${maxEndAt})을 초과할 수 없습니다.`);
+                        return;
+                      }
+                      extendDeadlineMutation.mutate(
+                        { id: projectId, endAt: newEndAt },
+                        {
+                          onSuccess: () => {
+                            setExtendModalOpen(false);
+                            setExtendErrorMsg(null);
+                            showAdminMsg("✅ 마감일이 성공적으로 연장되었습니다.");
+                          },
+                          onError: (error) => {
+                            const msg = getAdminErrorMsg(error);
+                            setExtendErrorMsg(msg);
+                          },
+                        }
+                      );
+                    }}
+                    disabled={extendDeadlineMutation.isPending}
+                  >
+                    {extendDeadlineMutation.isPending ? "연장 중..." : "마감일 연장 적용"}
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
       {/* Admin decrease reward quantity dialog */}
-      <Dialog open={!!targetRewardId} onOpenChange={(open) => !open && setTargetRewardId(null)}>
+      <Dialog
+        open={!!targetRewardId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTargetRewardId(null);
+            setDecreaseErrorMsg(null);
+          } else {
+            setDecreaseAmount(10);
+            setDecreaseErrorMsg(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogTitle>리워드 수량 축소 (관리자 전용)</DialogTitle>
           <DialogDescription>축소할 수량을 입력하세요 (이미 판매된 수량 밑으로는 축소 불가).</DialogDescription>
@@ -827,21 +903,49 @@ export function ProjectDetailPage() {
             type="number"
             min={1}
             value={decreaseAmount}
-            onChange={(e) => setDecreaseAmount(Number(e.target.value))}
+            placeholder="축소할 수량 입력"
+            onChange={(e) => setDecreaseAmount(e.target.value === "" ? "" : Number(e.target.value))}
             className="mt-3 w-full rounded-sm border border-ink/30 px-3 py-2 text-ink tabular-nums"
           />
+
+          {decreaseErrorMsg && (
+            <div className="mt-3 flex items-start gap-2 rounded-md border-2 border-red-400 bg-red-50 p-3 text-xs font-bold text-red-900 shadow-sm">
+              <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+              <span className="leading-tight">{decreaseErrorMsg}</span>
+            </div>
+          )}
+
           <div className="mt-4 flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setTargetRewardId(null)}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setTargetRewardId(null);
+                setDecreaseErrorMsg(null);
+              }}
+            >
               취소
             </Button>
             <Button
               onClick={() => {
                 if (targetRewardId) {
+                  const numAmount = Number(decreaseAmount);
+                  if (!numAmount || numAmount <= 0) {
+                    setDecreaseErrorMsg("1개 이상의 축소할 수량을 입력해주세요.");
+                    return;
+                  }
+                  setDecreaseErrorMsg(null);
                   decreaseRewardQtyMutation.mutate(
-                    { rewardId: targetRewardId, amount: decreaseAmount },
+                    { rewardId: targetRewardId, amount: numAmount },
                     {
-                      onSuccess: () => setTargetRewardId(null),
-                      onError: (error) => showAdminMsg(`❌ ${getAdminErrorMsg(error)}`),
+                      onSuccess: () => {
+                        setTargetRewardId(null);
+                        setDecreaseErrorMsg(null);
+                        showAdminMsg("✅ 리워드 수량이 성공적으로 축소되었습니다.");
+                      },
+                      onError: (error) => {
+                        const msg = getAdminErrorMsg(error);
+                        setDecreaseErrorMsg(msg);
+                      },
                     }
                   );
                 }

@@ -24,11 +24,11 @@ export function useSwitchRole() {
   return useMutation({
     mutationFn: async (role: "BACKER" | "CREATOR" | "ADMIN") => {
       const session = await switchRoleRequest(role);
-      return { session, role };
+      return session;
     },
-    onSuccess: ({ session }) => {
+    onSuccess: (session) => {
+      queryClient.clear();
       setSession(session);
-      queryClient.invalidateQueries();
     },
   });
 }
