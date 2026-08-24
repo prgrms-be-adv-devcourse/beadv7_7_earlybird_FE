@@ -35,6 +35,8 @@ export function OrderDetailPage() {
   const cancelMutation = useCancelOrder(orderId);
   const { mutate: confirmPayment, isPending: isConfirmingPayment } = useConfirmPayment();
   const hasRequestedConfirmation = useRef(false);
+  const previousStatusRef = useRef<string | undefined>(undefined);
+  const hasCelebratedRef = useRef(false);
 
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
@@ -67,13 +69,12 @@ export function OrderDetailPage() {
           onSuccess: async () => {
             // URL 쿼리 파라미터 즉시 제거
             navigate(`/orders/${orderId}`, { replace: true });
-            // 주문 정보 및 관련 캐시 갱신
+            // 주문 정보 및 관련 캐시 갱신 (마스코트 연출은 아래 상태 전이 감지 effect가 담당 —
+            // 결제 승인이 이 응답보다 먼저 Kafka 이벤트+폴링으로 PAID를 반영해버릴 수 있어서
+            // 여기서 직접 트리거하면 그 경쟁 상태에서 못 뜰 수 있다)
             await queryClient.invalidateQueries({ queryKey: ["orders", "detail", orderId] });
             await queryClient.invalidateQueries({ queryKey: ["orders"] });
             await refetchOrder();
-            // 방금 결제를 완료한 이 세션에서만 마스코트 인사 연출 — 이미 결제된 주문을 나중에 다시
-            // 봤을 때는 재생되지 않도록 order.status가 아니라 이 콜백에서만 트리거한다.
-            setShowCelebration(true);
           },
           onError: (err: any) => {
             console.error("Payment confirm error:", err);
@@ -93,6 +94,19 @@ export function OrderDetailPage() {
       );
     }
   }, [isRedirectingFromToss, paymentKeyParam, pgOrderIdParam, amountParam, orderId, navigate, confirmPayment, queryClient, refetchOrder]);
+
+  // 결제 완료(PAID) 전이를 직접 감지해서 마스코트를 띄운다 — confirmPayment 응답보다 백엔드
+  // Kafka 이벤트+useOrder의 1초 폴링이 먼저 PAID를 반영해버리는 경우가 있어서(레이스 컨디션),
+  // "성공 콜백에서만 트리거"하면 그 케이스에서 못 뜨는 문제가 있었다. 이 세션에서 이미 PAID가
+  // 아니었던 상태에서 PAID로 바뀌는 순간만 잡으므로, 이미 결제된 주문을 나중에 다시 봐도 재생 안 됨.
+  useEffect(() => {
+    const previousStatus = previousStatusRef.current;
+    if (order?.status === "PAID" && previousStatus !== undefined && previousStatus !== "PAID" && !hasCelebratedRef.current) {
+      hasCelebratedRef.current = true;
+      setShowCelebration(true);
+    }
+    previousStatusRef.current = order?.status;
+  }, [order?.status]);
 
   // Source of Truth: 서버에서 반환된 실제 order.status만 유일한 기준으로 사용!
   const isPaid = order?.status === "PAID";
