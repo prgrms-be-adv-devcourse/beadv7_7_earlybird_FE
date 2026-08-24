@@ -1,17 +1,19 @@
 import { apiClient } from "../../shared/api/client";
 import { useAuthStore } from "../../shared/auth/authStore";
 import { CHAT_SERVICE } from "../../shared/api/endpoints";
-import type { PolicyReference } from "./types";
+import type { PolicyReference, ProjectCard, ToolStartEvent } from "./types";
 
 export interface ChatStreamCallbacks {
-  onMetadata: (meta: { toolsUsed: string[]; references: PolicyReference[] }) => void;
+  onToolStart: (event: ToolStartEvent) => void;
+  onMetadata: (meta: { toolsUsed: string[]; references: PolicyReference[]; projects: ProjectCard[] }) => void;
   onChunk: (text: string) => void;
   onDone: () => void;
   onError: (error: unknown) => void;
 }
 
-// BE가 SSE로 응답한다: "event: metadata" 1번 뒤 "event: chunk"가 여러 번 오고,
-// 별도 종료 이벤트 없이 연결이 끝난다. EventSource는 POST 바디를 못 보내 fetch로 직접 파싱한다.
+// BE가 SSE로 응답한다: "event: tool_start"가 0번 이상(턴에서 tool을 부른 만큼) 온 뒤
+// "event: metadata"가 1번, 그다음 "event: chunk"가 여러 번 오고, 별도 종료 이벤트 없이
+// 연결이 끝난다. EventSource는 POST 바디를 못 보내 fetch로 직접 파싱한다.
 function processEvent(rawEvent: string, callbacks: ChatStreamCallbacks) {
   const eventName = rawEvent.match(/^event:(.*)$/m)?.[1]?.trim();
   const data = rawEvent
@@ -20,7 +22,9 @@ function processEvent(rawEvent: string, callbacks: ChatStreamCallbacks) {
     .map((line) => line.slice(5))
     .join("\n");
 
-  if (eventName === "metadata") {
+  if (eventName === "tool_start") {
+    callbacks.onToolStart(JSON.parse(data));
+  } else if (eventName === "metadata") {
     callbacks.onMetadata(JSON.parse(data));
   } else if (eventName === "chunk") {
     callbacks.onChunk(data);
