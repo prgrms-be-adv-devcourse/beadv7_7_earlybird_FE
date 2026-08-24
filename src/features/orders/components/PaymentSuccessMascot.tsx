@@ -8,7 +8,9 @@ const FEATHER_TIMES = [0, 0.5, 0.56, 0.8];
 
 export function PaymentSuccessMascot() {
   return (
-    <div className="pointer-events-none absolute -top-14 right-1 h-32 w-32 sm:-top-16 sm:right-3 sm:h-40 sm:w-40">
+    <div className="pointer-events-none absolute -top-14 right-1 z-50 h-32 w-32 sm:-top-16 sm:right-3 sm:h-40 sm:w-40">
+      {/* z-50: 배너가 헤더(sticky, z-40) 바로 아래에 붙어 있으면 이만큼 위로 띄운 마스코트가
+          헤더 영역과 겹쳐서 뒤에 가려질 수 있다 — 헤더보다 위에 그려지도록 z-index를 더 높게 둔다. */}
       <motion.img
         src="/bird-afterPay.png"
         alt=""
