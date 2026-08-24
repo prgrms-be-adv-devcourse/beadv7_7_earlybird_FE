@@ -1,4 +1,4 @@
-import {useLayoutEffect, useRef, useState} from "react";
+import {useEffect, useLayoutEffect, useRef, useState} from "react";
 import {Link, useLocation, useNavigate, useParams} from "react-router-dom";
 import {useQueryClient} from "@tanstack/react-query";
 import {CheckCircle2, Loader2, Star} from "lucide-react";
