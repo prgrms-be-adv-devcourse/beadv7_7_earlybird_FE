@@ -369,18 +369,39 @@ export function SettlementAdminPage() {
     const list = settlements ?? [];
     const payoutEntries = list.filter((entry) => entry.type === "PAYOUT");
     const registrationPendingEntries = list.filter((entry) => entry.type === "REGISTRATION_PENDING");
+    const refundEntries = list.filter((entry) => entry.type === "REFUND");
     const totalBase = [...payoutEntries, ...registrationPendingEntries].reduce(
       (sum, entry) => sum + (entry.type === "PAYOUT" ? entry.payout.settlementBaseAmount : entry.registrationPending.settlementBaseAmount),
       0,
     );
-    const totalPayout = payoutEntries.reduce((sum, entry) => sum + entry.payout.creatorPayoutAmount, 0);
+    const totalPayout = payoutEntries
+      .filter((entry) => entry.payout.status === "COMPLETED")
+      .reduce((sum, entry) => sum + entry.payout.creatorPayoutAmount, 0);
     const completedCount = payoutEntries.filter((entry) => entry.payout.status === "COMPLETED").length;
     const processingCount = payoutEntries.filter((entry) => entry.payout.status === "PROCESSING").length;
-    const pendingCount = payoutEntries.filter(
+    const scheduledCount = payoutEntries.filter(
       (entry) => entry.payout.status === "SCHEDULED" || entry.payout.status === "RETRY_WAITING",
-    ).length + registrationPendingEntries.length;
+    ).length;
+    const refundPaymentCount = refundEntries.reduce((sum, entry) => sum + entry.refund.paymentCount, 0);
+    const refundRequestedCount = refundEntries.filter((entry) => entry.refund.refundStatus === "REQUESTED").length;
+    const refundProcessingCount = refundEntries.filter((entry) => entry.refund.refundStatus === "PROCESSING").length;
+    const refundActionRequiredCount = refundEntries.filter((entry) => entry.refund.refundStatus === "ACTION_REQUIRED").length;
 
-    return { totalCount: list.length, totalBase, totalPayout, completedCount, processingCount, pendingCount };
+    return {
+      totalCount: list.length,
+      payoutCount: payoutEntries.length + registrationPendingEntries.length,
+      refundCount: refundEntries.length,
+      totalBase,
+      totalPayout,
+      completedCount,
+      processingCount,
+      scheduledCount,
+      registrationPendingCount: registrationPendingEntries.length,
+      refundPaymentCount,
+      refundRequestedCount,
+      refundProcessingCount,
+      refundActionRequiredCount,
+    };
   }, [settlements]);
 
   // The server owns ordering; the search only narrows its returned entries.
@@ -545,41 +566,63 @@ export function SettlementAdminPage() {
       )}
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-        <Card className="flex flex-col p-3.5 bg-paper/60">
-          <span className="text-xs font-bold text-mist">총 정산 건수</span>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+        <Card className="flex min-w-0 flex-col p-3.5 bg-paper/60">
+          <span className="text-xs font-bold text-mist">전체 내역</span>
           <span className="mt-1 font-mono text-xl font-extrabold text-ink tabular-nums">
             {summary.totalCount}건
           </span>
+          <span className="mt-1 text-[11px] leading-tight text-mist">
+            지급 {summary.payoutCount}건 · 환불 {summary.refundCount}건
+          </span>
         </Card>
-        <Card className="flex flex-col p-3.5 bg-paper/60">
+        <Card className="flex min-w-0 flex-col p-3.5 bg-paper/60">
           <span className="text-xs font-bold text-mist">총 모금 기준액</span>
           <span className="mt-1 font-mono text-lg font-extrabold text-ink tabular-nums">
             {summary.totalBase.toLocaleString()}원
           </span>
         </Card>
-        <Card className="flex flex-col p-3.5 bg-mint/20 border-mint/40">
+        <Card className="flex min-w-0 flex-col p-3.5 bg-mint/20 border-mint/40">
           <span className="text-xs font-bold text-emerald-900">총 지급 완료액</span>
           <span className="mt-1 font-mono text-lg font-extrabold text-emerald-950 tabular-nums">
             {summary.totalPayout.toLocaleString()}원
           </span>
         </Card>
-        <Card className="flex flex-col p-3.5 bg-paper/60">
+        <Card className="flex min-w-0 flex-col p-3.5 bg-paper/60">
           <span className="text-xs font-bold text-emerald-700">지급 완료</span>
           <span className="mt-1 font-mono text-xl font-extrabold text-emerald-800 tabular-nums">
             {summary.completedCount}건
           </span>
         </Card>
-        <Card className="flex flex-col p-3.5 bg-lavender/20">
-          <span className="text-xs font-bold text-indigo-800">처리 진행 중</span>
+        <Card className="flex min-w-0 flex-col p-3.5 bg-lavender/20">
+          <span className="text-xs font-bold text-indigo-800">지급 진행 / 대기</span>
           <span className="mt-1 font-mono text-xl font-extrabold text-indigo-900 tabular-nums">
-            {summary.processingCount}건
+            {summary.processingCount + summary.scheduledCount + summary.registrationPendingCount}건
+          </span>
+          <span className="mt-1 text-[11px] leading-tight text-indigo-900">
+            진행 {summary.processingCount}건 · 대기 {summary.scheduledCount + summary.registrationPendingCount}건
           </span>
         </Card>
-        <Card className="flex flex-col p-3.5 bg-peach/20">
-          <span className="text-xs font-bold text-amber-900">지급 대기 / 예정</span>
+        <Card className="flex min-w-0 flex-col p-3.5 bg-paper/60">
+          <span className="text-xs font-bold text-mist">환불 현황</span>
+          <span className="mt-1 font-mono text-xl font-extrabold text-ink tabular-nums">
+            {summary.refundCount}건
+          </span>
+          <span className="mt-1 text-[11px] leading-tight text-mist">대상 결제 {summary.refundPaymentCount}건</span>
+        </Card>
+        <Card className="flex min-w-0 flex-col p-3.5 bg-lavender/20">
+          <span className="text-xs font-bold text-indigo-800">환불 처리 중</span>
+          <span className="mt-1 font-mono text-xl font-extrabold text-indigo-900 tabular-nums">
+            {summary.refundRequestedCount + summary.refundProcessingCount}건
+          </span>
+          <span className="mt-1 text-[11px] leading-tight text-indigo-900">
+            요청 {summary.refundRequestedCount}건 · 처리 {summary.refundProcessingCount}건
+          </span>
+        </Card>
+        <Card className="flex min-w-0 flex-col p-3.5 bg-peach/20">
+          <span className="text-xs font-bold text-amber-900">조치 필요</span>
           <span className="mt-1 font-mono text-xl font-extrabold text-amber-950 tabular-nums">
-            {summary.pendingCount}건
+            {summary.refundActionRequiredCount}건
           </span>
         </Card>
       </div>
