@@ -18,7 +18,11 @@ export async function fetchNotices(projectId: number): Promise<ProjectNotice[]> 
 }
 
 export async function createNotice(payload: CreateNoticePayload): Promise<ProjectNotice> {
-  const response = await apiClient.post<ApiResponse<ProjectNotice>>(BOARD_SERVICE.createNotice, payload);
+  const response = await apiClient.post<ApiResponse<ProjectNotice>>(
+    BOARD_SERVICE.createNotice,
+    payload,
+    { params: { projectId: payload.projectId } }
+  );
   return response.data.data as ProjectNotice;
 }
 

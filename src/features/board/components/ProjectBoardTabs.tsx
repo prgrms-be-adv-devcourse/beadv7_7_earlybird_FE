@@ -337,9 +337,7 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
       const rawMessage = err?.response?.data?.error?.message || err?.response?.data?.message || "";
       if (
         status === 403 ||
-        status === 400 ||
         rawMessage.includes("구매") ||
-        rawMessage.includes("확인") ||
         rawMessage.includes("PurchaseNotVerified")
       ) {
         const msg = "주문확정된 사용자만 리뷰 작성이 가능합니다!";

@@ -5,6 +5,7 @@ import {
   CardSkeleton,
   EmptyState,
   ErrorState,
+  Reveal,
   Select,
   SelectContent,
   SelectItem,
@@ -421,7 +422,7 @@ export function ProjectListPage() {
         {creatorId !== ALL && (
           <div className="mt-1 rounded-sm bg-brand/10 border border-brand/20 p-2.5 text-xs flex items-center justify-between">
             <span>
-              👤 <strong className="text-ink">{getCreatorDisplayName(Number(creatorId))}</strong> 창작자의 개설 프로젝트 목록을 보는 중입니다.
+              👤 <strong className="text-ink">{getCreatorDisplayName(Number(creatorId), user)}</strong> 창작자의 개설 프로젝트 목록을 보는 중입니다.
             </span>
             <button
               type="button"
@@ -459,8 +460,10 @@ export function ProjectListPage() {
         <EmptyState message="조건에 맞는 프로젝트가 없어요. 다른 키워드나 카테고리로 검색해 보세요." />
       ) : (
         <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
-          {filteredAndSorted.map((project) => (
-            <ProjectCard key={project.projectId} project={project} />
+          {filteredAndSorted.map((project, index) => (
+            <Reveal key={project.projectId} delay={Math.min(index, 8) * 0.04}>
+              <ProjectCard project={project} />
+            </Reveal>
           ))}
         </div>
       )}

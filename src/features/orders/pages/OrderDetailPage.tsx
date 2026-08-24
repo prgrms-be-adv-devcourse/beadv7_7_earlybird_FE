@@ -17,10 +17,11 @@ import {
   RowSkeleton,
   Skeleton,
 } from "../../../shared/ui";
-import {useCancelOrder, useOrder, useOrders} from "../hooks";
-import {useConfirmPayment} from "../../payments/hooks";
-import {getOrderDisplayNumber, getOrderStatusBadgeTone, getOrderStatusLabel} from "../utils";
-import {OrderReviewModal} from "../components/OrderReviewModal";
+import { useCancelOrder, useOrder, useOrders } from "../hooks";
+import { useConfirmPayment } from "../../payments/hooks";
+import { getOrderStatusBadgeTone, getOrderStatusLabel, getOrderDisplayNumber } from "../utils";
+import { OrderReviewModal } from "../components/OrderReviewModal";
+import { PaymentSuccessMascot } from "../components/PaymentSuccessMascot";
 
 export function OrderDetailPage() {
   const {id} = useParams();
@@ -34,8 +35,11 @@ export function OrderDetailPage() {
   const cancelMutation = useCancelOrder(orderId);
   const {mutate: confirmPayment, isPending: isConfirmingPayment} = useConfirmPayment();
   const hasRequestedConfirmation = useRef(false);
+  const previousStatusRef = useRef<string | undefined>(undefined);
+  const hasCelebratedRef = useRef(false);
 
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [selectedRewardIdForReview, setSelectedRewardIdForReview] = useState<number | undefined>(undefined);
 
@@ -86,6 +90,19 @@ export function OrderDetailPage() {
     }
   }, [isRedirectingFromToss, paymentKeyParam, pgOrderIdParam, amountParam, orderId, navigate, confirmPayment, queryClient, refetchOrder]);
 
+  // 결제 완료(PAID) 전이를 직접 감지해서 마스코트를 띄운다 — confirmPayment 응답보다 백엔드
+  // Kafka 이벤트+useOrder의 1초 폴링이 먼저 PAID를 반영해버리는 경우가 있어서(레이스 컨디션),
+  // "성공 콜백에서만 트리거"하면 그 케이스에서 못 뜨는 문제가 있었다. 이 세션에서 이미 PAID가
+  // 아니었던 상태에서 PAID로 바뀌는 순간만 잡으므로, 이미 결제된 주문을 나중에 다시 봐도 재생 안 됨.
+  useEffect(() => {
+    const previousStatus = previousStatusRef.current;
+    if (order?.status === "PAID" && previousStatus !== undefined && previousStatus !== "PAID" && !hasCelebratedRef.current) {
+      hasCelebratedRef.current = true;
+      setShowCelebration(true);
+    }
+    previousStatusRef.current = order?.status;
+  }, [order?.status]);
+
   // Source of Truth: 서버에서 반환된 실제 order.status만 유일한 기준으로 사용!
   const isPaid = order?.status === "PAID";
   const effectiveStatus = order?.status;
@@ -118,11 +135,12 @@ export function OrderDetailPage() {
 
       {/* Payment Success Toast Banner (실제 order.status === "PAID"일 때만 표시) */}
       {isPaid && (
-        <div className="flex items-center gap-3 rounded-lg border-2 border-mint bg-mint/15 p-4 text-ink shadow-stamp-sm">
+        <div className="relative flex items-center gap-3 rounded-lg border-2 border-mint bg-mint/15 p-4 text-ink shadow-stamp-sm">
+          {showCelebration && <PaymentSuccessMascot />}
           <CheckCircle2 className="h-6 w-6 text-mint shrink-0" />
           <div>
-            <h2 className="font-bold text-sm">🎉 결제가 완료되었습니다!</h2>
-            <p className="text-xs text-mist">주문이 성공적으로 접수되었습니다. 마이페이지 ➔ 주문 내역에서 언제든 확인할 수 있습니다.</p>
+            <h2 className="font-bold text-sm">🎉 후원이 잘 전달됐어요</h2>
+            <p className="text-xs text-mist">덕분에 이 프로젝트가 한 걸음 자랐어요. 마이페이지 ➔ 주문 내역에서 언제든 확인할 수 있습니다.</p>
           </div>
         </div>
       )}

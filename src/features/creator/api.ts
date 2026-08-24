@@ -1,6 +1,8 @@
 import { apiClient } from "../../shared/api/client";
 import { USER_SERVICE } from "../../shared/api/endpoints";
 import { useAuthStore } from "../../shared/auth/authStore";
+import type { ApiResponse } from "../../shared/types/ApiResponse";
+import type { AuthSession } from "../auth/types";
 import type { CreatorApplication, SubmitCreatorApplicationPayload } from "./types";
 
 const STORAGE_KEY = "earlybird_creator_applications_v1";
@@ -87,24 +89,28 @@ export async function approveCreatorApplication(applicationId: number): Promise<
   target.rejectReason = undefined;
   saveApplications(apps);
 
-  // 백엔드 creator_profiles 등록 (/api/v1/users/me/creator) 또는 role 승격 (/api/v1/users/me/role)
+  // 백엔드 creator_profiles 등록(/api/v1/users/me/creator) 후 role 승격(/api/v1/users/me/role)으로
+  // 새 JWT(role=CREATOR)를 발급받는다. /me/creator 응답엔 새 토큰이 없어 role 승격 호출이 항상 필요하다.
   const currentUser = useAuthStore.getState().user;
   if (currentUser && currentUser.id === target.userId) {
     try {
       await apiClient.post("/api/v1/users/me/creator", {
         bankName: target.bankName,
-        bankCode: target.bankCode,
         accountNumber: target.accountNumber,
         accountHolder: target.accountHolder,
       });
-    } catch {
-      try {
-        await apiClient.post(USER_SERVICE.switchRole, { role: "CREATOR" });
-      } catch (err) {
-        console.warn("Backend role upgrade skipped:", err);
-      }
+    } catch (err) {
+      console.warn("Creator profile registration failed, proceeding to role upgrade anyway:", err);
     }
-    useAuthStore.getState().setRole("CREATOR");
+
+    const roleResponse = await apiClient.post<ApiResponse<AuthSession>>(
+      USER_SERVICE.switchRole,
+      { role: "CREATOR" }
+    );
+    const session = roleResponse.data.data;
+    if (session) {
+      useAuthStore.getState().setSession(session);
+    }
   }
 
   return target;

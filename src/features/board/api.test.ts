@@ -26,7 +26,7 @@ describe("board api", () => {
     (apiClient.post as any).mockResolvedValue({ data: { success: true, data: fakeNotice, error: null } });
     const payload = { projectId: 39, title: "공지 1", content: "내용 1" };
     const result = await createNotice(payload);
-    expect(apiClient.post).toHaveBeenCalledWith(BOARD_SERVICE.createNotice, payload);
+    expect(apiClient.post).toHaveBeenCalledWith(BOARD_SERVICE.createNotice, payload, { params: { projectId: 39 } });
     expect(result).toEqual(fakeNotice);
   });
 

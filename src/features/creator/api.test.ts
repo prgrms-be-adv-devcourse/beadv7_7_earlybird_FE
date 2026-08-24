@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   submitCreatorApplication,
   fetchMyCreatorApplication,
@@ -7,11 +7,17 @@ import {
   rejectCreatorApplication,
   cancelCreatorApplication,
 } from "./api";
+import { apiClient } from "../../shared/api/client";
 import { useAuthStore } from "../../shared/auth/authStore";
+
+vi.mock("../../shared/api/client", () => ({
+  apiClient: { post: vi.fn() },
+}));
 
 describe("creator feature api", () => {
   beforeEach(() => {
     localStorage.clear();
+    (apiClient.post as any).mockReset();
     useAuthStore.setState({
       accessToken: "test-token",
       refreshToken: "test-refresh",
@@ -52,7 +58,7 @@ describe("creator feature api", () => {
     expect(list[0].id).toBe(app.id);
   });
 
-  it("approveCreatorApplication은 상태를 APPROVED로 변경한다", async () => {
+  it("approveCreatorApplication은 상태를 APPROVED로 변경하고 새 세션 토큰을 저장한다", async () => {
     const app = await submitCreatorApplication({
       creatorName: "테크랩",
       category: "전자기기",
@@ -63,12 +69,22 @@ describe("creator feature api", () => {
       accountHolder: "김후원",
     });
 
+    const newSession = {
+      accessToken: "new-at",
+      refreshToken: "new-rt",
+      user: { id: 99, email: "backer@earlybird.co.kr", name: "김후원", role: "CREATOR" },
+    };
+    (apiClient.post as any)
+      .mockResolvedValueOnce({ data: { success: true, data: null, error: null } }) // /me/creator
+      .mockResolvedValueOnce({ data: { success: true, data: newSession, error: null } }); // /me/role
+
     const approved = await approveCreatorApplication(app.id);
 
     expect(approved.status).toBe("APPROVED");
     expect(approved.reviewedAt).toBeDefined();
 
-    // 본인 신청 승인 시 클라이언트 role도 CREATOR로 전환
+    // 본인 신청 승인 시 새 JWT(role=CREATOR)를 발급받아 세션을 갱신한다
+    expect(useAuthStore.getState().accessToken).toBe("new-at");
     expect(useAuthStore.getState().user?.role).toBe("CREATOR");
   });
 
