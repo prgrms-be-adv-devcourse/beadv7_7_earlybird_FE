@@ -114,9 +114,7 @@ export function OrderReviewModal({
         setErrorMsg("이미 이 프로젝트에 작성하신 후기가 등록되어 있습니다. 프로젝트 상세 페이지의 [후기] 탭에서 확인하실 수 있습니다.");
       } else if (
         status === 403 ||
-        status === 400 ||
         rawMessage.includes("구매") ||
-        rawMessage.includes("확인") ||
         rawMessage.includes("PurchaseNotVerified")
       ) {
         setErrorMsg("주문확정된 사용자만 리뷰 작성이 가능합니다!");

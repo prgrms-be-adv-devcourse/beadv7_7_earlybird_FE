@@ -15,3 +15,4 @@ export * from "./Skeleton";
 export * from "./Mascot";
 export * from "./FlappingBird";
 export * from "./SupportButton";
+export * from "./Reveal";

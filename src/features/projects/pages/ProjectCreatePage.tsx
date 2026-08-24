@@ -114,33 +114,36 @@ export function ProjectCreatePage() {
         summary,
         description,
         goalAmount,
-        startAt: new Date(startAt).toISOString(),
+        // 백엔드 startAt은 LocalDateTime(zone 없음) — toISOString()의 trailing "Z"를 붙이면 파싱
+        // 에러가 난다. datetime-local 입력값(yyyy-MM-ddTHH:mm)에 초만 붙여서 그대로 보낸다.
+        startAt: `${startAt}:00`,
         endAt,
       });
 
       const projectId = createdProject.projectId;
 
-      // 2. Create rewards for project and upload reward photos
-      for (let i = 0; i < rewards.length; i++) {
-        const reward = rewards[i];
-        const createdReward = await createRewardMutation.mutateAsync({
-          projectId,
-          data: {
-            name: reward.name,
-            description: reward.description,
-            price: Number(reward.price),
-            totalQuantity: reward.totalQuantity ? Number(reward.totalQuantity) : null,
-          },
-        });
-        const rewardImg = rewardFiles[i];
-        if (rewardImg && createdReward?.rewardId) {
-          await uploadFileMutation.mutateAsync({
-            file: rewardImg,
-            ownerType: "REWARD",
-            ownerId: createdReward.rewardId,
+      // 2. Create rewards for project and upload reward photos (독립적인 리워드들이므로 병렬 실행)
+      await Promise.all(
+        rewards.map(async (reward, i) => {
+          const createdReward = await createRewardMutation.mutateAsync({
+            projectId,
+            data: {
+              name: reward.name,
+              description: reward.description,
+              price: Number(reward.price),
+              totalQuantity: reward.totalQuantity ? Number(reward.totalQuantity) : null,
+            },
           });
-        }
-      }
+          const rewardImg = rewardFiles[i];
+          if (rewardImg && createdReward?.rewardId) {
+            await uploadFileMutation.mutateAsync({
+              file: rewardImg,
+              ownerType: "REWARD",
+              ownerId: createdReward.rewardId,
+            });
+          }
+        })
+      );
 
       // 3. Thumbnail upload (선택) — 이제 projectId가 있으니 파일을 올리고 프로젝트에 붙인다.
       if (thumbnailFile) {
