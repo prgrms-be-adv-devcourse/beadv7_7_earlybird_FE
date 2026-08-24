@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Loader2, Star } from "lucide-react";
+import {useEffect, useLayoutEffect, useRef, useState} from "react";
+import {Link, useLocation, useNavigate, useParams} from "react-router-dom";
+import {useQueryClient} from "@tanstack/react-query";
+import {CheckCircle2, Loader2, Star} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,16 +24,16 @@ import { OrderReviewModal } from "../components/OrderReviewModal";
 import { PaymentSuccessMascot } from "../components/PaymentSuccessMascot";
 
 export function OrderDetailPage() {
-  const { id } = useParams();
+  const {id} = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const orderId = Number(id);
-  const { data: order, isPending, isError, refetch: refetchOrder } = useOrder(orderId);
-  const { data: myOrders } = useOrders();
+  const {data: order, isPending, isError, refetch: refetchOrder} = useOrder(orderId);
+  const {data: myOrders} = useOrders();
   const displayNumber = getOrderDisplayNumber(orderId, myOrders?.map((o) => o.id) ?? [orderId]);
   const cancelMutation = useCancelOrder(orderId);
-  const { mutate: confirmPayment, isPending: isConfirmingPayment } = useConfirmPayment();
+  const {mutate: confirmPayment, isPending: isConfirmingPayment} = useConfirmPayment();
   const hasRequestedConfirmation = useRef(false);
   const previousStatusRef = useRef<string | undefined>(undefined);
   const hasCelebratedRef = useRef(false);
@@ -54,43 +54,38 @@ export function OrderDetailPage() {
   const amountParam = searchParams.get("amount");
   const isRedirectingFromToss = Boolean(paymentKeyParam && pgOrderIdParam && amountParam);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isRedirectingFromToss && !hasRequestedConfirmation.current) {
       hasRequestedConfirmation.current = true; // 동일 Toss 콜백 중복 승인 방지
       setConfirmError(null);
 
+      navigate(`/orders/${orderId}`, {replace: true});
+
       confirmPayment(
-        {
-          paymentKey: paymentKeyParam!,
-          pgOrderId: pgOrderIdParam!,
-          amount: Number(amountParam!),
-        },
-        {
-          onSuccess: async () => {
-            // URL 쿼리 파라미터 즉시 제거
-            navigate(`/orders/${orderId}`, { replace: true });
-            // 주문 정보 및 관련 캐시 갱신 (마스코트 연출은 아래 상태 전이 감지 effect가 담당 —
-            // 결제 승인이 이 응답보다 먼저 Kafka 이벤트+폴링으로 PAID를 반영해버릴 수 있어서
-            // 여기서 직접 트리거하면 그 경쟁 상태에서 못 뜰 수 있다)
-            await queryClient.invalidateQueries({ queryKey: ["orders", "detail", orderId] });
-            await queryClient.invalidateQueries({ queryKey: ["orders"] });
-            await refetchOrder();
+          {
+            paymentKey: paymentKeyParam!,
+            pgOrderId: pgOrderIdParam!,
+            amount: Number(amountParam!),
           },
-          onError: (err: any) => {
-            console.error("Payment confirm error:", err);
-            const serverMsg =
-              err?.response?.data?.error?.message ||
-              err?.response?.data?.message ||
-              err?.message ||
-              "결제 승인 처리 중 오류가 발생했습니다.";
-            setConfirmError(serverMsg);
-            // URL 쿼리 파라미터 정리
-            navigate(`/orders/${orderId}`, { replace: true });
-            queryClient.invalidateQueries({ queryKey: ["orders", "detail", orderId] });
-            queryClient.invalidateQueries({ queryKey: ["orders"] });
-            refetchOrder();
-          },
-        }
+          {
+            onSuccess: async () => {
+              await queryClient.invalidateQueries({queryKey: ["orders", "detail", orderId]});
+              await queryClient.invalidateQueries({queryKey: ["orders"]});
+              await refetchOrder();
+            },
+            onError: async (err: any) => {
+              console.error("Payment confirm error:", err);
+              const serverMsg =
+                  err?.response?.data?.error?.message ||
+                  err?.response?.data?.message ||
+                  err?.message ||
+                  "결제 승인 처리 중 오류가 발생했습니다.";
+              setConfirmError(serverMsg);
+              await queryClient.invalidateQueries({queryKey: ["orders", "detail", orderId]});
+              await queryClient.invalidateQueries({queryKey: ["orders"]});
+              await refetchOrder();
+            },
+          }
       );
     }
   }, [isRedirectingFromToss, paymentKeyParam, pgOrderIdParam, amountParam, orderId, navigate, confirmPayment, queryClient, refetchOrder]);
