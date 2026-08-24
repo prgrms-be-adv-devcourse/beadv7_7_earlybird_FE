@@ -23,6 +23,12 @@ function makeOrder(status: Order["status"]): Order {
 let currentOrder: Order;
 const refetchOrder = vi.fn();
 
+// 마스코트는 날아오는 동안(bird-fly-*) → 인사(bird-afterPay) 순서로 이미지가 바뀐다.
+// 어느 단계든 "마스코트가 떠 있다"는 사실만 확인하면 되므로 둘 다 잡는다.
+function queryMascotImage(container: HTMLElement) {
+  return container.querySelector('img[src^="/bird-fly-"], img[src="/bird-afterPay.png"]');
+}
+
 vi.mock("../hooks", () => ({
   useOrder: () => ({ data: currentOrder, isPending: false, isError: false, refetch: refetchOrder }),
   useOrders: () => ({ data: [] }),
@@ -55,7 +61,7 @@ describe("OrderDetailPage 결제 완료 마스코트", () => {
     currentOrder = makeOrder("PAID");
     const { container } = renderPage();
 
-    expect(container.querySelector('img[src="/bird-afterPay.png"]')).not.toBeInTheDocument();
+    expect(queryMascotImage(container)).not.toBeInTheDocument();
   });
 
   it("confirmPayment 콜백 없이 PAYMENT_PENDING에서 PAID로 상태가 바뀌기만 해도 마스코트가 뜬다", () => {
@@ -64,7 +70,7 @@ describe("OrderDetailPage 결제 완료 마스코트", () => {
     currentOrder = makeOrder("PAYMENT_PENDING");
     const { container, rerender } = renderPage();
 
-    expect(container.querySelector('img[src="/bird-afterPay.png"]')).not.toBeInTheDocument();
+    expect(queryMascotImage(container)).not.toBeInTheDocument();
 
     currentOrder = makeOrder("PAID");
     rerender(
@@ -77,7 +83,7 @@ describe("OrderDetailPage 결제 완료 마스코트", () => {
       </QueryClientProvider>
     );
 
-    expect(container.querySelector('img[src="/bird-afterPay.png"]')).toBeInTheDocument();
+    expect(queryMascotImage(container)).toBeInTheDocument();
   });
 
   it("성공 배너 문구가 새 카피로 표시된다", () => {
