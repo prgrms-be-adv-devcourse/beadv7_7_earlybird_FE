@@ -316,12 +316,12 @@ export function ProjectCreatePage() {
             )}
             <input
               type="file"
-              accept="image/png, image/jpeg, image/jpg, image/webp, image/gif, image/svg+xml, .svg, .img"
+              accept="image/png, image/jpeg, image/jpg, image/webp, image/gif"
               onChange={handleThumbnailChange}
               className="w-full text-sm text-ink file:mr-3 file:rounded-sm file:border file:border-ink/30 file:bg-paper file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink"
             />
             <p className="mt-1 text-xs text-mist">
-              * 지원 형식: JPG, JPEG, PNG, WEBP, GIF, SVG (권장 크기: 1200x800px 이상)
+              * 지원 형식: JPG, JPEG, PNG, WEBP, GIF (권장 크기: 1200x800px 이상)
             </p>
           </div>
         </Card>
@@ -465,7 +465,7 @@ export function ProjectCreatePage() {
                 )}
                 <input
                   type="file"
-                  accept="image/png, image/jpeg, image/jpg, image/webp, image/gif, image/svg+xml, .svg, .img"
+                  accept="image/png, image/jpeg, image/jpg, image/webp, image/gif"
                   onChange={(e) => {
                     const file = e.target.files?.[0] ?? null;
                     setRewardFiles((prev) => prev.map((f, i) => (i === index ? file : f)));
@@ -476,7 +476,7 @@ export function ProjectCreatePage() {
                   className="w-full text-xs text-ink file:mr-3 file:rounded file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink hover:file:bg-paper/80"
                 />
                 <p className="mt-1 text-[11px] text-mist">
-                  * 지원 형식: JPG, JPEG, PNG, WEBP, GIF, SVG
+                  * 지원 형식: JPG, JPEG, PNG, WEBP, GIF
                 </p>
               </div>
             </div>

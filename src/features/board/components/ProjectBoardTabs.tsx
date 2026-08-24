@@ -789,12 +789,12 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
                 <label className="mb-1 block text-xs font-bold text-ink">사진 첨부 (선택)</label>
                 <input
                   type="file"
-                  accept="image/png, image/jpeg, image/jpg, image/webp, image/gif, image/svg+xml, .svg, .img"
+                  accept="image/png, image/jpeg, image/jpg, image/webp, image/gif"
                   onChange={(e) => setReviewPhotoFile(e.target.files?.[0] ?? null)}
                   className="w-full text-xs text-ink file:mr-3 file:rounded-sm file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink"
                 />
                 <p className="mt-1 text-[11px] text-mist">
-                  * 지원 형식: JPG, JPEG, PNG, WEBP, GIF, SVG
+                  * 지원 형식: JPG, JPEG, PNG, WEBP, GIF
                 </p>
               </div>
             )}

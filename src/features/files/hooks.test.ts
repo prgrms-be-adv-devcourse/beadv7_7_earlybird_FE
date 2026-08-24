@@ -30,9 +30,6 @@ describe("resolveImageContentType", () => {
     const fileGif = new File(["test"], "anim.gif", { type: "" });
     expect(resolveImageContentType(fileGif)).toBe("image/gif");
 
-    const fileSvg = new File(["test"], "vector.svg", { type: "" });
-    expect(resolveImageContentType(fileSvg)).toBe("image/svg+xml");
-
     const fileImg = new File(["test"], "picture.img", { type: "" });
     expect(resolveImageContentType(fileImg)).toBe("image/jpeg");
   });
@@ -40,5 +37,10 @@ describe("resolveImageContentType", () => {
   it("defaults to image/jpeg for unknown extension when file.type is empty", () => {
     const fileUnknown = new File(["test"], "unknown_file", { type: "" });
     expect(resolveImageContentType(fileUnknown)).toBe("image/jpeg");
+  });
+
+  it("does not special-case .svg by extension (stored XSS risk, dropped from support)", () => {
+    const fileSvg = new File(["test"], "vector.svg", { type: "" });
+    expect(resolveImageContentType(fileSvg)).toBe("image/jpeg");
   });
 });

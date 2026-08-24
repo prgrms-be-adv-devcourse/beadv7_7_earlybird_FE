@@ -44,8 +44,6 @@ export function resolveImageContentType(file: File): string {
       return "image/gif";
     case "webp":
       return "image/webp";
-    case "svg":
-      return "image/svg+xml";
     case "avif":
       return "image/avif";
     case "bmp":

@@ -192,7 +192,7 @@ export function ProjectEditModal({
             )}
             <input
               type="file"
-              accept="image/png, image/jpeg, image/jpg, image/webp, image/gif, image/svg+xml, .svg, .img"
+              accept="image/png, image/jpeg, image/jpg, image/webp, image/gif"
               onChange={(e) => {
                 const file = e.target.files?.[0] ?? null;
                 setNewThumbnailFile(file);
@@ -204,7 +204,7 @@ export function ProjectEditModal({
               className="w-full text-xs text-ink file:mr-3 file:rounded-sm file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink hover:file:bg-paper/80"
             />
             <p className="mt-1 text-[11px] text-mist">
-              * 지원 형식: JPG, JPEG, PNG, WEBP, GIF, SVG (새로운 이미지를 선택하시면 대표 이미지가 즉시 교체/등록됩니다.)
+              * 지원 형식: JPG, JPEG, PNG, WEBP, GIF (새로운 이미지를 선택하시면 대표 이미지가 즉시 교체/등록됩니다.)
             </p>
           </div>
 
