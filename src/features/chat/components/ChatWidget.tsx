@@ -18,8 +18,56 @@ function renderInlineMarkdown(text: string) {
   });
 }
 
-function renderMarkdownContent(text: string) {
-  return text.split("\n").map((line, i) => {
+function ProjectThumbnail({ project }: { project: ProjectCard }) {
+  const src = useThumbnailSrc(project);
+  const [broken, setBroken] = useState(false);
+
+  return (
+    <Link
+      to={`/projects/${project.projectId}`}
+      className="mb-2 mt-3 flex items-center gap-3.5 rounded-lg border border-ink/15 bg-white/70 p-2.5 transition first:mt-0 hover:scale-[1.02] hover:border-ink/30 hover:shadow-md active:scale-[0.98]"
+    >
+      <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center overflow-hidden rounded-md bg-ink/10">
+        {src && !broken ? (
+          <img src={src} alt="" className="h-full w-full object-cover" onError={() => setBroken(true)} />
+        ) : (
+          <ImageOff className="h-8 w-8 text-ink/30" />
+        )}
+      </div>
+      <span className="text-sm font-bold text-ink">{project.title}</span>
+    </Link>
+  );
+}
+
+function buildProjectTitleMap(projects: ProjectCard[]): Map<string, ProjectCard> {
+  return new Map(projects.map((project) => [project.title, project]));
+}
+
+// BE가 시스템 프롬프트로 강제한다: 프로젝트를 소개할 때는 그 이름을 tool 결과의 title 값
+// 그대로(추측·재구성·다른 기호로 감싸기 금지) 문단 첫 줄에 `**제목**` 형태로 쓴다 — 그래서
+// 이 줄의 문자열이 projects[]의 title과 정확히 일치하는지가 카드로 치환할 유일한 근거다.
+// `---` 구분선이나 순서/개수는 더 이상 매칭에 안 쓴다(폐기된 위치 기반 설계).
+function matchProjectHeaderLine(line: string, projectsByTitle: Map<string, ProjectCard>): ProjectCard | undefined {
+  const match = line.trim().match(/^\*\*(.+)\*\*$/);
+  return match ? projectsByTitle.get(match[1].trim()) : undefined;
+}
+
+function renderMarkdownContent(text: string, projectsByTitle?: Map<string, ProjectCard>, isStreaming?: boolean) {
+  const lines = text.split("\n");
+  return lines.map((line, i) => {
+    // 스트리밍 중엔 마지막 줄이 아직 다 안 왔을 수 있다(닫는 `**`나 줄바꿈이 아직 도착 전) —
+    // 그 상태에서 매칭을 시도하면 오탐/누락이 생기니, 완결된 줄에서만 프로젝트 매칭을 켠다.
+    const isLineComplete = !isStreaming || i < lines.length - 1;
+    if (projectsByTitle && isLineComplete) {
+      const project = matchProjectHeaderLine(line, projectsByTitle);
+      if (project) {
+        return <ProjectThumbnail key={`${project.projectId}-${i}`} project={project} />;
+      }
+    }
+    // 매칭엔 더 이상 안 쓰지만(제목 기반으로 대체됨), 시각적 구분선으로는 여전히 유용하다.
+    if (/^-{3,}$/.test(line.trim())) {
+      return <hr key={i} className="my-2 border-t border-ink/15" />;
+    }
     const heading = line.match(/^#{1,6}\s+(.*)$/);
     if (heading) {
       return (
@@ -44,71 +92,6 @@ function renderMarkdownContent(text: string) {
   });
 }
 
-// BE가 "여러 프로젝트 추천 시 항목 사이마다 `---`만 있는 줄을 넣어라"고 LLM에 지시해뒀다
-// (마지막 항목 뒤엔 안 붙음) — 그 줄 기준으로 텍스트를 나눠 세그먼트 i를 projects[i]와 매칭한다.
-function splitIntoProjectSegments(content: string): string[] {
-  const lines = content.split("\n");
-  const segments: string[] = [];
-  let current: string[] = [];
-  for (const line of lines) {
-    if (/^-{3,}$/.test(line.trim())) {
-      segments.push(current.join("\n"));
-      current = [];
-    } else {
-      current.push(line);
-    }
-  }
-  segments.push(current.join("\n"));
-  return segments;
-}
-
-function ProjectThumbnail({ project }: { project: ProjectCard }) {
-  const src = useThumbnailSrc(project);
-  const [broken, setBroken] = useState(false);
-
-  return (
-    <Link
-      to={`/projects/${project.projectId}`}
-      className="mb-2 mt-3 flex items-center gap-3.5 rounded-lg border border-ink/15 bg-white/70 p-2.5 transition first:mt-0 hover:scale-[1.02] hover:border-ink/30 hover:shadow-md active:scale-[0.98]"
-    >
-      <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center overflow-hidden rounded-md bg-ink/10">
-        {src && !broken ? (
-          <img src={src} alt="" className="h-full w-full object-cover" onError={() => setBroken(true)} />
-        ) : (
-          <ImageOff className="h-8 w-8 text-ink/30" />
-        )}
-      </div>
-      <span className="text-sm font-bold text-ink">{project.title}</span>
-    </Link>
-  );
-}
-
-// projects[0]의 헤더는 metadata 도착 즉시(텍스트가 한 글자도 오기 전에) 보여줄 수 있다 —
-// `---`는 2번째 프로젝트부터의 구분자일 뿐이다. 스트리밍이 끝났는데도 세그먼트 개수가
-// projects.length와 안 맞으면(LLM이 구분선을 빠뜨린 드문 경우) 위치 매칭을 포기하고
-// 텍스트는 그대로 둔 채 카드를 답변 하단에 나열하는 방식으로 폴백한다.
-function renderProjectContent(content: string, projects: ProjectCard[], isStreaming: boolean) {
-  const segments = splitIntoProjectSegments(content);
-  if (!isStreaming && segments.length !== projects.length) {
-    return (
-      <>
-        {renderMarkdownContent(content)}
-        <div className="mt-2 flex flex-col border-t border-ink/15 pt-1">
-          {projects.map((project) => (
-            <ProjectThumbnail key={project.projectId} project={project} />
-          ))}
-        </div>
-      </>
-    );
-  }
-  return segments.map((segment, i) => (
-    <Fragment key={i}>
-      {projects[i] && <ProjectThumbnail project={projects[i]} />}
-      {renderMarkdownContent(segment)}
-    </Fragment>
-  ));
-}
-
 function ChatBubble({
   role,
   content,
@@ -130,9 +113,7 @@ function ChatBubble({
           isUser ? "bg-brand text-white" : "bg-paper text-ink"
         }`}
       >
-        {projects && projects.length > 0
-          ? renderProjectContent(content, projects, !!isStreaming)
-          : renderMarkdownContent(content)}
+        {renderMarkdownContent(content, projects && projects.length > 0 ? buildProjectTitleMap(projects) : undefined, isStreaming)}
         {references && references.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5 border-t border-ink/15 pt-2">
             {references.map((ref, i) => (
