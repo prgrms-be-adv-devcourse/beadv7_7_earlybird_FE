@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../../shared/api/client";
@@ -8,6 +8,7 @@ import type { ProjectSummary, Reward } from "../types";
 import { fetchMyProjects } from "../api";
 import { useCreateReward, useDeleteProject, useRewards } from "../hooks";
 import { formatDateKorean } from "../utils";
+import { generateUUID } from "../../orders/utils";
 import { ProjectEditModal } from "../components/ProjectEditModal";
 import { RewardEditModal } from "../components/RewardEditModal";
 import { useFilesByOwner, useUploadFile } from "../../files/hooks";
@@ -242,6 +243,7 @@ export function MyProjectsPage() {
   const [rewardImagePreview, setRewardImagePreview] = useState<string | null>(null);
   const [rewardError, setRewardError] = useState<string | null>(null);
   const [isAddingReward, setIsAddingReward] = useState(false);
+  const rewardIdempotencyKeyRef = useRef<string | null>(null);
 
   const handleAddReward = async () => {
     if (!targetProjectId) return;
@@ -258,6 +260,8 @@ export function MyProjectsPage() {
 
     setIsAddingReward(true);
     try {
+      const idempotencyKey = rewardIdempotencyKeyRef.current ?? generateUUID();
+      rewardIdempotencyKeyRef.current = idempotencyKey;
       const created = await createRewardMutation.mutateAsync({
         projectId: targetProjectId,
         data: {
@@ -265,6 +269,7 @@ export function MyProjectsPage() {
           price: rewardPrice,
           description: rewardDesc,
           totalQuantity: rewardQty,
+          idempotencyKey,
         },
       });
 
@@ -277,6 +282,7 @@ export function MyProjectsPage() {
         queryClient.invalidateQueries({ queryKey: ["files", "REWARD", created.rewardId] });
       }
 
+      rewardIdempotencyKeyRef.current = null;
       setTargetProjectId(null);
       setRewardName("");
       setRewardPrice(10000);
@@ -331,7 +337,15 @@ export function MyProjectsPage() {
       )}
 
       {/* Add Reward Dialog */}
-      <Dialog open={!!targetProjectId} onOpenChange={(open) => !open && setTargetProjectId(null)}>
+      <Dialog
+        open={!!targetProjectId}
+        onOpenChange={(open) => {
+          if (!open) {
+            rewardIdempotencyKeyRef.current = null;
+            setTargetProjectId(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogTitle>리워드 추가</DialogTitle>
           <DialogDescription>프로젝트 #{targetProjectId}에 새로운 후원 리워드를 추가합니다.</DialogDescription>
@@ -410,7 +424,13 @@ export function MyProjectsPage() {
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setTargetProjectId(null)}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                rewardIdempotencyKeyRef.current = null;
+                setTargetProjectId(null);
+              }}
+            >
               취소
             </Button>
             <Button onClick={handleAddReward} disabled={isAddingReward || createRewardMutation.isPending || uploadFileMutation.isPending}>

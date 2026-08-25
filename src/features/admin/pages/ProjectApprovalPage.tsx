@@ -21,7 +21,7 @@ import {
   useTriggerCloseExpired,
   useReindexProjects,
 } from "../hooks";
-import { formatDateKorean, getStatusLabel, getCreatorDisplayName } from "../../projects/utils";
+import { formatDateKorean, getStatusLabel, getCreatorDisplayName, maxExtendedEndAt } from "../../projects/utils";
 
 function RejectButton({ projectId }: { projectId: number }) {
   const [open, setOpen] = useState(false);
@@ -79,13 +79,7 @@ function ExtendDeadlineButton({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const extendMutation = useExtendProjectDeadline();
 
-  const maxEndAt = startAt
-    ? (() => {
-        const d = new Date(startAt);
-        d.setMonth(d.getMonth() + 3);
-        return d.toISOString().split("T")[0];
-      })()
-    : undefined;
+  const maxEndAt = startAt ? maxExtendedEndAt(startAt) : undefined;
 
   function handleExtend() {
     setErrorMsg(null);

@@ -50,6 +50,7 @@ import {
   formatDateKorean,
   getCreatorDisplayName,
   getCategoryPathString,
+  maxExtendedEndAt,
 } from "../utils";
 
 function daysLeft(endAt: string): number {
@@ -823,13 +824,7 @@ export function ProjectDetailPage() {
             새로운 마감 날짜를 지정하세요. (프로젝트 시작일로부터 최대 3개월까지 가능)
           </DialogDescription>
           {(() => {
-            const maxEndAt = project.startAt
-              ? (() => {
-                  const d = new Date(project.startAt);
-                  d.setMonth(d.getMonth() + 3);
-                  return d.toISOString().split("T")[0];
-                })()
-              : undefined;
+            const maxEndAt = project.startAt ? maxExtendedEndAt(project.startAt) : undefined;
 
             return (
               <>

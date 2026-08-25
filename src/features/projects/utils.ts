@@ -9,6 +9,18 @@ export function daysLeft(endAt: string) {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
+// 시작일 기준 최대 마감 연장일(yyyy-MM-dd, <input type="date">용) 계산.
+// toISOString()은 UTC 날짜를 반환해 KST 자정~9시 시작 프로젝트는 하루가 밀리므로,
+// 로컬 캘린더 날짜(getFullYear/getMonth/getDate)로 직접 조립한다.
+export function maxExtendedEndAt(startAt: string, monthsAllowed = 3): string {
+  const d = new Date(startAt);
+  d.setMonth(d.getMonth() + monthsAllowed);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function getStatusLabel(status: string): string {
   switch (status) {
     case "PENDING_REVIEW":

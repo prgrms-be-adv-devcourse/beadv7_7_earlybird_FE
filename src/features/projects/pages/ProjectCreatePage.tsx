@@ -1,12 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCreateProject, useCreateReward, useUpdateProject } from "../hooks";
+import { useCreateProject, useCreateReward, useDeleteReward, useUpdateProject } from "../hooks";
 import { useCategories } from "../../admin/hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
 import { useUploadFile } from "../../files/hooks";
 import { Button, Card, ErrorState } from "../../../shared/ui";
 import type { CreateRewardRequest } from "../types";
 import { flattenCategories } from "../utils";
+import { generateUUID } from "../../orders/utils";
 
 export function ProjectCreatePage() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export function ProjectCreatePage() {
 
   const createProjectMutation = useCreateProject();
   const createRewardMutation = useCreateReward();
+  const deleteRewardMutation = useDeleteReward();
   const updateProjectMutation = useUpdateProject();
   const uploadFileMutation = useUploadFile();
 
@@ -60,6 +62,10 @@ export function ProjectCreatePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // 재시도 시 동일한 키를 재전송해 프로젝트/리워드 중복 생성을 막기 위한 멱등키 (BE @NotNull)
+  const projectIdempotencyKeyRef = useRef<string | null>(null);
+  const rewardIdempotencyKeysRef = useRef<(string | null)[]>([]);
+
   const flatCategoryOptions = useMemo(
     () => flattenCategories(categories ?? []),
     [categories]
@@ -75,12 +81,23 @@ export function ProjectCreatePage() {
     setCreatedRewardIds((prev) => [...prev, null]);
   };
 
-  const handleRemoveReward = (index: number) => {
+  const handleRemoveReward = async (index: number) => {
     if (rewards.length <= 1) return;
+    const rewardId = createdRewardIds[index];
+    if (rewardId) {
+      if (!window.confirm("이미 서버에 등록된 리워드입니다. 삭제하시겠습니까?")) return;
+      try {
+        await deleteRewardMutation.mutateAsync(rewardId);
+      } catch (err: any) {
+        setErrorMsg(err.response?.data?.error?.message || err.message || "리워드 삭제에 실패했습니다.");
+        return;
+      }
+    }
     setRewards((prev) => prev.filter((_, i) => i !== index));
     setRewardFiles((prev) => prev.filter((_, i) => i !== index));
     setRewardPreviews((prev) => prev.filter((_, i) => i !== index));
     setCreatedRewardIds((prev) => prev.filter((_, i) => i !== index));
+    rewardIdempotencyKeysRef.current = rewardIdempotencyKeysRef.current.filter((_, i) => i !== index);
   };
 
   const handleRewardChange = (index: number, field: keyof CreateRewardRequest, value: any) => {
@@ -128,6 +145,9 @@ export function ProjectCreatePage() {
     try {
       // 1. Create project (if not already created)
       if (!projectId) {
+        if (!projectIdempotencyKeyRef.current) {
+          projectIdempotencyKeyRef.current = generateUUID();
+        }
         const createdProject = await createProjectMutation.mutateAsync({
           title,
           categoryId,
@@ -138,6 +158,7 @@ export function ProjectCreatePage() {
           // 에러가 난다. datetime-local 입력값(yyyy-MM-ddTHH:mm)에 초만 붙여서 그대로 보낸다.
           startAt: `${startAt}:00`,
           endAt,
+          idempotencyKey: projectIdempotencyKeyRef.current,
         });
         projectId = createdProject.projectId;
         setCreatedProjectId(projectId);
@@ -146,6 +167,8 @@ export function ProjectCreatePage() {
       // 2. Create rewards for project (if not already created)
       for (let i = 0; i < rewards.length; i++) {
         if (!rewardIds[i]) {
+          const rewardIdempotencyKey = rewardIdempotencyKeysRef.current[i] ?? generateUUID();
+          rewardIdempotencyKeysRef.current[i] = rewardIdempotencyKey;
           const reward = rewards[i];
           const createdReward = await createRewardMutation.mutateAsync({
             projectId,
@@ -154,6 +177,7 @@ export function ProjectCreatePage() {
               description: reward.description,
               price: Number(reward.price),
               totalQuantity: reward.totalQuantity ? Number(reward.totalQuantity) : null,
+              idempotencyKey: rewardIdempotencyKey,
             },
           });
           rewardIds[i] = createdReward.rewardId;
@@ -383,15 +407,21 @@ export function ProjectCreatePage() {
             </Button>
           </div>
 
-          {rewards.map((reward, index) => (
+          {rewards.map((reward, index) => {
+            const isRewardCreated = createdRewardIds[index] != null;
+            return (
             <div key={index} className="flex flex-col gap-3 rounded-sm border border-ink/20 p-4 bg-paper/50">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-sm text-ink">리워드 #{index + 1}</span>
+                <span className="font-bold text-sm text-ink">
+                  리워드 #{index + 1}
+                  {isRewardCreated && <span className="ml-2 text-[11px] font-normal text-brand">✅ 등록됨</span>}
+                </span>
                 {rewards.length > 1 && (
                   <button
                     type="button"
                     onClick={() => handleRemoveReward(index)}
-                    className="text-xs text-red-500 hover:underline"
+                    disabled={deleteRewardMutation.isPending}
+                    className="text-xs text-red-500 hover:underline disabled:opacity-50"
                   >
                     삭제
                   </button>
@@ -404,10 +434,11 @@ export function ProjectCreatePage() {
                   <input
                     type="text"
                     required
+                    disabled={isRewardCreated}
                     placeholder="예: [얼리버드] 급식기 1대"
                     value={reward.name}
                     onChange={(e) => handleRewardChange(index, "name", e.target.value)}
-                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink focus:border-brand focus:outline-none"
+                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none"
                   />
                 </div>
                 <div>
@@ -416,9 +447,10 @@ export function ProjectCreatePage() {
                     type="number"
                     required
                     min={1000}
+                    disabled={isRewardCreated}
                     value={reward.price || ""}
                     onChange={(e) => handleRewardChange(index, "price", Number(e.target.value))}
-                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink focus:border-brand focus:outline-none tabular-nums"
+                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none tabular-nums"
                   />
                 </div>
               </div>
@@ -428,16 +460,18 @@ export function ProjectCreatePage() {
                   <label className="mb-1 block text-xs font-semibold text-ink">설명</label>
                   <input
                     type="text"
+                    disabled={isRewardCreated}
                     placeholder="리워드 구성품 상세 설명"
                     value={reward.description}
                     onChange={(e) => handleRewardChange(index, "description", e.target.value)}
-                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink focus:border-brand focus:outline-none"
+                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none"
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-ink">한정 수량 (선택)</label>
                   <input
                     type="number"
+                    disabled={isRewardCreated}
                     placeholder="비워두면 무제한"
                     value={reward.totalQuantity ?? ""}
                     onChange={(e) =>
@@ -447,7 +481,7 @@ export function ProjectCreatePage() {
                         e.target.value ? Number(e.target.value) : null
                       )
                     }
-                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink focus:border-brand focus:outline-none tabular-nums"
+                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none tabular-nums"
                   />
                 </div>
               </div>
@@ -480,7 +514,8 @@ export function ProjectCreatePage() {
                 </p>
               </div>
             </div>
-          ))}
+            );
+          })}
         </Card>
 
         {errorMsg && <ErrorState error={{ message: errorMsg, errors: null }} />}
