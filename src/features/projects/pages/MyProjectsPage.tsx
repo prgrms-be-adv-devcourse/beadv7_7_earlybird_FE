@@ -12,6 +12,7 @@ import { generateUUID } from "../../orders/utils";
 import { ProjectEditModal } from "../components/ProjectEditModal";
 import { RewardEditModal } from "../components/RewardEditModal";
 import { useFilesByOwner, useUploadFile } from "../../files/hooks";
+import { ACCEPTED_IMAGE_TYPES, IMAGE_FORMAT_GUIDE } from "../../files/types";
 import {
   Button,
   Card,
@@ -405,7 +406,7 @@ export function MyProjectsPage() {
               )}
               <input
                 type="file"
-                accept="image/png, image/jpeg, image/jpg, image/webp, image/gif"
+                accept={ACCEPTED_IMAGE_TYPES}
                 onChange={(e) => {
                   const file = e.target.files?.[0] ?? null;
                   setRewardImageFile(file);
@@ -416,7 +417,7 @@ export function MyProjectsPage() {
                 className="w-full text-xs text-ink file:mr-3 file:rounded file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink hover:file:bg-paper/80"
               />
               <p className="mt-1 text-[11px] text-mist">
-                * 지원 형식: JPG, JPEG, PNG, WEBP, GIF
+                * 지원 형식: {IMAGE_FORMAT_GUIDE}
               </p>
             </div>
 

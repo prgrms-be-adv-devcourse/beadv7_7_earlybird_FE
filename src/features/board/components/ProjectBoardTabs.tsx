@@ -27,6 +27,7 @@ import {
 import type { ProjectComment } from "../types";
 import { useRewards } from "../../projects/hooks";
 import { useUploadFile, useFilesByOwner } from "../../files/hooks";
+import { ACCEPTED_IMAGE_TYPES, IMAGE_FORMAT_GUIDE } from "../../files/types";
 import { useAuthStore } from "../../../shared/auth/authStore";
 
 function ReviewPhotos({ reviewId }: { reviewId: number }) {
@@ -341,11 +342,13 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
       let rawMessage = err?.response?.data?.error?.message || err?.response?.data?.message || "";
       rawMessage = rawMessage.replace(/\s*\(?projectId=\d+,?\s*authorId=\d+\)?/g, "").trim();
 
-      if (
-        status === 409 ||
+      const isDuplicateReview =
         rawMessage.includes("이미 이 프로젝트에 리뷰를 작성했습니다") ||
-        rawMessage.includes("작성했습니다")
-      ) {
+        rawMessage.includes("이미 작성") ||
+        rawMessage.includes("DUPLICATE_REVIEW") ||
+        (status === 409 && (rawMessage.includes("리뷰") || rawMessage.includes("후기") || rawMessage.includes("작성했습니다")));
+
+      if (isDuplicateReview) {
         setReviewError("이미 이 프로젝트에 작성하신 후기가 등록되어 있습니다.");
       } else if (status === 400 && rawMessage.includes("Invalid request content")) {
         setReviewError("후기 작성 정보가 올바르지 않습니다. 리워드 선택 및 내용을 확인해주세요.");
@@ -789,12 +792,12 @@ export function ProjectBoardTabs({ projectId }: { projectId: number }) {
                 <label className="mb-1 block text-xs font-bold text-ink">사진 첨부 (선택)</label>
                 <input
                   type="file"
-                  accept="image/png, image/jpeg, image/jpg, image/webp, image/gif"
+                  accept={ACCEPTED_IMAGE_TYPES}
                   onChange={(e) => setReviewPhotoFile(e.target.files?.[0] ?? null)}
                   className="w-full text-xs text-ink file:mr-3 file:rounded-sm file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink"
                 />
                 <p className="mt-1 text-[11px] text-mist">
-                  * 지원 형식: JPG, JPEG, PNG, WEBP, GIF
+                  * 지원 형식: {IMAGE_FORMAT_GUIDE}
                 </p>
               </div>
             )}

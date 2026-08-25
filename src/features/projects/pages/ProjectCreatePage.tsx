@@ -4,10 +4,13 @@ import { useCreateProject, useCreateReward, useDeleteReward, useUpdateProject } 
 import { useCategories } from "../../admin/hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
 import { useUploadFile } from "../../files/hooks";
+import { ACCEPTED_IMAGE_TYPES, IMAGE_FORMAT_GUIDE } from "../../files/types";
 import { Button, Card, ErrorState } from "../../../shared/ui";
 import type { CreateRewardRequest } from "../types";
 import { flattenCategories } from "../utils";
 import { generateUUID } from "../../orders/utils";
+
+type RewardFormItem = Omit<CreateRewardRequest, "idempotencyKey">;
 
 export function ProjectCreatePage() {
   const navigate = useNavigate();
@@ -34,7 +37,7 @@ export function ProjectCreatePage() {
   const [endAt, setEndAt] = useState(thirtyDaysLater);
 
   // Rewards list state
-  const [rewards, setRewards] = useState<CreateRewardRequest[]>([
+  const [rewards, setRewards] = useState<RewardFormItem[]>([
     { name: "[얼리버드] 기본 팩", description: "선착순 한정 혜택", price: 30000, totalQuantity: 100 },
   ]);
 
@@ -56,7 +59,7 @@ export function ProjectCreatePage() {
   const [rewardPreviews, setRewardPreviews] = useState<(string | null)[]>([null]);
 
   const [createdProjectId, setCreatedProjectId] = useState<number | null>(null);
-  const [createdRewardIds, setCreatedRewardIds] = useState<(number | null)[]>([]);
+  const [createdRewardIds, setCreatedRewardIds] = useState<(number | null)[]>([null]);
   const [imageUploadFailed, setImageUploadFailed] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -100,7 +103,7 @@ export function ProjectCreatePage() {
     rewardIdempotencyKeysRef.current = rewardIdempotencyKeysRef.current.filter((_, i) => i !== index);
   };
 
-  const handleRewardChange = (index: number, field: keyof CreateRewardRequest, value: any) => {
+  const handleRewardChange = (index: number, field: keyof RewardFormItem, value: any) => {
     setRewards((prev) =>
       prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
     );
@@ -115,6 +118,22 @@ export function ProjectCreatePage() {
       return;
     }
 
+    if (rewards.length === 0) {
+      setErrorMsg("최소 1개 이상의 리워드를 입력해야 합니다.");
+      return;
+    }
+
+    // 미등록 리워드들에 대한 필수값(이름, 가격) 유효성 검증 (재시도 경로에서도 항상 실행)
+    const hasInvalidUncreatedReward = rewards.some((r, i) => {
+      const isCreated = createdRewardIds[i] != null;
+      if (isCreated) return false;
+      return !r.name.trim() || Number(r.price) < 1000;
+    });
+    if (hasInvalidUncreatedReward) {
+      setErrorMsg("등록되지 않은 리워드의 이름과 가격(1,000원 이상)은 필수입니다.");
+      return;
+    }
+
     if (!createdProjectId) {
       if (!title.trim()) {
         setErrorMsg("프로젝트 제목을 입력해주세요.");
@@ -122,10 +141,6 @@ export function ProjectCreatePage() {
       }
       if (goalAmount <= 0) {
         setErrorMsg("목표 금액은 0원보다 커야 합니다.");
-        return;
-      }
-      if (rewards.length === 0 || rewards.some((r) => !r.name.trim() || r.price <= 0)) {
-        setErrorMsg("최소 1개 이상의 리워드를 입력해야 하며, 이름과 가격은 필수입니다.");
         return;
       }
 
@@ -340,12 +355,12 @@ export function ProjectCreatePage() {
             )}
             <input
               type="file"
-              accept="image/png, image/jpeg, image/jpg, image/webp, image/gif"
+              accept={ACCEPTED_IMAGE_TYPES}
               onChange={handleThumbnailChange}
               className="w-full text-sm text-ink file:mr-3 file:rounded-sm file:border file:border-ink/30 file:bg-paper file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink"
             />
             <p className="mt-1 text-xs text-mist">
-              * 지원 형식: JPG, JPEG, PNG, WEBP, GIF (권장 크기: 1200x800px 이상)
+              * 지원 형식: {IMAGE_FORMAT_GUIDE} (권장 크기: 1200x800px 이상)
             </p>
           </div>
         </Card>
@@ -499,7 +514,7 @@ export function ProjectCreatePage() {
                 )}
                 <input
                   type="file"
-                  accept="image/png, image/jpeg, image/jpg, image/webp, image/gif"
+                  accept={ACCEPTED_IMAGE_TYPES}
                   onChange={(e) => {
                     const file = e.target.files?.[0] ?? null;
                     setRewardFiles((prev) => prev.map((f, i) => (i === index ? file : f)));
@@ -510,7 +525,7 @@ export function ProjectCreatePage() {
                   className="w-full text-xs text-ink file:mr-3 file:rounded file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink hover:file:bg-paper/80"
                 />
                 <p className="mt-1 text-[11px] text-mist">
-                  * 지원 형식: JPG, JPEG, PNG, WEBP, GIF
+                  * 지원 형식: {IMAGE_FORMAT_GUIDE}
                 </p>
               </div>
             </div>

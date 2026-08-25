@@ -131,16 +131,15 @@ export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    try {
-      await logoutRequest();
-    } catch {
-      // 서버 로그아웃 실패해도 로컬 세션은 항상 정리한다 (토큰 만료 등으로 흔히 발생).
-    } finally {
-      logout();
-      queryClient.clear();
-      navigate("/login");
-    }
+  const handleLogout = () => {
+    // 백엔드 세션/토큰 무효화 요청을 비동기로 전송 (네트워크 지연/행으로 인한 UI 블로킹 방지)
+    logoutRequest().catch((err) => {
+      console.warn("Logout request failed or timed out:", err);
+    });
+    // 로컬 세션과 쿼리 캐시를 즉시 정리하고 로그인 페이지로 이동
+    logout();
+    queryClient.clear();
+    navigate("/login");
   };
 
   const getRoleBadge = (role?: string) => {

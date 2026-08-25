@@ -27,8 +27,8 @@ export function useSwitchRole() {
       return session;
     },
     onSuccess: (session) => {
-      queryClient.clear();
       setSession(session);
+      queryClient.invalidateQueries();
     },
   });
 }
