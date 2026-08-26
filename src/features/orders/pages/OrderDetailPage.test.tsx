@@ -1,9 +1,9 @@
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { Order } from "../types";
-import { OrderDetailPage } from "./OrderDetailPage";
+import {render, screen} from "@testing-library/react";
+import {MemoryRouter, Route, Routes} from "react-router-dom";
+import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
+import {beforeEach, describe, expect, it, vi} from "vitest";
+import type {Order} from "../types";
+import {OrderDetailPage} from "./OrderDetailPage";
 
 function makeOrder(status: Order["status"]): Order {
   return {
@@ -90,6 +90,6 @@ describe("OrderDetailPage 결제 완료 마스코트", () => {
     currentOrder = makeOrder("PAID");
     renderPage();
 
-    expect(screen.getByText("🎉 후원이 잘 전달됐어요")).toBeInTheDocument();
+    expect(screen.getByText("🎉 후원자님의 후원이 잘 전달됐어요")).toBeInTheDocument();
   });
 });
