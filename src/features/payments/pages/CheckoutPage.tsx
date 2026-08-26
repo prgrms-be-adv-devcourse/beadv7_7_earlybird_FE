@@ -118,8 +118,8 @@ export function CheckoutPage() {
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div>
-          <h1 className="font-display text-2xl font-bold text-ink">💳 토스페이먼츠 결제하기</h1>
-          <p className="text-xs text-mist">주문 번호 #{order.id}의 결제를 진행합니다.</p>
+          <h1 className="font-display text-2xl font-bold text-ink">토스페이먼츠 결제하기</h1>
+          <p className="text-xs text-mist">결제를 진행합니다.</p>
         </div>
       </div>
 

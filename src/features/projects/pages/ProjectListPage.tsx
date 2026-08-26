@@ -1,6 +1,6 @@
-import { useMemo, useState, useEffect, useRef } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { Search, X } from "lucide-react";
+import {useEffect, useMemo, useRef, useState} from "react";
+import {Link, useSearchParams} from "react-router-dom";
+import {Search, X} from "lucide-react";
 import {
   CardSkeleton,
   EmptyState,
@@ -12,16 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../shared/ui";
-import { useProjects } from "../hooks";
-import { useCategories } from "../../admin/hooks";
-import { ProjectCard } from "../components/ProjectCard";
-import {
-  getCreatorDisplayName,
-  getCategoryIdsIncludingChildren,
-  getStatusLabel,
-} from "../utils";
+import {useProjects} from "../hooks";
+import {useCategories} from "../../admin/hooks";
+import {ProjectCard} from "../components/ProjectCard";
+import {getCategoryIdsIncludingChildren, getCreatorDisplayName, getStatusLabel,} from "../utils";
 
-import { useAuthStore } from "../../../shared/auth/authStore";
+import {useAuthStore} from "../../../shared/auth/authStore";
 
 const ALL = "ALL";
 
@@ -64,6 +60,7 @@ export function ProjectListPage() {
 
   // Autocomplete suggestions state
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const isUpdatingUrlRef = useRef(false); // <-- 내부 필터 변경으로 URL을 갱신하는지 구분합니다.
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
@@ -117,6 +114,11 @@ export function ProjectListPage() {
 
   // Sync state if URL searchParams change externally
   useEffect(() => {
+    if (isUpdatingUrlRef.current) {
+      isUpdatingUrlRef.current = false; // <-- 내부 갱신 URL은 입력 중인 검색어에 다시 반영하지 않습니다.
+      return;
+    }
+
     const currentUrlKeyword = searchParams.get("keyword") || "";
     const currentCreatorId = searchParams.get("creatorId") || ALL;
     const currentCategory = searchParams.get("category") || ALL;
@@ -149,6 +151,7 @@ export function ProjectListPage() {
     if (status !== ALL) params.status = status;
     if (sort !== "RELEVANCE") params.sort = sort;
     if (creatorId !== ALL) params.creatorId = creatorId;
+    isUpdatingUrlRef.current = true; // <-- 현재 필터 상태로 URL을 갱신했음을 표시합니다.
     setSearchParams(params, { replace: true });
   }, [keyword, categoryId, status, sort, creatorId, setSearchParams]);
 
@@ -292,13 +295,13 @@ export function ProjectListPage() {
                 if (inputKeyword.trim()) setShowSuggestions(true);
               }}
               onKeyDown={handleKeyDown}
-              className="w-full rounded-full border border-ink/20 bg-surface pl-10 pr-10 py-2.5 text-sm text-ink outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
+              className="w-full !rounded-lg border border-ink/20 bg-surface pl-10 pr-10 py-2.5 text-sm text-ink outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand" // <-- 검색 입력창을 둥근 사각형으로 표시합니다.
             />
             {inputKeyword && (
               <button
                 type="button"
                 onClick={handleClearSearch}
-                className="absolute right-3.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink/10 text-ink/60 hover:bg-ink/20 hover:text-ink"
+                className="absolute right-3.5 flex h-5 w-5 items-center justify-center rounded-lg bg-ink/10 text-ink/60 hover:bg-ink/20 hover:text-ink"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -359,10 +362,10 @@ export function ProjectListPage() {
 
           {/* Category Dropdown Filter */}
           <Select value={categoryId} onValueChange={setCategoryId}>
-            <SelectTrigger className="w-48 bg-surface">
+            <SelectTrigger className="!rounded-lg">
               <SelectValue placeholder="카테고리 선택" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="!rounded-lg">
               <SelectItem value={ALL}>📁 전체 카테고리</SelectItem>
               {categoryOptions.map((opt) => (
                 <SelectItem key={opt.id} value={opt.id}>
@@ -374,10 +377,10 @@ export function ProjectListPage() {
 
           {/* Status Filter */}
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="w-36 bg-surface">
+            <SelectTrigger className="!rounded-lg">
               <SelectValue placeholder="상태" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="!rounded-lg">
               <SelectItem value={ALL}>🏷️ 전체 상태</SelectItem>
               {statusOptions.map((option) => (
                 <SelectItem key={option} value={option}>
@@ -389,10 +392,10 @@ export function ProjectListPage() {
 
           {/* Sort Order */}
           <Select value={sort} onValueChange={setSort}>
-            <SelectTrigger className="w-36 bg-surface">
+            <SelectTrigger className="!rounded-lg">
               <SelectValue placeholder="정렬" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="!rounded-lg">
               <SelectItem value="RELEVANCE">🎯 연관도순</SelectItem>
               <SelectItem value="LATEST">🆕 최신순</SelectItem>
               <SelectItem value="DEADLINE">⏰ 마감임박순</SelectItem>
