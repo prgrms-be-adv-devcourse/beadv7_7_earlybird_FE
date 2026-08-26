@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Clock, AlertCircle, Sparkles, Building2, User, FileText, ArrowRight } from "lucide-react";
-import { useAuthStore } from "../../../shared/auth/authStore";
-import { useMyCreatorApplication, useSubmitCreatorApplication, useCancelCreatorApplication } from "../hooks";
-import { BANK_LIST } from "../types";
-import { Button, Card, Badge, Mascot, Dialog, DialogContent, DialogTitle, DialogDescription } from "../../../shared/ui";
+import {useEffect, useState} from "react";
+import {useNavigate} from "react-router-dom";
+import {AlertCircle, ArrowRight, Building2, Clock, FileText, Sparkles, User} from "lucide-react";
+import {useAuthStore} from "../../../shared/auth/authStore";
+import {useCancelCreatorApplication, useMyCreatorApplication, useSubmitCreatorApplication} from "../hooks";
+import {BANK_LIST} from "../types";
+import {Badge, Button, Card, Dialog, DialogContent, DialogDescription, DialogTitle, Mascot} from "../../../shared/ui";
 
 const CATEGORIES = [
   "패션",
@@ -309,13 +309,13 @@ export function CreatorApplyPage() {
   return (
     <div className="mx-auto max-w-2xl py-8">
       <div className="mb-8">
-        <Badge tone="mint" className="mb-2">Creator Onboarding</Badge>
+        <Badge tone="mint" className="mb-2 inline-flex">Creator Onboarding</Badge>
         <h1 className="font-display text-3xl font-black text-ink">
-          ✨ 창작자 등록 신청
+          창작자 등록 신청
         </h1>
         <p className="mt-2 text-sm text-mist">
           얼리버드에서 나만의 멋진 아이디어를 프로젝트로 오픈하고 후원자들과 함께 실현해 보세요.<br />
-          신청서를 작성해 주시면 관리자 심사 후 창작자 권한이 부여됩니다.
+          관리자 심사 후 창작자 권한이 부여됩니다.
         </p>
       </div>
 
@@ -489,7 +489,7 @@ export function CreatorApplyPage() {
             </div>
           </div>
           <p className="text-[11px] text-mist">
-            💡 펀딩 성공 시 모금액 정산이 입금될 본인 명의의 계좌 정보를 정확히 입력해 주세요. 토스페이먼츠 지급 대행 기관 코드가 함께 매핑됩니다.
+            💡 펀딩 성공 시 모금액 정산이 입금될 본인 명의의 계좌 정보를 정확히 입력해 주세요. 결제 지급 대행 기관과 연결됩니다.
           </p>
         </Card>
 
@@ -542,7 +542,7 @@ export function CreatorApplyPage() {
             disabled={submitMutation.isPending}
             className="px-8 py-2.5 text-sm font-bold text-white shadow-stamp"
           >
-            {submitMutation.isPending ? "신청서 제출 중..." : "창작자 등록 신청하기 🚀"}
+            {submitMutation.isPending ? "신청서 제출 중..." : "창작자 등록 신청하기"}
           </Button>
         </div>
       </form>
