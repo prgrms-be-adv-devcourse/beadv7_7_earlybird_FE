@@ -4,7 +4,7 @@ import {ImageOff, MessageCircle, RotateCcw, SendHorizontal, X} from "lucide-reac
 import {Mascot} from "../../../shared/ui";
 import {useChatIdentitySync, useResetChatSession, useSendChatMessage, useThumbnailSrc} from "../hooks";
 import {useChatStore} from "../store";
-import type {ProjectCard, ToolStartEvent} from "../types";
+import type {ProjectCard, ToolProgressEntry} from "../types";
 
 // 서버 reply에 **굵게**/### 제목/- 목록 같은 마크다운 문법이 섞여 오는데, 이 챗봇 응답 범위가
 // 딱 그 정도라 전체 마크다운 라이브러리 대신 이 부분만 가볍게 줄 단위로 파싱한다.
@@ -131,17 +131,18 @@ function ChatBubble({
   );
 }
 
-// tool_start마다 항목을 쌓아 진행형 문구로 보여주다가, metadata 도착(=그 턴의 tool 호출이
-// 전부 성공)을 신호로 스택 전체를 완료형 문구로 한 번에 전환한다. 응답이 빨라 진행형 문구
-// 하나만 띄우면 읽기 전에 사라지는 문제 때문에 완료된 항목을 계속 쌓아 보여주는 방식이다.
-function ToolProgressStack({ items, completed }: { items: ToolStartEvent[]; completed: boolean }) {
+// tool_start마다 항목을 쌓아 진행형 문구로 보여주다가, metadata 도착을 신호로 그 시점까지 쌓인
+// 항목들을 완료형 문구로 전환한다(항목별 completed, store.ts 참고 — metadata가 tool_start보다
+// 먼저 오는 경우도 있어 메시지 전체에 boolean 하나로 두면 안 됨). 응답이 빨라 진행형 문구 하나만
+// 띄우면 읽기 전에 사라지는 문제 때문에 완료된 항목을 계속 쌓아 보여주는 방식이다.
+function ToolProgressStack({ items }: { items: ToolProgressEntry[] }) {
   return (
     <div className="flex justify-start">
       <div className="flex max-w-[80%] flex-col gap-1 rounded-2xl border-2 border-ink bg-paper px-3.5 py-2.5 text-xs text-ink/70">
         {items.map((item) => (
           <div key={item.sequence} className="flex items-center gap-1.5">
-            <span className={completed ? "text-brand" : "animate-pulse"}>{completed ? "✓" : "•"}</span>
-            <span>{completed ? item.completedMessage : item.message}</span>
+            <span className={item.completed ? "text-brand" : "animate-pulse"}>{item.completed ? "✓" : "•"}</span>
+            <span>{item.completed ? item.completedMessage : item.message}</span>
           </div>
         ))}
       </div>
@@ -168,6 +169,11 @@ function ChatWindow() {
   const sendMessage = useSendChatMessage();
   const resetSession = useResetChatSession();
   const [input, setInput] = useState("");
+  // 한글 등 조합형 IME 입력 중에 Enter를 누르면 "조합 확정" 키다운이 먼저 발생하는데, 이때
+  // input state에는 아직 마지막 글자가 반영되기 전이라 handleSend가 옛 값을 읽고 비워버린 뒤
+  // 조합이 뒤늦게 확정되며 그 글자만 남는 버그가 생긴다 — 조합 중엔 Enter를 전송으로 취급하지 않는다.
+  const [isComposing, setIsComposing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   // 응답이 스트리밍되는 동안 계속 addMessage가 일어나 매번 강제로 바닥까지 스크롤하면
   // 사용자가 위로 스크롤해 이전 내용을 봐도 곧바로 다시 끌려 내려온다 — 이미 바닥 근처에
@@ -185,6 +191,15 @@ function ChatWindow() {
     if (!el) return;
     stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < BOTTOM_THRESHOLD_PX;
   };
+
+  // 줄바꿈으로 내용이 늘어나면 textarea 높이도 같이 늘어나야 자연스럽다 — rows=1 고정이라
+  // 내용이 넘쳐도 박스 크기가 그대로였다. max-h-24(CSS)가 상한을 잡아주니 그 안에서만 늘린다.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [input]);
 
   const handleSend = () => {
     const trimmed = input.trim();
@@ -229,7 +244,7 @@ function ChatWindow() {
       <div ref={listRef} onScroll={handleScroll} className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 && (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-mist">
-            <Mascot variant="face" className="h-12 w-12" />
+            <img src="/character.png" alt="" aria-hidden className="h-24 w-24 animate-gentle-bounce object-contain" />
             <p>안녕하세요! 오목눈이예요.<br />프로젝트나 이용 방법이 궁금하면 물어보세요.</p>
           </div>
         )}
@@ -243,9 +258,7 @@ function ChatWindow() {
           }
           return (
             <Fragment key={message.id}>
-              {hasToolProgress && (
-                <ToolProgressStack items={message.toolProgress!} completed={!!message.toolProgressCompleted} />
-              )}
+              {hasToolProgress && <ToolProgressStack items={message.toolProgress!} />}
               {!isPlaceholder && (
                 <ChatBubble
                   role={message.role}
@@ -262,17 +275,21 @@ function ChatWindow() {
 
       <div className="flex items-end gap-2 border-t-2 border-ink bg-surface p-3">
         <textarea
+          ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={() => setIsComposing(false)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
+              if (isComposing || e.nativeEvent.isComposing) return;
               e.preventDefault();
               handleSend();
             }
           }}
           placeholder="메시지를 입력하세요"
           rows={1}
-          className="max-h-24 flex-1 resize-none rounded-lg border-2 border-ink/20 bg-white px-3 py-2 text-sm outline-none focus:border-brand"
+          className="max-h-24 flex-1 resize-none overflow-y-auto rounded-lg border-2 border-ink/20 bg-white px-3 py-2 text-sm outline-none focus:border-brand"
         />
         <button
           type="button"

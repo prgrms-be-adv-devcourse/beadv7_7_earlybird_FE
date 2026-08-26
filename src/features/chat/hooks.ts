@@ -45,12 +45,13 @@ export function useSendChatMessage() {
         sendChatMessage(message, {
           onToolStart: (event) => addToolProgress(event),
           onMetadata: (meta) => {
+            // metadata는 한 턴에 여러 번(tool 상태가 바뀔 때마다) 올 수 있고, 매번 그 시점까지의
+            // 전체 스냅샷(이전 내용을 포함하는 상위집합)이라 항상 최신값으로 무조건 덮어써도 안전하다
+            // — "1번만 처리" 가드나 "비어있으면 스킵" 같은 조건을 두면 안 됨.
             setLastMessageReferences(meta.references);
-            if (meta.projects && meta.projects.length > 0) {
-              setLastMessageProjects(meta.projects);
-            }
-            // metadata 도착 = 그때까지 쌓인 tool_start가 전부 성공적으로 끝났다는 신호이므로,
-            // 진행형 문구를 한 번에 완료형으로 전환한다.
+            setLastMessageProjects(meta.projects);
+            // 이 시점까지 쌓인 항목만 완료형으로 바뀐다(store.ts 참고) — 이후 도착하는 tool_start는
+            // 새로 진행형으로 시작하므로, metadata가 tool_start보다 먼저 와도(순서 비보장) 안전하다.
             completeToolProgress();
           },
           onChunk: (text) => {
