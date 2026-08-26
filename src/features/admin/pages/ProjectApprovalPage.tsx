@@ -194,11 +194,19 @@ export function ProjectApprovalPage() {
           </div>
           {reindexMutation.isSuccess && (
             <span className="text-xs font-semibold text-brand">
-              재색인 요청 완료 — 임베딩은 비동기로 채워지므로 잠시 후 검색에 반영됩니다.
+              ✅ 재색인이 완료되었습니다.
             </span>
           )}
           {reindexMutation.isError && (
-            <span className="text-xs font-semibold text-red-600">재색인 요청에 실패했습니다.</span>
+            <span className="text-xs font-semibold text-red-600">❌ 재색인 요청에 실패했습니다.</span>
+          )}
+          {triggerCloseExpiredMutation.isSuccess && (
+            <span className="text-xs font-semibold text-brand">
+              ✅ 만료 프로젝트 일괄 정산 요청이 완료되었습니다.
+            </span>
+          )}
+          {triggerCloseExpiredMutation.isError && (
+            <span className="text-xs font-semibold text-red-600">❌ 만료 프로젝트 일괄 정산 요청에 실패했습니다.</span>
           )}
         </div>
       </div>
