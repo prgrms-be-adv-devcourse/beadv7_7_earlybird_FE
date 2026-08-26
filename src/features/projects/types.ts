@@ -44,6 +44,8 @@ export interface Reward {
   price: number;
   totalQuantity: number | null;
   remainingQuantity: number | null;
+  orderable?: boolean;
+  active?: boolean;
 }
 
 export interface CreateProjectRequest {

@@ -89,17 +89,19 @@ function FundingRewardItem({
   const { data: rewardFiles } = useFilesByOwner("REWARD", reward.rewardId, true);
   const rewardThumbnailUrl = rewardFiles && rewardFiles.length > 0 ? rewardFiles[0].storedUrl : null;
   const isRewardSoldOut = reward.remainingQuantity != null && reward.remainingQuantity <= 0;
+  const isRewardDeactivated = reward.active === false;
+  const isItemAvailable = isOrderable && !isRewardDeactivated && !isRewardSoldOut;
 
   return (
     <li>
       <button
         type="button"
-        onClick={() => isOrderable && onSelectReward(reward.rewardId)}
-        disabled={!isOrderable}
+        onClick={() => isItemAvailable && onSelectReward(reward.rewardId)}
+        disabled={!isItemAvailable}
         aria-pressed={selected}
         className={`flex w-full items-start gap-3 rounded-sm border-2 p-3 text-left transition-colors ${
-          !isOrderable
-            ? "cursor-not-allowed border-ink/10 opacity-50"
+          !isItemAvailable
+            ? "cursor-not-allowed border-ink/10 opacity-50 bg-paper/40"
             : selected
               ? "border-brand bg-brand/5"
               : "border-ink/20 hover:border-ink/40"
@@ -117,7 +119,9 @@ function FundingRewardItem({
           </div>
         )}
         <div className="flex flex-col gap-1 min-w-0 flex-1">
-          <span className="font-bold text-ink text-sm leading-snug break-keep">{reward.name}</span>
+          <span className={`font-bold text-sm leading-snug break-keep ${isRewardDeactivated ? "text-mist line-through" : "text-ink"}`}>
+            {reward.name}
+          </span>
           {reward.description && (
             <p className="text-xs text-mist leading-normal break-keep whitespace-pre-line">
               {reward.description}
@@ -128,16 +132,20 @@ function FundingRewardItem({
           <span className="tabular-nums text-sm font-extrabold text-ink">{reward.price.toLocaleString()}원</span>
           <span
             className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border ${
-              isRewardSoldOut
-                ? "bg-red-50 text-red-600 border-red-200 font-bold"
-                : "text-mist bg-surface border-ink/15"
+              isRewardDeactivated
+                ? "bg-ink/5 text-mist border-ink/20 font-bold"
+                : isRewardSoldOut
+                  ? "bg-red-50 text-red-600 border-red-200 font-bold"
+                  : "text-mist bg-surface border-ink/15"
             }`}
           >
-            {isRewardSoldOut
-              ? "품절 (재고 0개)"
-              : reward.remainingQuantity != null
-                ? `재고 ${reward.remainingQuantity.toLocaleString()}개 남음`
-                : "수량 무제한"}
+            {isRewardDeactivated
+              ? "판매 종료"
+              : isRewardSoldOut
+                ? "품절 (재고 0개)"
+                : reward.remainingQuantity != null
+                  ? `재고 ${reward.remainingQuantity.toLocaleString()}개 남음`
+                  : "수량 무제한"}
           </span>
         </div>
       </button>
@@ -306,20 +314,23 @@ function FundingPanel({
 
       {(() => {
         const isSoldOut = selectedReward && selectedReward.remainingQuantity != null && selectedReward.remainingQuantity <= 0;
+        const isDeactivated = selectedReward && selectedReward.active === false;
         return (
           <SupportButton
             label={
               !isOrderable
                 ? getOrderClosedMessage(project.status)
-                : isSoldOut
-                  ? "품절된 리워드입니다"
-                  : isAddingToCart
-                    ? "장바구니에 담는 중..."
-                    : selectedReward
-                      ? `장바구니에 담기 (${selectedQuantity}개)`
-                      : "리워드를 선택해주세요"
+                : isDeactivated
+                  ? "판매 종료된 리워드입니다"
+                  : isSoldOut
+                    ? "품절된 리워드입니다"
+                    : isAddingToCart
+                      ? "장바구니에 담는 중..."
+                      : selectedReward
+                        ? `장바구니에 담기 (${selectedQuantity}개)`
+                        : "리워드를 선택해주세요"
             }
-            disabled={!isOrderable || !selectedReward || Boolean(isSoldOut) || isAddingToCart}
+            disabled={!isOrderable || !selectedReward || Boolean(isSoldOut) || Boolean(isDeactivated) || isAddingToCart}
             onClick={onAddToCart}
             trigger={flightTrigger}
           />
@@ -678,18 +689,32 @@ export function ProjectDetailPage() {
                 <ul className="flex flex-col gap-1.5">
                   {rewards.map((r) => (
                     <li key={r.rewardId} className="flex items-center justify-between rounded border border-ink/10 bg-surface p-2 text-xs">
-                      <span>{r.name} (남은 수량: {r.remainingQuantity ?? "무제한"})</span>
-                      <div className="flex gap-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`truncate ${r.active === false ? "line-through text-mist" : ""}`}>
+                          {r.name} (남은 수량: {r.remainingQuantity ?? "무제한"})
+                        </span>
+                        {r.active === false && (
+                          <span className="rounded bg-ink/10 px-1 text-[10px] font-bold text-mist shrink-0">
+                            비활성화됨
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-1 shrink-0">
                         <Button
                           variant="secondary"
                           className="py-0.5 px-2 text-[11px]"
                           onClick={() => setTargetRewardId(r.rewardId)}
+                          disabled={r.active === false}
                         >
                           수량 축소
                         </Button>
                         <Button
                           variant="secondary"
-                          className="py-0.5 px-2 text-[11px] border-red-300 text-red-600 hover:bg-red-50"
+                          className={`py-0.5 px-2 text-[11px] ${
+                            r.active === false
+                              ? "opacity-50 cursor-not-allowed text-mist border-ink/10"
+                              : "border-red-300 text-red-600 hover:bg-red-50"
+                          }`}
                           onClick={() => {
                             if (
                               window.confirm(
@@ -702,9 +727,9 @@ export function ProjectDetailPage() {
                               });
                             }
                           }}
-                          disabled={deactivateRewardMutation.isPending}
+                          disabled={deactivateRewardMutation.isPending || r.active === false}
                         >
-                          비활성화
+                          {r.active === false ? "비활성화됨" : "비활성화"}
                         </Button>
                       </div>
                     </li>
@@ -1004,11 +1029,21 @@ export function ProjectDetailPage() {
             label={
               !isPublished
                 ? getOrderClosedMessage(project.status)
-                : addCartItems.isPending
-                  ? "담는 중..."
-                  : "후원하기"
+                : selectedReward?.active === false
+                  ? "판매 종료된 리워드입니다"
+                  : selectedReward && selectedReward.remainingQuantity != null && selectedReward.remainingQuantity <= 0
+                    ? "품절된 리워드입니다"
+                    : addCartItems.isPending
+                      ? "담는 중..."
+                      : "후원하기"
             }
-            disabled={!isPublished || !selectedReward || addCartItems.isPending}
+            disabled={
+              !isPublished ||
+              !selectedReward ||
+              selectedReward.active === false ||
+              (selectedReward.remainingQuantity != null && selectedReward.remainingQuantity <= 0) ||
+              addCartItems.isPending
+            }
             onClick={() => handleAddToCart("footer")}
             trigger={footerFlight}
             compact
