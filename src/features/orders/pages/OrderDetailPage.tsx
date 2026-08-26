@@ -17,11 +17,70 @@ import {
   RowSkeleton,
   Skeleton,
 } from "../../../shared/ui";
-import { useCancelOrder, useOrder, useOrders } from "../hooks";
-import { useConfirmPayment } from "../../payments/hooks";
-import { getOrderStatusBadgeTone, getOrderStatusLabel, getOrderDisplayNumber } from "../utils";
-import { OrderReviewModal } from "../components/OrderReviewModal";
-import { PaymentSuccessMascot } from "../components/PaymentSuccessMascot";
+import {useCancelOrder, useOrder, useOrders} from "../hooks";
+import {useConfirmPayment} from "../../payments/hooks";
+import {useFilesByOwner} from "../../files/hooks";
+import {getOrderDisplayNumber, getOrderStatusBadgeTone, getOrderStatusLabel} from "../utils";
+import {OrderReviewModal} from "../components/OrderReviewModal";
+import {PaymentSuccessMascot} from "../components/PaymentSuccessMascot";
+import type {OrderItem} from "../types";
+
+// 추가 : 주문 상세 리워드의 썸네일과 주문 정보를 표시합니다.
+function OrderDetailRewardItem({
+  item,
+  isPaid,
+  onOpenReview,
+}: {
+  item: OrderItem;
+  isPaid: boolean;
+  onOpenReview: (rewardId: number) => void;
+}) {
+  const {data: files} = useFilesByOwner("REWARD", item.rewardId, true);
+  const thumbnailUrl = files?.[0]?.storedUrl;
+
+  return (
+    <li className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-sm border border-ink/20 p-3 bg-surface/50">
+      <div className="flex min-w-0 items-center gap-3">
+        {thumbnailUrl ? (
+          <img
+            src={thumbnailUrl}
+            alt={item.name}
+            className="h-16 w-16 shrink-0 rounded-sm border border-ink/20 bg-paper object-cover"
+          />
+        ) : (
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-sm border border-dashed border-ink/40 bg-paper px-1 text-center text-[9px] leading-tight text-mist">
+            이미지 준비중입니다
+          </div>
+        )}
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-bold text-ink">
+            {item.name} <span className="text-mist font-normal">x {item.quantity}개</span>
+          </span>
+          <Link
+            to={`/projects/${item.projectId}`}
+            className="text-[11px] font-semibold text-brand hover:underline self-start"
+          >
+            프로젝트 바로가기 ➔
+          </Link>
+        </div>
+      </div>
+      <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+        <span className="tabular-nums font-bold text-ink">{item.subtotal.toLocaleString()}원</span>
+        {isPaid && (
+          <Button
+            type="button"
+            variant="primary"
+            className="text-xs font-bold py-1 px-2.5 flex items-center gap-1 shadow-none"
+            onClick={() => onOpenReview(item.rewardId)}
+          >
+            <Star className="h-3.5 w-3.5 fill-current" />
+            <span>후기 쓰기</span>
+          </Button>
+        )}
+      </div>
+    </li>
+  );
+}
 
 export function OrderDetailPage() {
   const {id} = useParams();
@@ -128,7 +187,8 @@ export function OrderDetailPage() {
   // Source of Truth: 서버에서 반환된 실제 order.status만 유일한 기준으로 사용!
   const isPaid = order?.status === "PAID";
   const effectiveStatus = order?.status;
-  const isProcessingPayment = !isPaid && !confirmError && (isConfirmingPayment || isRedirectingFromToss);
+  const isProcessingPayment = (effectiveStatus === "CREATED" || effectiveStatus === "PAYMENT_PENDING") && !confirmError && (isConfirmingPayment || isRedirectingFromToss); // <-- 결제 대기 상태에서만 확인 배너를 표시합니다.
+  const isCancellingOrder = cancelMutation.isPending; // <-- 주문 취소 요청 중 상단 진행 안내를 표시합니다.
 
   if (isPending) {
     return (
@@ -145,24 +205,45 @@ export function OrderDetailPage() {
   return (
     <div className="flex flex-col gap-4">
       {/* Payment Confirming Progress Banner */}
-      {isProcessingPayment && !isPaid && (
+      {isProcessingPayment && (
         <div className="flex items-center gap-3 rounded-lg border-2 border-brand/40 bg-brand/10 p-4 text-ink shadow-stamp-sm animate-pulse">
           <Loader2 className="h-6 w-6 animate-spin text-brand shrink-0" />
           <div>
-            <h2 className="font-bold text-sm">결제 승인 확인 중...</h2>
-            <p className="text-xs text-mist">토스페이먼츠 결제 승인을 확인하고 있습니다. 잠시만 기다려주세요.</p>
+            <h2 className="font-bold text-sm">결제 여부 확인 중...</h2>
+            <p className="text-xs text-mist">오목눈이가 결제 여부를 확인하고 있습니다. 잠시만 기다려주세요.</p>
+          </div>
+        </div>
+      )}
+
+      {/* 추가 : 주문 취소 처리 중 안내 */}
+      {isCancellingOrder && (
+        <div className="flex items-center gap-3 rounded-lg border-2 border-brand/40 bg-brand/10 p-4 text-ink shadow-stamp-sm animate-pulse">
+          <Loader2 className="h-6 w-6 animate-spin text-brand shrink-0" />
+          <div>
+            <h2 className="font-bold text-sm">주문 취소 처리 중...</h2>
+            <p className="text-xs text-mist">주문 취소와 환불 절차를 확인하고 있습니다. 잠시만 기다려주세요.</p>
+          </div>
+        </div>
+      )}
+
+      {/* 추가 : 주문 취소 상태 안내 */}
+      {effectiveStatus === "CANCELLED" && (
+        <div className="flex items-center gap-3 rounded-lg border-2 border-brand/40 bg-brand/10 p-4 text-ink shadow-stamp-sm"> {/* <-- 결제 확인 배너와 색상을 통일합니다. */}
+          <div>
+            <h2 className="font-bold text-sm">주문이 취소되었습니다.</h2>
+            <p className="text-xs text-mist">결제된 금액은 환불 절차에 따라 처리됩니다.</p>
           </div>
         </div>
       )}
 
       {/* Payment Success Toast Banner (실제 order.status === "PAID"일 때만 표시) */}
-      {isPaid && (
+      {isPaid && !isCancellingOrder && ( // <-- 주문 취소 처리 중에는 완료 배너 대신 진행 안내를 표시합니다.
         <div className="relative flex items-center gap-3 rounded-lg border-2 border-mint bg-mint/15 p-4 text-ink shadow-stamp-sm">
           {showCelebration && <PaymentSuccessMascot />}
           <CheckCircle2 className="h-6 w-6 text-mint shrink-0" />
           <div>
-            <h2 className="font-bold text-sm">🎉 후원이 잘 전달됐어요</h2>
-            <p className="text-xs text-mist">덕분에 이 프로젝트가 한 걸음 자랐어요. 마이페이지 ➔ 주문 내역에서 언제든 확인할 수 있습니다.</p>
+            <h2 className="font-bold text-sm">🎉 후원자님의 후원이 잘 전달됐어요</h2>
+            <p className="text-xs text-mist">후원자님 덕분에 프로젝트가 목표에 한 걸음 다가갔어요. 상세 내용은 마이페이지 ➔ 주문 내역에서 언제든 확인할 수 있습니다.</p>
           </div>
         </div>
       )}
@@ -199,7 +280,7 @@ export function OrderDetailPage() {
           </Badge>
         </div>
 
-        <div className="mb-4 flex flex-col gap-1 rounded-sm bg-surface p-3 text-xs text-mist">
+        <div className="mb-4 flex flex-col gap-1 rounded-sm bg-surface text-sm text-mist">
           <div>받는 분: <strong className="text-ink">{order.receiverName}</strong> ({order.receiverPhone})</div>
           <div>배송지 주소: <strong className="text-ink">[{order.zipCode}] {order.shippingAddress}</strong></div>
         </div>
@@ -207,36 +288,12 @@ export function OrderDetailPage() {
         <h2 className="mb-2 font-display text-base font-bold text-ink">주문한 리워드 항목</h2>
         <ul className="mb-4 flex flex-col gap-2">
           {order.orderItems.map((item) => (
-            <li
+            <OrderDetailRewardItem
               key={item.id}
-              className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-sm border border-ink/20 p-3 bg-surface/50"
-            >
-              <div className="flex flex-col gap-0.5">
-                <span className="font-bold text-ink">
-                  {item.name} <span className="text-mist font-normal">x {item.quantity}개</span>
-                </span>
-                <Link
-                  to={`/projects/${item.projectId}`}
-                  className="text-[11px] font-semibold text-brand hover:underline self-start"
-                >
-                  프로젝트 바로가기 ➔
-                </Link>
-              </div>
-              <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                <span className="tabular-nums font-bold text-ink">{item.subtotal.toLocaleString()}원</span>
-                {effectiveStatus === "PAID" && (
-                  <Button
-                    type="button"
-                    variant="primary"
-                    className="text-xs font-bold py-1 px-2.5 flex items-center gap-1 shadow-none"
-                    onClick={() => handleOpenReview(item.rewardId)}
-                  >
-                    <Star className="h-3.5 w-3.5 fill-current" />
-                    <span>후기 쓰기</span>
-                  </Button>
-                )}
-              </div>
-            </li>
+              item={item}
+              isPaid={isPaid}
+              onOpenReview={handleOpenReview}
+            /> // <-- 리워드 사진을 포함한 주문 항목을 표시합니다.
           ))}
         </ul>
 

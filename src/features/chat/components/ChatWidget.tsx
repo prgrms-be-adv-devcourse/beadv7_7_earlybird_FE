@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { ImageOff, MessageCircle, RotateCcw, SendHorizontal, X } from "lucide-react";
-import { Mascot } from "../../../shared/ui";
-import { useChatIdentitySync, useSendChatMessage, useResetChatSession, useThumbnailSrc } from "../hooks";
-import { useChatStore } from "../store";
-import type { ProjectCard, ToolStartEvent } from "../types";
+import {Fragment, useEffect, useRef, useState} from "react";
+import {Link} from "react-router-dom";
+import {ImageOff, MessageCircle, RotateCcw, SendHorizontal, X} from "lucide-react";
+import {Mascot} from "../../../shared/ui";
+import {useChatIdentitySync, useResetChatSession, useSendChatMessage, useThumbnailSrc} from "../hooks";
+import {useChatStore} from "../store";
+import type {ProjectCard, ToolStartEvent} from "../types";
 
 // 서버 reply에 **굵게**/### 제목/- 목록 같은 마크다운 문법이 섞여 오는데, 이 챗봇 응답 범위가
 // 딱 그 정도라 전체 마크다운 라이브러리 대신 이 부분만 가볍게 줄 단위로 파싱한다.
@@ -230,7 +230,7 @@ function ChatWindow() {
         {messages.length === 0 && (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-mist">
             <Mascot variant="face" className="h-12 w-12" />
-            <p>안녕하세요! 오목눈이예요.{"\n"}프로젝트나 이용 방법이 궁금하면 물어보세요.</p>
+            <p>안녕하세요! 오목눈이예요.<br />프로젝트나 이용 방법이 궁금하면 물어보세요.</p>
           </div>
         )}
         {messages.map((message, index) => {
