@@ -1,15 +1,15 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { Minus, Plus } from "lucide-react";
-import { useCart, useRemoveCartItem, useClearCart, useUpdateCartItems } from "../hooks";
-import { usePlaceOrder } from "../../orders/hooks";
-import { generateUUID } from "../../orders/utils";
-import { Card, Button, Skeleton, Dialog, DialogContent, DialogTitle, DialogDescription } from "../../../shared/ui";
-import { ErrorState } from "../../../shared/ui/ErrorState";
-import { EmptyState } from "../../../shared/ui/EmptyState";
-import type { CartProject, CartReward } from "../types";
-import { useAuthStore } from "../../../shared/auth/authStore";
+import {useEffect, useRef, useState} from "react";
+import {useNavigate} from "react-router-dom";
+import {useQueryClient} from "@tanstack/react-query";
+import {Minus, Plus} from "lucide-react";
+import {useCart, useClearCart, useRemoveCartItem, useUpdateCartItems} from "../hooks";
+import {usePlaceOrder} from "../../orders/hooks";
+import {generateUUID} from "../../orders/utils";
+import {Button, Card, Dialog, DialogContent, DialogDescription, DialogTitle, Skeleton} from "../../../shared/ui";
+import {ErrorState} from "../../../shared/ui/ErrorState";
+import {EmptyState} from "../../../shared/ui/EmptyState";
+import type {CartProject, CartReward} from "../types";
+import {useAuthStore} from "../../../shared/auth/authStore";
 
 
 function CartRewardRow({
@@ -90,6 +90,24 @@ export function CartPage() {
   const [orderError, setOrderError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
+  const [isPostcodeOpen, setIsPostcodeOpen] = useState(false);
+  const postcodeContainerRef = useRef<HTMLDivElement>(null);
+
+  const createPostcode = (options?: { width?: number; height?: number }) =>
+    new window.kakao.Postcode({
+      ...options,
+      oncomplete: (data) => {
+        setZipCode(data.zonecode);
+        setShippingAddress(data.userSelectedType === "R" ? data.roadAddress : data.jibunAddress);
+        setIsPostcodeOpen(false);
+      },
+    });
+
+  useEffect(() => {
+    if (isPostcodeOpen && postcodeContainerRef.current) {
+      createPostcode().embed(postcodeContainerRef.current); // <-- 모바일 모달 내부에 검색 화면 표시
+    }
+  }, [isPostcodeOpen]);
 
   if (isPending) {
     return (
@@ -103,6 +121,27 @@ export function CartPage() {
   }
   if (isError || !cart) return <ErrorState error={{ message: "장바구니를 불러오지 못했습니다.", errors: null }} />;
   if (cart.itemCount === 0 || cart.projects.length === 0) return <EmptyState message="장바구니가 비어있어요." />;
+
+  // 추가 : 카카오 우편번호 검색 결과를 배송지 정보에 반영
+  const handleSearchAddress = () => {
+    if (window.innerWidth < 768) {
+      setIsPostcodeOpen(true); // <-- 모바일에서는 모달 내부에 표시
+      return;
+    }
+
+    const width = 500; // <-- 팝업 크기
+    const height = 600; // <-- 팝업 크기
+    const left = Math.min( // <-- 주문 모달 오른쪽에 표시
+      window.screen.availWidth - width - 20,
+      window.screenX + window.outerWidth / 2 + 240,
+    ) + 20;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+
+    createPostcode({ width, height }).open({
+      left,
+      top,
+    });
+  };
 
   const handlePlaceOrder = () => {
     if (isSubmitting || placeOrderMutation.isPending) return;
@@ -150,6 +189,7 @@ export function CartPage() {
         onSuccess: (createdOrder) => {
           setIsSubmitting(false);
           setIdempotencyKey(null);
+          setIsPostcodeOpen(false);
           setSelectedProject(null);
           queryClient.invalidateQueries({ queryKey: ["cart"] });
           navigate(`/checkout/${createdOrder.id}`);
@@ -170,7 +210,7 @@ export function CartPage() {
         <div>
           <h1 className="font-display text-2xl font-bold text-ink">장바구니</h1>
           <p className="mt-1 text-xs text-mist">
-            💡 크라우드펀딩 특성상 창작자 및 프로젝트 단위로 배송 일정과 혜택이 상이하여 프로젝트별 개별 주문·결제가 진행됩니다.
+            플랫폼 특성상 창작자 및 프로젝트 단위로 배송 일정과 혜택이 상이하여 프로젝트별 개별 주문·결제가 진행됩니다.
           </p>
         </div>
         <Button
@@ -232,6 +272,7 @@ export function CartPage() {
                   setOrderError(null);
                   setIdempotencyKey(null);
                   setIsSubmitting(false);
+                  setIsPostcodeOpen(false);
                 }}
                 className="px-6 py-2.5 text-sm font-bold text-white"
               >
@@ -249,14 +290,21 @@ export function CartPage() {
             setSelectedProject(null);
             setIdempotencyKey(null);
             setIsSubmitting(false);
+            setIsPostcodeOpen(false);
           }
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
           <DialogTitle>주문 / 결제 정보 확인</DialogTitle>
-          <DialogDescription>
-            {selectedProject?.projectName ? `[${selectedProject.projectName}] ` : ""}배송지 정보를 확인하고 주문을 완료하세요.
+
+          <DialogDescription className="mt-1 flex flex-col gap-2">
+            {selectedProject?.projectName && (
+                <span>상품명 : [{selectedProject.projectName}]</span>
+            )}
+
+            <span>배송지 정보를 확인하고 주문을 완료하세요.</span>
           </DialogDescription>
+
 
           <div className="my-4 flex flex-col gap-3 text-sm">
             <div>
@@ -288,13 +336,22 @@ export function CartPage() {
             </div>
             <div>
               <label className="mb-1 block font-semibold text-ink">우편번호</label>
-              <input
-                type="text"
-                value={zipCode}
-                onChange={(e) => setZipCode(e.target.value)}
-                className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink focus:border-brand focus:outline-none"
-              />
+              <div className="flex gap-2"> {/* <-- 우편번호 검색 버튼으로 변경 */}
+                <input
+                  type="text"
+                  value={zipCode}
+                  readOnly
+                  className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-ink"
+                />
+                <Button type="button" variant="secondary" onClick={handleSearchAddress} className="shrink-0 px-3 py-1.5 text-xs">
+                  우편번호 검색
+                </Button>
+              </div>
             </div>
+
+            {isPostcodeOpen && (
+              <div ref={postcodeContainerRef} className="h-[450px] border border-ink/20" />
+            )}
 
             {(() => {
               const modalItems = selectedProject
@@ -341,6 +398,7 @@ export function CartPage() {
                 setSelectedProject(null);
                 setIdempotencyKey(null);
                 setIsSubmitting(false);
+                setIsPostcodeOpen(false);
               }}
             >
               취소
