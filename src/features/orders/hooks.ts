@@ -1,7 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "../../shared/auth/authStore";
-import { fetchOrders, fetchOrder, cancelOrder, placeOrder } from "./api";
-import type { PlaceOrderRequest } from "./types";
+import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
+import {useAuthStore} from "../../shared/auth/authStore";
+import {cancelOrder, fetchOrder, fetchOrders, placeOrder} from "./api";
+import type {PlaceOrderRequest} from "./types";
 
 export function useOrders() {
   const userId = useAuthStore((state) => state.user?.id);
@@ -12,14 +12,14 @@ export function useOrders() {
   });
 }
 
-export function useOrder(id: number) {
+export function useOrder(id: number, poll = true) { // <-- 주문 목록에서는 상세 조회 폴링을 생략합니다.
   return useQuery({
     queryKey: ["orders", "detail", id],
     queryFn: () => fetchOrder(id),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       // 결제 대기 중인 경우 백엔드 Kafka 이벤트(PAID 전환) 완료를 감지하기 위해 1초 주기로 자동 폴링
-      if (status === "PAYMENT_PENDING" || status === "CREATED") {
+      if (poll && (status === "PAYMENT_PENDING" || status === "CREATED")) { // <-- 목록의 모든 주문이 주기적으로 요청되지 않도록 합니다.
         return 1000;
       }
       return false;
@@ -55,4 +55,3 @@ export function usePlaceOrder() {
     },
   });
 }
-
