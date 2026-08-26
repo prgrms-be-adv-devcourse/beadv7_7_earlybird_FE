@@ -75,14 +75,32 @@ export function OrderDetailPage() {
             },
             onError: async (err: any) => {
               console.error("Payment confirm error:", err);
-              const serverMsg =
+              const rawMsg =
                   err?.response?.data?.error?.message ||
                   err?.response?.data?.message ||
                   err?.message ||
-                  "결제 승인 처리 중 오류가 발생했습니다.";
-              setConfirmError(serverMsg);
-              await queryClient.invalidateQueries({queryKey: ["orders", "detail", orderId]});
-              await queryClient.invalidateQueries({queryKey: ["orders"]});
+                  "";
+
+              // 이미 승인된 결제는 실패가 아니라 결제 완료 상태이므로 성공으로 수렴 처리
+              if (rawMsg.includes("이미 승인된 결제") || rawMsg.includes("ALREADY_APPROVED")) {
+                setConfirmError(null);
+                await queryClient.invalidateQueries({ queryKey: ["orders", "detail", orderId] });
+                await queryClient.invalidateQueries({ queryKey: ["orders"] });
+                const updated = await refetchOrder();
+                if (updated.data?.status === "PAID" && !hasCelebratedRef.current) {
+                  hasCelebratedRef.current = true;
+                  setShowCelebration(true);
+                }
+                return;
+              }
+
+              const cleanMsg =
+                rawMsg.replace(/\s*\(?pgOrderId\s*=\s*[a-zA-Z0-9_-]+\)?/gi, "").trim() ||
+                "결제 승인 처리 중 오류가 발생했습니다.";
+
+              setConfirmError(cleanMsg);
+              await queryClient.invalidateQueries({ queryKey: ["orders", "detail", orderId] });
+              await queryClient.invalidateQueries({ queryKey: ["orders"] });
               await refetchOrder();
             },
           }
@@ -93,15 +111,19 @@ export function OrderDetailPage() {
   // 결제 완료(PAID) 전이를 직접 감지해서 마스코트를 띄운다 — confirmPayment 응답보다 백엔드
   // Kafka 이벤트+useOrder의 1초 폴링이 먼저 PAID를 반영해버리는 경우가 있어서(레이스 컨디션),
   // "성공 콜백에서만 트리거"하면 그 케이스에서 못 뜨는 문제가 있었다. 이 세션에서 이미 PAID가
-  // 아니었던 상태에서 PAID로 바뀌는 순간만 잡으므로, 이미 결제된 주문을 나중에 다시 봐도 재생 안 됨.
+  // 아니었던 상태에서 PAID로 바뀌는 순간이거나 토스 리다이렉트로 진입해 PAID가 확인된 경우만 잡으므로,
+  // 이미 결제된 주문을 나중에 다시 봐도 재생 안 됨.
   useEffect(() => {
     const previousStatus = previousStatusRef.current;
-    if (order?.status === "PAID" && previousStatus !== undefined && previousStatus !== "PAID" && !hasCelebratedRef.current) {
+    const transitionedToPaid = order?.status === "PAID" && previousStatus !== undefined && previousStatus !== "PAID";
+    const justReturnedFromTossPaid = order?.status === "PAID" && isRedirectingFromToss;
+
+    if ((transitionedToPaid || justReturnedFromTossPaid) && !hasCelebratedRef.current) {
       hasCelebratedRef.current = true;
       setShowCelebration(true);
     }
     previousStatusRef.current = order?.status;
-  }, [order?.status]);
+  }, [order?.status, isRedirectingFromToss]);
 
   // Source of Truth: 서버에서 반환된 실제 order.status만 유일한 기준으로 사용!
   const isPaid = order?.status === "PAID";

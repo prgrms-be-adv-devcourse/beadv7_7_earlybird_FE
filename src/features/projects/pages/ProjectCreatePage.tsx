@@ -1,12 +1,16 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCreateProject, useCreateReward, useUpdateProject } from "../hooks";
+import { useCreateProject, useCreateReward, useDeleteReward, useUpdateProject } from "../hooks";
 import { useCategories } from "../../admin/hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
 import { useUploadFile } from "../../files/hooks";
+import { ACCEPTED_IMAGE_TYPES, IMAGE_FORMAT_GUIDE } from "../../files/types";
 import { Button, Card, ErrorState } from "../../../shared/ui";
 import type { CreateRewardRequest } from "../types";
 import { flattenCategories } from "../utils";
+import { generateUUID } from "../../orders/utils";
+
+type RewardFormItem = Omit<CreateRewardRequest, "idempotencyKey">;
 
 export function ProjectCreatePage() {
   const navigate = useNavigate();
@@ -15,6 +19,7 @@ export function ProjectCreatePage() {
 
   const createProjectMutation = useCreateProject();
   const createRewardMutation = useCreateReward();
+  const deleteRewardMutation = useDeleteReward();
   const updateProjectMutation = useUpdateProject();
   const uploadFileMutation = useUploadFile();
 
@@ -32,7 +37,7 @@ export function ProjectCreatePage() {
   const [endAt, setEndAt] = useState(thirtyDaysLater);
 
   // Rewards list state
-  const [rewards, setRewards] = useState<CreateRewardRequest[]>([
+  const [rewards, setRewards] = useState<RewardFormItem[]>([
     { name: "[얼리버드] 기본 팩", description: "선착순 한정 혜택", price: 30000, totalQuantity: 100 },
   ]);
 
@@ -53,8 +58,16 @@ export function ProjectCreatePage() {
   const [rewardFiles, setRewardFiles] = useState<(File | null)[]>([null]);
   const [rewardPreviews, setRewardPreviews] = useState<(string | null)[]>([null]);
 
+  const [createdProjectId, setCreatedProjectId] = useState<number | null>(null);
+  const [createdRewardIds, setCreatedRewardIds] = useState<(number | null)[]>([null]);
+  const [imageUploadFailed, setImageUploadFailed] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // 재시도 시 동일한 키를 재전송해 프로젝트/리워드 중복 생성을 막기 위한 멱등키 (BE @NotNull)
+  const projectIdempotencyKeyRef = useRef<string | null>(null);
+  const rewardIdempotencyKeysRef = useRef<(string | null)[]>([]);
 
   const flatCategoryOptions = useMemo(
     () => flattenCategories(categories ?? []),
@@ -68,16 +81,29 @@ export function ProjectCreatePage() {
     ]);
     setRewardFiles((prev) => [...prev, null]);
     setRewardPreviews((prev) => [...prev, null]);
+    setCreatedRewardIds((prev) => [...prev, null]);
   };
 
-  const handleRemoveReward = (index: number) => {
+  const handleRemoveReward = async (index: number) => {
     if (rewards.length <= 1) return;
+    const rewardId = createdRewardIds[index];
+    if (rewardId) {
+      if (!window.confirm("이미 서버에 등록된 리워드입니다. 삭제하시겠습니까?")) return;
+      try {
+        await deleteRewardMutation.mutateAsync(rewardId);
+      } catch (err: any) {
+        setErrorMsg(err.response?.data?.error?.message || err.message || "리워드 삭제에 실패했습니다.");
+        return;
+      }
+    }
     setRewards((prev) => prev.filter((_, i) => i !== index));
     setRewardFiles((prev) => prev.filter((_, i) => i !== index));
     setRewardPreviews((prev) => prev.filter((_, i) => i !== index));
+    setCreatedRewardIds((prev) => prev.filter((_, i) => i !== index));
+    rewardIdempotencyKeysRef.current = rewardIdempotencyKeysRef.current.filter((_, i) => i !== index);
   };
 
-  const handleRewardChange = (index: number, field: keyof CreateRewardRequest, value: any) => {
+  const handleRewardChange = (index: number, field: keyof RewardFormItem, value: any) => {
     setRewards((prev) =>
       prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
     );
@@ -92,39 +118,73 @@ export function ProjectCreatePage() {
       return;
     }
 
-    if (!title.trim()) {
-      setErrorMsg("프로젝트 제목을 입력해주세요.");
+    if (rewards.length === 0) {
+      setErrorMsg("최소 1개 이상의 리워드를 입력해야 합니다.");
       return;
     }
-    if (goalAmount <= 0) {
-      setErrorMsg("목표 금액은 0원보다 커야 합니다.");
+
+    // 미등록 리워드들에 대한 필수값(이름, 가격) 유효성 검증 (재시도 경로에서도 항상 실행)
+    const hasInvalidUncreatedReward = rewards.some((r, i) => {
+      const isCreated = createdRewardIds[i] != null;
+      if (isCreated) return false;
+      return !r.name.trim() || Number(r.price) < 1000;
+    });
+    if (hasInvalidUncreatedReward) {
+      setErrorMsg("등록되지 않은 리워드의 이름과 가격(1,000원 이상)은 필수입니다.");
       return;
     }
-    if (rewards.length === 0 || rewards.some((r) => !r.name.trim() || r.price <= 0)) {
-      setErrorMsg("최소 1개 이상의 리워드를 입력해야 하며, 이름과 가격은 필수입니다.");
-      return;
+
+    if (!createdProjectId) {
+      if (!title.trim()) {
+        setErrorMsg("프로젝트 제목을 입력해주세요.");
+        return;
+      }
+      if (goalAmount <= 0) {
+        setErrorMsg("목표 금액은 0원보다 커야 합니다.");
+        return;
+      }
+
+      if (
+        !window.confirm(
+          "프로젝트 심사를 신청하시겠습니까?\n\n심사 제출 후에는 프로젝트 제목, 목표 금액 등 주요 정보 수정에 제한이 있을 수 있습니다."
+        )
+      ) {
+        return;
+      }
     }
 
     setIsSubmitting(true);
+    let projectId = createdProjectId;
+    const rewardIds = [...createdRewardIds];
+
     try {
-      // 1. Create project
-      const createdProject = await createProjectMutation.mutateAsync({
-        title,
-        categoryId,
-        summary,
-        description,
-        goalAmount,
-        // 백엔드 startAt은 LocalDateTime(zone 없음) — toISOString()의 trailing "Z"를 붙이면 파싱
-        // 에러가 난다. datetime-local 입력값(yyyy-MM-ddTHH:mm)에 초만 붙여서 그대로 보낸다.
-        startAt: `${startAt}:00`,
-        endAt,
-      });
+      // 1. Create project (if not already created)
+      if (!projectId) {
+        if (!projectIdempotencyKeyRef.current) {
+          projectIdempotencyKeyRef.current = generateUUID();
+        }
+        const createdProject = await createProjectMutation.mutateAsync({
+          title,
+          categoryId,
+          summary,
+          description,
+          goalAmount,
+          // 백엔드 startAt은 LocalDateTime(zone 없음) — toISOString()의 trailing "Z"를 붙이면 파싱
+          // 에러가 난다. datetime-local 입력값(yyyy-MM-ddTHH:mm)에 초만 붙여서 그대로 보낸다.
+          startAt: `${startAt}:00`,
+          endAt,
+          idempotencyKey: projectIdempotencyKeyRef.current,
+        });
+        projectId = createdProject.projectId;
+        setCreatedProjectId(projectId);
+      }
 
-      const projectId = createdProject.projectId;
-
-      // 2. Create rewards for project and upload reward photos (독립적인 리워드들이므로 병렬 실행)
-      await Promise.all(
-        rewards.map(async (reward, i) => {
+      // 2. Create rewards for project (if not already created)
+      for (let i = 0; i < rewards.length; i++) {
+        if (!rewardIds[i]) {
+          const rewardIdempotencyKey = rewardIdempotencyKeysRef.current[i] ?? generateUUID();
+          rewardIdempotencyKeysRef.current[i] = rewardIdempotencyKey;
+          const reward = rewards[i];
           const createdReward = await createRewardMutation.mutateAsync({
             projectId,
             data: {
@@ -132,21 +192,38 @@ export function ProjectCreatePage() {
               description: reward.description,
               price: Number(reward.price),
               totalQuantity: reward.totalQuantity ? Number(reward.totalQuantity) : null,
+              idempotencyKey: rewardIdempotencyKey,
             },
           });
-          const rewardImg = rewardFiles[i];
-          if (rewardImg && createdReward?.rewardId) {
-            await uploadFileMutation.mutateAsync({
-              file: rewardImg,
-              ownerType: "REWARD",
-              ownerId: createdReward.rewardId,
-            });
-          }
-        })
-      );
+          rewardIds[i] = createdReward.rewardId;
+          setCreatedRewardIds([...rewardIds]);
+        }
+      }
+    } catch (err: any) {
+      console.error("Project / Reward creation error:", err);
+      const msg = err.response?.data?.error?.message || err.message || "프로젝트 생성에 실패했습니다.";
+      setErrorMsg(msg);
+      setIsSubmitting(false);
+      return;
+    }
 
-      // 3. Thumbnail upload (선택) — 이제 projectId가 있으니 파일을 올리고 프로젝트에 붙인다.
-      if (thumbnailFile) {
+    // 3. Upload images (reward photos and project thumbnail)
+    try {
+      for (let i = 0; i < rewards.length; i++) {
+        const rewardImg = rewardFiles[i];
+        const rewardId = rewardIds[i];
+        if (rewardImg && rewardId) {
+          await uploadFileMutation.mutateAsync({
+            file: rewardImg,
+            ownerType: "REWARD",
+            ownerId: rewardId,
+          });
+          // 업로드 완료된 파일은 비워서 재시도 시 중복 업로드 방지
+          setRewardFiles((prev) => prev.map((f, idx) => (idx === i ? null : f)));
+        }
+      }
+
+      if (thumbnailFile && projectId) {
         const uploaded = await uploadFileMutation.mutateAsync({
           file: thumbnailFile,
           ownerType: "PROJECT",
@@ -156,14 +233,16 @@ export function ProjectCreatePage() {
           projectId,
           data: { thumbnailId: uploaded.id },
         });
+        setThumbnailFile(null);
       }
 
-      // 4. Navigate to creator's project management page where PENDING_REVIEW projects are cleanly displayed
+      setImageUploadFailed(false);
       navigate("/projects/me");
     } catch (err: any) {
-      console.error("Project creation error:", err);
-      const msg = err.response?.data?.error?.message || err.message || "프로젝트 생성에 실패했습니다.";
-      setErrorMsg(msg);
+      console.error("Image upload error after project creation:", err);
+      setImageUploadFailed(true);
+      const msg = err.response?.data?.error?.message || err.message || "이미지 업로드에 실패했습니다.";
+      setErrorMsg(`프로젝트는 정상적으로 생성되었으나 이미지 업로드에 실패했습니다 (${msg}). '내 프로젝트 관리' 화면에서 이미지를 다시 등록하시거나 아래 재시도 버튼을 눌러주세요.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -194,6 +273,15 @@ export function ProjectCreatePage() {
         </div>
       </div>
 
+      {createdProjectId && (
+        <div className="rounded-md border border-brand/30 bg-brand/5 p-4 text-sm text-ink">
+          <p className="font-bold text-brand">✅ 프로젝트 기본 정보와 리워드가 DB에 등록되었습니다 (ID: #{createdProjectId})</p>
+          <p className="text-xs text-mist mt-1">
+            프로젝트는 이미 생성되어 중복 등록되지 않습니다. 이미지 업로드를 완료하시거나 '내 프로젝트 관리'에서 확인하실 수 있습니다.
+          </p>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {/* Section 1: Basic Info */}
         <Card className="flex flex-col gap-4">
@@ -206,19 +294,21 @@ export function ProjectCreatePage() {
             <input
               type="text"
               required
+              disabled={createdProjectId !== null}
               placeholder="예: 고양이 자동 급식기 v2"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink focus:border-brand focus:outline-none"
+              className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none"
             />
           </div>
 
           <div>
             <label className="mb-1 block text-sm font-semibold text-ink">카테고리 *</label>
             <select
+              disabled={createdProjectId !== null}
               value={categoryId}
               onChange={(e) => setCategoryId(Number(e.target.value))}
-              className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink focus:border-brand focus:outline-none bg-surface"
+              className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none bg-surface"
             >
               {flatCategoryOptions.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -232,10 +322,11 @@ export function ProjectCreatePage() {
             <label className="mb-1 block text-sm font-semibold text-ink">한 줄 요약</label>
             <input
               type="text"
+              disabled={createdProjectId !== null}
               placeholder="프로젝트를 한 문장으로 소개해 주세요"
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
-              className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink focus:border-brand focus:outline-none"
+              className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none"
             />
           </div>
 
@@ -243,10 +334,11 @@ export function ProjectCreatePage() {
             <label className="mb-1 block text-sm font-semibold text-ink">상세 설명</label>
             <textarea
               rows={5}
+              disabled={createdProjectId !== null}
               placeholder="프로젝트의 특징, 개발 스토리, 리워드 상세 구성을 적어주세요."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink focus:border-brand focus:outline-none"
+              className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none"
             />
           </div>
 
@@ -263,10 +355,13 @@ export function ProjectCreatePage() {
             )}
             <input
               type="file"
-              accept="image/*"
+              accept={ACCEPTED_IMAGE_TYPES}
               onChange={handleThumbnailChange}
               className="w-full text-sm text-ink file:mr-3 file:rounded-sm file:border file:border-ink/30 file:bg-paper file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink"
             />
+            <p className="mt-1 text-xs text-mist">
+              * 지원 형식: {IMAGE_FORMAT_GUIDE} (권장 크기: 1200x800px 이상)
+            </p>
           </div>
         </Card>
 
@@ -281,11 +376,12 @@ export function ProjectCreatePage() {
             <input
               type="number"
               required
+              disabled={createdProjectId !== null}
               min={10000}
               step={10000}
               value={goalAmount || ""}
               onChange={(e) => setGoalAmount(Number(e.target.value))}
-              className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink focus:border-brand focus:outline-none tabular-nums"
+              className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none tabular-nums"
             />
           </div>
 
@@ -295,9 +391,10 @@ export function ProjectCreatePage() {
               <input
                 type="datetime-local"
                 required
+                disabled={createdProjectId !== null}
                 value={startAt}
                 onChange={(e) => setStartAt(e.target.value)}
-                className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink focus:border-brand focus:outline-none"
+                className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none"
               />
             </div>
             <div>
@@ -305,9 +402,10 @@ export function ProjectCreatePage() {
               <input
                 type="date"
                 required
+                disabled={createdProjectId !== null}
                 value={endAt}
                 onChange={(e) => setEndAt(e.target.value)}
-                className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink focus:border-brand focus:outline-none"
+                className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none"
               />
             </div>
           </div>
@@ -324,15 +422,21 @@ export function ProjectCreatePage() {
             </Button>
           </div>
 
-          {rewards.map((reward, index) => (
+          {rewards.map((reward, index) => {
+            const isRewardCreated = createdRewardIds[index] != null;
+            return (
             <div key={index} className="flex flex-col gap-3 rounded-sm border border-ink/20 p-4 bg-paper/50">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-sm text-ink">리워드 #{index + 1}</span>
+                <span className="font-bold text-sm text-ink">
+                  리워드 #{index + 1}
+                  {isRewardCreated && <span className="ml-2 text-[11px] font-normal text-brand">✅ 등록됨</span>}
+                </span>
                 {rewards.length > 1 && (
                   <button
                     type="button"
                     onClick={() => handleRemoveReward(index)}
-                    className="text-xs text-red-500 hover:underline"
+                    disabled={deleteRewardMutation.isPending}
+                    className="text-xs text-red-500 hover:underline disabled:opacity-50"
                   >
                     삭제
                   </button>
@@ -345,10 +449,11 @@ export function ProjectCreatePage() {
                   <input
                     type="text"
                     required
+                    disabled={isRewardCreated}
                     placeholder="예: [얼리버드] 급식기 1대"
                     value={reward.name}
                     onChange={(e) => handleRewardChange(index, "name", e.target.value)}
-                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink focus:border-brand focus:outline-none"
+                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none"
                   />
                 </div>
                 <div>
@@ -357,9 +462,10 @@ export function ProjectCreatePage() {
                     type="number"
                     required
                     min={1000}
+                    disabled={isRewardCreated}
                     value={reward.price || ""}
                     onChange={(e) => handleRewardChange(index, "price", Number(e.target.value))}
-                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink focus:border-brand focus:outline-none tabular-nums"
+                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none tabular-nums"
                   />
                 </div>
               </div>
@@ -369,16 +475,18 @@ export function ProjectCreatePage() {
                   <label className="mb-1 block text-xs font-semibold text-ink">설명</label>
                   <input
                     type="text"
+                    disabled={isRewardCreated}
                     placeholder="리워드 구성품 상세 설명"
                     value={reward.description}
                     onChange={(e) => handleRewardChange(index, "description", e.target.value)}
-                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink focus:border-brand focus:outline-none"
+                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none"
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-ink">한정 수량 (선택)</label>
                   <input
                     type="number"
+                    disabled={isRewardCreated}
                     placeholder="비워두면 무제한"
                     value={reward.totalQuantity ?? ""}
                     onChange={(e) =>
@@ -388,7 +496,7 @@ export function ProjectCreatePage() {
                         e.target.value ? Number(e.target.value) : null
                       )
                     }
-                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink focus:border-brand focus:outline-none tabular-nums"
+                    className="w-full rounded-sm border border-ink/30 px-3 py-1.5 text-sm text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none tabular-nums"
                   />
                 </div>
               </div>
@@ -406,7 +514,7 @@ export function ProjectCreatePage() {
                 )}
                 <input
                   type="file"
-                  accept="image/*"
+                  accept={ACCEPTED_IMAGE_TYPES}
                   onChange={(e) => {
                     const file = e.target.files?.[0] ?? null;
                     setRewardFiles((prev) => prev.map((f, i) => (i === index ? file : f)));
@@ -416,20 +524,41 @@ export function ProjectCreatePage() {
                   }}
                   className="w-full text-xs text-ink file:mr-3 file:rounded file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink hover:file:bg-paper/80"
                 />
+                <p className="mt-1 text-[11px] text-mist">
+                  * 지원 형식: {IMAGE_FORMAT_GUIDE}
+                </p>
               </div>
             </div>
-          ))}
+            );
+          })}
         </Card>
 
         {errorMsg && <ErrorState error={{ message: errorMsg, errors: null }} />}
 
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="secondary" onClick={() => navigate(-1)}>
-            취소
-          </Button>
-          <Button type="submit" disabled={isSubmitting} className="py-3 px-8 text-base font-bold text-white">
-            {isSubmitting ? "프로젝트 오픈 중..." : "🚀 프로젝트 오픈하기"}
-          </Button>
+        <div className="flex flex-col sm:flex-row justify-end gap-3">
+          {imageUploadFailed && createdProjectId ? (
+            <>
+              <Button type="button" variant="secondary" onClick={() => navigate("/projects/me")}>
+                내 프로젝트 관리로 이동
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="py-3 px-8 text-base font-bold text-white bg-amber-600 hover:bg-amber-700"
+              >
+                {isSubmitting ? "이미지 업로드 중..." : "🔄 이미지 업로드 재시도"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button type="button" variant="secondary" onClick={() => navigate(-1)}>
+                취소
+              </Button>
+              <Button type="submit" disabled={isSubmitting} className="py-3 px-8 text-base font-bold text-white">
+                {isSubmitting ? "프로젝트 오픈 중..." : "🚀 프로젝트 오픈하기"}
+              </Button>
+            </>
+          )}
         </div>
       </form>
     </div>

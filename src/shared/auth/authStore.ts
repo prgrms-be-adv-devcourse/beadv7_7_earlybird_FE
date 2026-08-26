@@ -36,7 +36,14 @@ export const useAuthStore = create<AuthState>()(
         set((state) => ({
           user: state.user ? { ...state.user, role } : null,
         })),
-      logout: () => set({ accessToken: null, refreshToken: null, user: null }),
+      logout: () => {
+        set({ accessToken: null, refreshToken: null, user: null });
+        try {
+          localStorage.removeItem("earlybird-auth");
+        } catch {
+          // ignore
+        }
+      },
     }),
     { name: "earlybird-auth" },
   ),

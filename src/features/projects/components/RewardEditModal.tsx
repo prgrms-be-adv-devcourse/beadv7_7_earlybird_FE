@@ -10,6 +10,7 @@ import {
 } from "../../../shared/ui";
 import { useUpdateReward, useDeleteReward } from "../hooks";
 import { useFilesByOwner, useUploadFile } from "../../files/hooks";
+import { ACCEPTED_IMAGE_TYPES, IMAGE_FORMAT_GUIDE } from "../../files/types";
 import type { Reward } from "../types";
 
 export function RewardEditModal({
@@ -193,7 +194,7 @@ export function RewardEditModal({
             )}
             <input
               type="file"
-              accept="image/*"
+              accept={ACCEPTED_IMAGE_TYPES}
               onChange={(e) => {
                 const file = e.target.files?.[0] ?? null;
                 setNewImageFile(file);
@@ -204,6 +205,9 @@ export function RewardEditModal({
               }}
               className="w-full text-xs text-ink file:mr-3 file:rounded file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink hover:file:bg-paper/80"
             />
+            <p className="mt-1 text-[11px] text-mist">
+              * 지원 형식: {IMAGE_FORMAT_GUIDE}
+            </p>
           </div>
 
           {errorMsg && <ErrorState error={{ message: errorMsg, errors: null }} />}

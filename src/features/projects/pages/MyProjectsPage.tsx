@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../../shared/api/client";
@@ -8,9 +8,11 @@ import type { ProjectSummary, Reward } from "../types";
 import { fetchMyProjects } from "../api";
 import { useCreateReward, useDeleteProject, useRewards } from "../hooks";
 import { formatDateKorean } from "../utils";
+import { generateUUID } from "../../orders/utils";
 import { ProjectEditModal } from "../components/ProjectEditModal";
 import { RewardEditModal } from "../components/RewardEditModal";
 import { useFilesByOwner, useUploadFile } from "../../files/hooks";
+import { ACCEPTED_IMAGE_TYPES, IMAGE_FORMAT_GUIDE } from "../../files/types";
 import {
   Button,
   Card,
@@ -102,6 +104,17 @@ function MyProjectCard({ project }: { project: ProjectSummary }) {
               <span className="font-bold text-ink">{formatDateKorean(project.endAt)}</span>
             </div>
           </div>
+
+          {project.status === "REJECTED" && (
+            <div className="rounded-sm border-2 border-red-300 bg-red-50 p-3 text-xs text-red-800 flex flex-col gap-1">
+              <div className="flex items-center gap-1 font-bold text-red-900">
+                <span>❌ 심사 반려 사유</span>
+              </div>
+              <p className="text-red-950 font-medium whitespace-pre-line">
+                {project.rejectReason || "관리자에 의해 심사가 반려되었습니다. 프로젝트 정보를 수정한 후 다시 등록해주세요."}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -155,7 +168,15 @@ function MyProjectCard({ project }: { project: ProjectSummary }) {
             variant="secondary"
             className="py-1 px-3 text-xs border-red-300 text-red-600 hover:bg-red-50"
             disabled={deleteProjectMutation.isPending}
-            onClick={() => deleteProjectMutation.mutate(project.projectId)}
+            onClick={() => {
+              if (
+                window.confirm(
+                  "정말 이 프로젝트를 삭제하시겠습니까?\n\n삭제된 프로젝트는 복구할 수 없습니다."
+                )
+              ) {
+                deleteProjectMutation.mutate(project.projectId);
+              }
+            }}
           >
             삭제
           </Button>
@@ -166,7 +187,15 @@ function MyProjectCard({ project }: { project: ProjectSummary }) {
             variant="secondary"
             className="py-1 px-3 text-xs border-red-300 text-red-600 hover:bg-red-50"
             disabled={cancelMutation.isPending}
-            onClick={() => cancelMutation.mutate(project.projectId)}
+            onClick={() => {
+              if (
+                window.confirm(
+                  "정말 펀딩을 자진 취소하시겠습니까?\n\n진행 중인 후원 내역이 모두 취소 및 환불 처리됩니다."
+                )
+              ) {
+                cancelMutation.mutate(project.projectId);
+              }
+            }}
           >
             자진 취소
           </Button>
@@ -215,6 +244,7 @@ export function MyProjectsPage() {
   const [rewardImagePreview, setRewardImagePreview] = useState<string | null>(null);
   const [rewardError, setRewardError] = useState<string | null>(null);
   const [isAddingReward, setIsAddingReward] = useState(false);
+  const rewardIdempotencyKeyRef = useRef<string | null>(null);
 
   const handleAddReward = async () => {
     if (!targetProjectId) return;
@@ -231,6 +261,8 @@ export function MyProjectsPage() {
 
     setIsAddingReward(true);
     try {
+      const idempotencyKey = rewardIdempotencyKeyRef.current ?? generateUUID();
+      rewardIdempotencyKeyRef.current = idempotencyKey;
       const created = await createRewardMutation.mutateAsync({
         projectId: targetProjectId,
         data: {
@@ -238,6 +270,7 @@ export function MyProjectsPage() {
           price: rewardPrice,
           description: rewardDesc,
           totalQuantity: rewardQty,
+          idempotencyKey,
         },
       });
 
@@ -250,6 +283,7 @@ export function MyProjectsPage() {
         queryClient.invalidateQueries({ queryKey: ["files", "REWARD", created.rewardId] });
       }
 
+      rewardIdempotencyKeyRef.current = null;
       setTargetProjectId(null);
       setRewardName("");
       setRewardPrice(10000);
@@ -304,7 +338,15 @@ export function MyProjectsPage() {
       )}
 
       {/* Add Reward Dialog */}
-      <Dialog open={!!targetProjectId} onOpenChange={(open) => !open && setTargetProjectId(null)}>
+      <Dialog
+        open={!!targetProjectId}
+        onOpenChange={(open) => {
+          if (!open) {
+            rewardIdempotencyKeyRef.current = null;
+            setTargetProjectId(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogTitle>리워드 추가</DialogTitle>
           <DialogDescription>프로젝트 #{targetProjectId}에 새로운 후원 리워드를 추가합니다.</DialogDescription>
@@ -364,7 +406,7 @@ export function MyProjectsPage() {
               )}
               <input
                 type="file"
-                accept="image/*"
+                accept={ACCEPTED_IMAGE_TYPES}
                 onChange={(e) => {
                   const file = e.target.files?.[0] ?? null;
                   setRewardImageFile(file);
@@ -374,13 +416,22 @@ export function MyProjectsPage() {
                 }}
                 className="w-full text-xs text-ink file:mr-3 file:rounded file:border file:border-ink/30 file:bg-paper file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-ink hover:file:bg-paper/80"
               />
+              <p className="mt-1 text-[11px] text-mist">
+                * 지원 형식: {IMAGE_FORMAT_GUIDE}
+              </p>
             </div>
 
             {rewardError && <ErrorState error={{ message: rewardError, errors: null }} />}
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setTargetProjectId(null)}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                rewardIdempotencyKeyRef.current = null;
+                setTargetProjectId(null);
+              }}
+            >
               취소
             </Button>
             <Button onClick={handleAddReward} disabled={isAddingReward || createRewardMutation.isPending || uploadFileMutation.isPending}>

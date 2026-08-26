@@ -55,6 +55,7 @@ export interface CreateProjectRequest {
   startAt: string;
   endAt: string;
   thumbnailId?: number | null;
+  idempotencyKey: string;
 }
 
 export interface CreateRewardRequest {
@@ -62,4 +63,5 @@ export interface CreateRewardRequest {
   description: string;
   price: number;
   totalQuantity?: number | null;
+  idempotencyKey: string;
 }

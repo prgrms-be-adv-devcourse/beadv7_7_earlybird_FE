@@ -6,6 +6,7 @@ import {
   daysLeft,
   fundedPercent,
   getStatusLabel,
+  maxExtendedEndAt,
 } from "./utils";
 import type { ProjectCategory } from "../admin/types";
 
@@ -69,5 +70,12 @@ describe("projects utils", () => {
     expect(fundedPercent(10000, 0)).toBe(0);
     expect(daysLeft(new Date(Date.now() + 86400000 * 2).toISOString())).toBeGreaterThanOrEqual(1);
     expect(getStatusLabel("IN_PROGRESS")).toBe("🔥 펀딩 진행 중");
+  });
+
+  it("maxExtendedEndAt은 UTC 변환 없이 로컬 캘린더 날짜로 +3개월을 계산한다 (자정~9시 시작 프로젝트도 하루 밀리지 않음)", () => {
+    // KST 05:00 시작 — toISOString() 기반 계산이면 UTC 날짜가 하루 전으로 밀려 "2026-11-23"이 나옴
+    expect(maxExtendedEndAt("2026-08-24T05:00:00")).toBe("2026-11-24");
+    expect(maxExtendedEndAt("2026-08-24T14:00:00")).toBe("2026-11-24");
+    expect(maxExtendedEndAt("2026-01-31T05:00:00")).toBe("2026-05-01"); // Date.setMonth 롤오버
   });
 });

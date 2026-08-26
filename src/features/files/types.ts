@@ -35,3 +35,8 @@ export interface FileRecord {
   fileSize: number;
   sortOrder: number;
 }
+
+export const ACCEPTED_IMAGE_TYPES =
+  "image/png, image/jpeg, image/jpg, image/webp, image/gif, image/avif, image/bmp, image/heic, image/heif, .heic, .heif, .avif, .bmp";
+
+export const IMAGE_FORMAT_GUIDE = "JPG, JPEG, PNG, WEBP, GIF, HEIC, AVIF, BMP";

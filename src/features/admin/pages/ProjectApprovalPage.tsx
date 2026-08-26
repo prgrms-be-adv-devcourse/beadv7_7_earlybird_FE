@@ -21,7 +21,7 @@ import {
   useTriggerCloseExpired,
   useReindexProjects,
 } from "../hooks";
-import { formatDateKorean, getStatusLabel, getCreatorDisplayName } from "../../projects/utils";
+import { formatDateKorean, getStatusLabel, getCreatorDisplayName, maxExtendedEndAt } from "../../projects/utils";
 
 function RejectButton({ projectId }: { projectId: number }) {
   const [open, setOpen] = useState(false);
@@ -65,20 +65,51 @@ function RejectButton({ projectId }: { projectId: number }) {
   );
 }
 
-function ExtendDeadlineButton({ projectId, currentEndAt }: { projectId: number; currentEndAt: string }) {
+function ExtendDeadlineButton({
+  projectId,
+  currentEndAt,
+  startAt,
+}: {
+  projectId: number;
+  currentEndAt: string;
+  startAt?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [newEndAt, setNewEndAt] = useState(currentEndAt || "2026-12-31");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const extendMutation = useExtendProjectDeadline();
 
+  const maxEndAt = startAt ? maxExtendedEndAt(startAt) : undefined;
+
   function handleExtend() {
+    setErrorMsg(null);
+    if (maxEndAt && newEndAt > maxEndAt) {
+      setErrorMsg(`마감일은 시작일 기준 최대 3개월(${maxEndAt})을 초과할 수 없습니다.`);
+      return;
+    }
     extendMutation.mutate(
       { id: projectId, endAt: newEndAt },
-      { onSuccess: () => setOpen(false) }
+      {
+        onSuccess: () => {
+          setOpen(false);
+          setErrorMsg(null);
+        },
+        onError: (err: any) => {
+          const msg = err.response?.data?.error?.message || err.message || "마감일 연장에 실패했습니다.";
+          setErrorMsg(msg);
+        },
+      }
     );
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) setErrorMsg(null);
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="secondary" className="text-xs">
           마감 연장
@@ -86,13 +117,23 @@ function ExtendDeadlineButton({ projectId, currentEndAt }: { projectId: number; 
       </DialogTrigger>
       <DialogContent>
         <DialogTitle>프로젝트 마감일 연장</DialogTitle>
-        <DialogDescription>새로운 마감 날짜를 지정해 주세요.</DialogDescription>
+        <DialogDescription>
+          새로운 마감 날짜를 지정해 주세요. (프로젝트 시작일로부터 최대 3개월까지 가능)
+        </DialogDescription>
         <input
           type="date"
           value={newEndAt}
+          max={maxEndAt}
           onChange={(e) => setNewEndAt(e.target.value)}
           className="mt-3 w-full rounded-sm border border-ink/30 px-3 py-2 text-ink"
         />
+
+        {errorMsg && (
+          <div className="mt-3 rounded-sm border-2 border-red-300 bg-red-50 p-2.5 text-xs font-bold text-red-800">
+            {errorMsg}
+          </div>
+        )}
+
         <div className="mt-4 flex justify-end gap-2">
           <DialogClose asChild>
             <Button variant="secondary">취소</Button>
@@ -202,7 +243,11 @@ export function ProjectApprovalPage() {
                 >
                   상세보기 🔍
                 </Link>
-                <ExtendDeadlineButton projectId={project.projectId} currentEndAt={project.endAt} />
+                <ExtendDeadlineButton
+                  projectId={project.projectId}
+                  currentEndAt={project.endAt}
+                  startAt={project.startAt}
+                />
                 <Button onClick={() => approveMutation.mutate(project.projectId)}>승인</Button>
                 <RejectButton projectId={project.projectId} />
               </div>
