@@ -86,6 +86,20 @@ export function HomePage() {
     }
   };
 
+  // 추가 : 홈 푸터에서 서버 로그아웃 후 로컬 인증 상태를 정리합니다.
+  const handleLogout = async () => {
+    try {
+      await logoutRequest();
+    } catch (error) {
+      console.warn("Logout request failed:", error);
+    } finally {
+      logout();
+      queryClient.clear();
+      navigate("/", {replace: true}); // <-- 로그아웃 후 홈으로 이동합니다.
+      window.scrollTo({top: 0, behavior: "smooth"}); // <-- 홈 화면 최상단을 표시합니다.
+    }
+  };
+
   const categoryNames = useMemo(() => flattenCategoryNames(categories ?? []), [categories]);
 
   const { endingSoon, popular, freshest, successStories, inProgressCount } = useMemo(() => {
@@ -228,7 +242,7 @@ export function HomePage() {
             <div className="flex items-center justify-between gap-4">
               <h2 className="flex min-w-0 items-center gap-2 font-display text-2xl font-bold tracking-tight text-ink"> {/* <-- 인기 배지와 카테고리명을 수직 중앙으로 맞춥니다. */}
                 <span>{selectedCategoryName} 프로젝트</span>
-                <span className="rounded-sm ㅇbg-brand/15 px-2 py-1 font-sans text-sm font-semibold text-brand">인기순</span> {/* <-- 현재 적용된 인기순 정렬을 배지로 표시합니다. */}
+                <span className="rounded-sm bg-brand/15 px-2 py-1 font-sans text-sm font-semibold text-brand">인기순</span> {/* <-- 현재 적용된 인기순 정렬을 배지로 표시합니다. */}
               </h2>
               <Link
                 to={`/projects?category=${selectedCategoryId}`}

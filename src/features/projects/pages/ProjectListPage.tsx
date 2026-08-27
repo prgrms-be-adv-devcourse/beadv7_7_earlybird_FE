@@ -2,15 +2,15 @@ import {useEffect, useMemo, useRef, useState} from "react";
 import {Link, useSearchParams} from "react-router-dom";
 import {ChevronDown, Search, X} from "lucide-react";
 import {
-  CardSkeleton,
-  EmptyState,
-  ErrorState,
-  Reveal,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    CardSkeleton,
+    EmptyState,
+    ErrorState,
+    Reveal,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "../../../shared/ui";
 import {useProjects} from "../hooks";
 import {useCategories} from "../../admin/hooks";
