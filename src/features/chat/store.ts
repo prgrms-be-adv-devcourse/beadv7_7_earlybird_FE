@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { clearThumbnailCache } from "./thumbnailCache";
-import type { ChatMessage, PolicyReference, ProjectCard, ToolStartEvent } from "./types";
+import type { ChatMessage, PolicyReference, ProjectCard, ToolProgressEntry, ToolStartEvent } from "./types";
 
 interface ChatState {
   isOpen: boolean;
@@ -63,15 +63,24 @@ export const useChatStore = create<ChatState>()(
           if (state.messages.length === 0) return state;
           const messages = state.messages.slice();
           const last = messages[messages.length - 1];
-          messages[messages.length - 1] = { ...last, toolProgress: [...(last.toolProgress ?? []), event] };
+          const entry: ToolProgressEntry = { ...event, completed: false };
+          messages[messages.length - 1] = { ...last, toolProgress: [...(last.toolProgress ?? []), entry] };
           return { messages };
         }),
+      // 완료 여부를 메시지 전체의 boolean 하나로 두지 않고 항목별로 표시한다 — metadata는
+      // 그 시점까지 쌓인 tool_start만 완료를 보장하고, metadata가 tool_start보다 먼저 오는
+      // 경우(순서 비보장)도 있어 이후 추가되는 항목은 새로 진행형(completed:false)으로 시작해야
+      // "방금 시작한 tool이 곧바로 완료로 보이는" 오표시를 피할 수 있다.
       completeToolProgress: () =>
         set((state) => {
           if (state.messages.length === 0) return state;
           const messages = state.messages.slice();
           const last = messages[messages.length - 1];
-          messages[messages.length - 1] = { ...last, toolProgressCompleted: true };
+          if (!last.toolProgress || last.toolProgress.length === 0) return state;
+          messages[messages.length - 1] = {
+            ...last,
+            toolProgress: last.toolProgress.map((item) => ({ ...item, completed: true })),
+          };
           return { messages };
         }),
       setSending: (isSending) => set({ isSending }),

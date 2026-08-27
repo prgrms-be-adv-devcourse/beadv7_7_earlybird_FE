@@ -11,9 +11,12 @@ export interface ChatStreamCallbacks {
   onError: (error: unknown) => void;
 }
 
-// BE가 SSE로 응답한다: "event: tool_start"가 0번 이상(턴에서 tool을 부른 만큼) 온 뒤
-// "event: metadata"가 1번, 그다음 "event: chunk"가 여러 번 오고, 별도 종료 이벤트 없이
-// 연결이 끝난다. EventSource는 POST 바디를 못 보내 fetch로 직접 파싱한다.
+// BE가 SSE로 응답한다: "event: tool_start"가 0번 이상(턴에서 tool을 부른 만큼), "event: metadata"도
+// 0번 이상(tool 상태가 바뀔 때마다 그 시점까지의 전체 스냅샷을 다시 보냄, 상위집합 보장) 오고,
+// 그 사이/뒤로 "event: chunk"가 여러 번 온 뒤 별도 종료 이벤트 없이 연결이 끝난다.
+// metadata가 tool_start보다 먼저 오는 경우도 있어(모델이 tool 호출 전에 안내 텍스트를 먼저 내보내는
+// 케이스) 두 이벤트 간 순서를 가정하면 안 된다 — onMetadata는 매번 유효한 최신 스냅샷으로 처리한다.
+// EventSource는 POST 바디를 못 보내 fetch로 직접 파싱한다.
 function processEvent(rawEvent: string, callbacks: ChatStreamCallbacks) {
   const eventName = rawEvent.match(/^event:(.*)$/m)?.[1]?.trim();
   const data = rawEvent
