@@ -71,21 +71,6 @@ export function HomePage() {
   const { data: projects, isPending, isError, error } = useProjects();
   const { data: categories } = useCategories();
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-
-  // 추가 : 홈 푸터에서 서버 로그아웃 후 로컬 인증 상태를 정리합니다.
-  const handleLogout = async () => {
-    try {
-      await logoutRequest();
-    } catch (error) {
-      console.warn("Logout request failed:", error);
-    } finally {
-      logout();
-      queryClient.clear();
-      navigate("/", {replace: true}); // <-- 로그아웃 후 홈으로 이동합니다.
-      window.scrollTo({top: 0, behavior: "smooth"}); // <-- 홈 화면 최상단을 표시합니다.
-    }
-  };
-
   // 추가 : 홈 푸터에서 서버 로그아웃 후 로컬 인증 상태를 정리합니다.
   const handleLogout = async () => {
     try {
