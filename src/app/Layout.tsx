@@ -38,7 +38,7 @@ function CategoryTreeItem({
       <button
         type="button"
         onClick={() => onSelect(category.id)}
-        className={`w-full text-left py-1 text-xs font-bold rounded transition-colors flex items-center justify-between ${
+        className={`flex w-full items-center justify-between rounded py-2.5 text-left text-sm font-bold transition-colors sm:py-1 sm:text-xs ${ // <-- 모바일 하위 카테고리의 터치 영역과 글씨를 키웁니다.
           depth === 1
             ? "px-2.5 text-ink hover:bg-paper/80 hover:text-brand"
             : "px-2 text-mist hover:text-brand font-semibold"

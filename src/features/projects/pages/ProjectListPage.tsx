@@ -2,15 +2,15 @@ import {useEffect, useMemo, useRef, useState} from "react";
 import {Link, useSearchParams} from "react-router-dom";
 import {Search, X} from "lucide-react";
 import {
-  CardSkeleton,
-  EmptyState,
-  ErrorState,
-  Reveal,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    CardSkeleton,
+    EmptyState,
+    ErrorState,
+    Reveal,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "../../../shared/ui";
 import {useProjects} from "../hooks";
 import {useCategories} from "../../admin/hooks";
@@ -508,7 +508,7 @@ export function ProjectListPage() {
 
           {/* Category Dropdown Filter */}
           <Select value={categoryId} onValueChange={setCategoryId}>
-            <SelectTrigger className="!rounded-lg">
+            <SelectTrigger className="w-full !rounded-lg sm:w-auto"> {/* <-- 모바일에서 카테고리 선택창을 전체 너비로 표시합니다. */}
               <SelectValue placeholder="카테고리 선택" />
             </SelectTrigger>
             <SelectContent className="!rounded-lg">
@@ -523,7 +523,7 @@ export function ProjectListPage() {
 
           {/* Status Filter */}
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="!rounded-lg">
+            <SelectTrigger className="w-full !rounded-lg sm:w-auto"> {/* <-- 모바일에서 상태 선택창을 전체 너비로 표시합니다. */}
               <SelectValue placeholder="상태" />
             </SelectTrigger>
             <SelectContent className="!rounded-lg">
@@ -538,7 +538,7 @@ export function ProjectListPage() {
 
           {/* Sort Order */}
           <Select value={sort} onValueChange={setSort}>
-            <SelectTrigger className="!rounded-lg">
+            <SelectTrigger className="w-full !rounded-lg sm:w-auto"> {/* <-- 모바일에서 정렬 선택창을 전체 너비로 표시합니다. */}
               <SelectValue placeholder="정렬" />
             </SelectTrigger>
             <SelectContent className="!rounded-lg">
@@ -560,7 +560,7 @@ export function ProjectListPage() {
                 setSort("RELEVANCE");
                 setCreatorId(ALL);
               }}
-              className="shrink-0 rounded-lg border border-ink/20 bg-surface px-3 py-2 text-xs font-semibold text-brand transition-colors hover:border-brand/40 hover:bg-brand/10" // <-- 초기화를 테두리 버튼으로 표시합니다.
+              className="w-full shrink-0 rounded-lg border border-ink/20 bg-surface px-3 py-2 text-xs font-semibold text-brand transition-colors hover:border-brand/40 hover:bg-brand/10 sm:w-auto" // <-- 모바일에서 초기화 버튼을 전체 너비로 표시합니다.
             >
               초기화
             </button>
