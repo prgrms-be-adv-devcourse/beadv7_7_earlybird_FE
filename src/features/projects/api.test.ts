@@ -11,7 +11,7 @@ describe("projects api", () => {
   it("fetchProjects는 PROJECT_SERVICE.projects를 GET한다", async () => {
     (apiClient.get as any).mockResolvedValue({ data: { success: true, data: [], error: null } });
     const result = await fetchProjects();
-    expect(apiClient.get).toHaveBeenCalledWith(PROJECT_SERVICE.projects);
+    expect(apiClient.get).toHaveBeenCalledWith(PROJECT_SERVICE.projects, { signal: undefined });
     expect(result).toEqual([]);
   });
 
