@@ -2,7 +2,7 @@ import {useState} from "react";
 import {Link, Outlet, useLocation, useNavigate} from "react-router-dom";
 import {useQueryClient} from "@tanstack/react-query";
 import {AnimatePresence, motion} from "framer-motion";
-import {Menu} from "lucide-react";
+import {ArrowRight, Menu} from "lucide-react";
 import {
   ChevronDownIcon,
   DropdownMenu,
@@ -80,7 +80,7 @@ function HeaderCategoryNav() {
 
   return (
     <div className="relative w-full">
-      <div className="flex items-center gap-2 overflow-x-auto px-6 py-2 touch-pan-x no-scrollbar sm:overflow-visible"> {/* <-- 모바일에서 상위 카테고리만 좌우로 스크롤합니다. */}
+      <div className="flex items-center gap-2 overflow-x-auto py-2 pl-6 pr-16 touch-pan-x no-scrollbar sm:overflow-visible sm:pr-6"> {/* <-- 모바일 오른쪽 안내가 카테고리를 가리지 않도록 여백을 둡니다. */}
         <Link
           to="/projects"
           className="shrink-0 border-r border-ink/15 pr-3 text-xs font-black text-brand hover:underline"
@@ -130,6 +130,11 @@ function HeaderCategoryNav() {
             );
           })}
         </div>
+      </div>
+      <div className="pointer-events-none absolute inset-y-0 right-0 flex w-16 items-center justify-end bg-gradient-to-l from-surface via-surface/95 to-transparent pr-3 sm:hidden" aria-hidden> {/* <-- 모바일 상단 카테고리를 오른쪽으로 넘길 수 있음을 강조합니다. */}
+        <span className="flex h-8 w-8 animate-pulse items-center justify-center rounded-full border-2 border-brand bg-surface text-brand shadow-sm">
+          <ArrowRight className="h-4 w-4" />
+        </span>
       </div>
 
       {mobileOpenCategory && (

@@ -1,4 +1,4 @@
-import {useMemo} from "react";
+import {useMemo, useState} from "react";
 import {Link, useNavigate} from "react-router-dom";
 import {useQueryClient} from "@tanstack/react-query";
 import {motion} from "framer-motion";
@@ -9,6 +9,7 @@ import {logoutRequest} from "../../auth/api";
 import {useProjects} from "../../projects/hooks";
 import {useCategories} from "../../admin/hooks";
 import {ProjectCard} from "../../projects/components/ProjectCard";
+import {getCategoryIdsIncludingChildren} from "../../projects/utils";
 import type {ProjectCategory} from "../../admin/types";
 import type {ProjectSummary} from "../../projects/types";
 
@@ -69,6 +70,7 @@ export function HomePage() {
   const navigate = useNavigate();
   const { data: projects, isPending, isError, error } = useProjects();
   const { data: categories } = useCategories();
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
 
   // 추가 : 홈 푸터에서 서버 로그아웃 후 로컬 인증 상태를 정리합니다.
   const handleLogout = async () => {
@@ -101,6 +103,16 @@ export function HomePage() {
       inProgressCount: inProgress.length,
     };
   }, [projects]);
+
+  const selectedCategoryProjects = useMemo(() => {
+    if (!selectedCategoryId) return [];
+
+    const categoryIds = getCategoryIdsIncludingChildren(categories ?? [], selectedCategoryId);
+    return (projects ?? [])
+      .filter((project) => categoryIds.includes(project.categoryId) && project.status === "IN_PROGRESS")
+      .sort((a, b) => b.fundedAmount - a.fundedAmount); // <-- 선택 카테고리의 인기 프로젝트를 먼저 표시합니다.
+  }, [categories, projects, selectedCategoryId]);
+  const selectedCategoryName = categories?.find((category) => category.id === selectedCategoryId)?.name ?? "카테고리";
 
   if (isPending) {
     return (
@@ -187,25 +199,80 @@ export function HomePage() {
           transition={{ duration: 0.4, ease: "easeOut" }}
           className="flex flex-col gap-5"
         >
-          <h2 className="font-display text-2xl font-bold tracking-tight text-ink">카테고리로 둘러보기</h2>
-          <div className="flex w-full touch-pan-x gap-3 overflow-x-scroll pb-2 sm:flex-wrap sm:overflow-x-visible"> {/* <-- 모바일에서는 카테고리 목록을 좌우 스와이프로 이동합니다. */}
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-display text-2xl font-bold tracking-tight text-ink">카테고리로 둘러보기</h2>
+            <span className="shrink-0 text-xs font-bold text-brand sm:hidden">옆으로 밀어보기 →</span> {/* <-- 모바일에서 가로 스와이프를 직접 안내합니다. */}
+          </div>
+          <div className="flex w-full touch-pan-x gap-3 overflow-x-scroll pb-2 pr-10 sm:flex-wrap sm:overflow-x-visible sm:pr-0"> {/* <-- 모바일에서 다음 카테고리가 일부 보이도록 여백을 둡니다. */}
             {categories.map((category) => (
-              <Link
+              <button
                 key={category.id}
-                to={`/projects?category=${category.id}`}
-                className="shrink-0 rounded-sm border-2 border-ink bg-surface px-4 py-2 text-sm font-semibold text-ink shadow-stamp-sm transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-stamp-lg" // <-- 카테고리 버튼이 줄어들지 않도록 합니다.
+                type="button"
+                onClick={() => setSelectedCategoryId((currentId) => currentId === category.id ? null : category.id)}
+                className={`shrink-0 rounded-sm border-2 border-ink px-4 py-2 text-sm font-semibold shadow-stamp-sm transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-stamp-lg ${ // <-- 선택한 카테고리는 홈에서 바로 필터링합니다.
+                  selectedCategoryId === category.id
+                    ? "bg-brand text-white"
+                    : "bg-surface text-ink"
+                }`}
               >
                 {category.name}
-              </Link>
+              </button>
             ))}
           </div>
         </motion.section>
       )}
 
       <div className="-mt-4 flex flex-col gap-16 sm:-mt-6 sm:gap-20"> {/* <-- 카테고리와 프로젝트 목록 사이 간격을 줄입니다. */}
-        <Rail title="마감임박" projects={endingSoon} categoryNames={categoryNames} />
-        <Rail title="인기 프로젝트" projects={popular} categoryNames={categoryNames} />
-        <Rail title="신규 프로젝트" projects={freshest} categoryNames={categoryNames} />
+        {selectedCategoryId ? (
+          <section className="flex flex-col gap-5"> {/* <-- 선택 카테고리의 프로젝트를 최대 8개 그리드로 표시합니다. */}
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="flex min-w-0 items-center gap-2 font-display text-2xl font-bold tracking-tight text-ink"> {/* <-- 인기 배지와 카테고리명을 수직 중앙으로 맞춥니다. */}
+                <span>{selectedCategoryName} 프로젝트</span>
+                <span className="rounded-sm bg-brand/15 px-2 py-1 font-sans text-sm font-semibold text-brand">인기순</span> {/* <-- 현재 적용된 인기순 정렬을 배지로 표시합니다. */}
+              </h2>
+              <Link
+                to={`/projects?category=${selectedCategoryId}`}
+                onClick={() => window.scrollTo({top: 0, behavior: "smooth"})} // <-- 전체 프로젝트 페이지 최상단으로 부드럽게 이동합니다.
+                className="flex shrink-0 items-center gap-1 text-sm font-semibold text-mist transition-colors hover:text-brand"
+              >
+                전체보기
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+            <motion.div
+              key={selectedCategoryId}
+              className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4" // <-- 모바일에서는 프로젝트를 한 행에 하나씩 표시합니다.
+            >
+              {selectedCategoryProjects.slice(0, 8).map((project, index) => ( // <-- 정렬된 카테고리 프로젝트를 최대 8개 표시합니다.
+                <motion.div
+                  key={project.projectId}
+                  initial={{opacity: 0, y: -8}}
+                  animate={{opacity: 1, y: 0}}
+                  transition={{duration: 0.2, delay: index * 0.05, ease: "easeOut"}}
+                >
+                  <ProjectCard
+                    project={project}
+                    categoryName={categoryNames.get(project.categoryId)}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
+            <Link
+              to={`/projects?category=${selectedCategoryId}`}
+              onClick={() => window.scrollTo({top: 0, behavior: "smooth"})} // <-- 전체 프로젝트 페이지 최상단으로 부드럽게 이동합니다.
+              className="flex items-center gap-1 self-end text-sm font-semibold text-mist transition-colors hover:text-brand" // <-- 상단 전체보기와 같은 스타일로 오른쪽에 배치합니다.
+            >
+              전체보기
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </section>
+        ) : (
+          <>
+            <Rail title="인기 프로젝트" projects={popular} categoryNames={categoryNames} />
+            <Rail title="마감임박" projects={endingSoon} categoryNames={categoryNames} />
+            <Rail title="신규 프로젝트" projects={freshest} categoryNames={categoryNames} />
+          </>
+        )}
         <Rail title="성공 사례" projects={successStories} categoryNames={categoryNames} />
       </div>
 

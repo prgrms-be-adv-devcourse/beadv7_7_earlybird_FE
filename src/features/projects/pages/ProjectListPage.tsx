@@ -1,16 +1,16 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import {Link, useSearchParams} from "react-router-dom";
-import {Search, X} from "lucide-react";
+import {ChevronDown, Search, X} from "lucide-react";
 import {
-    CardSkeleton,
-    EmptyState,
-    ErrorState,
-    Reveal,
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  CardSkeleton,
+  EmptyState,
+  ErrorState,
+  Reveal,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "../../../shared/ui";
 import {useProjects} from "../hooks";
 import {useCategories} from "../../admin/hooks";
@@ -116,6 +116,7 @@ export function ProjectListPage() {
   const [sort, setSort] = useState(initialSort);
   const [creatorId, setCreatorId] = useState(initialCreatorId);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const previousPageRef = useRef(currentPage);
 
   // Autocomplete suggestions state
@@ -424,7 +425,20 @@ export function ProjectListPage() {
 
       {/* Search Bar & Filter Controls (Category, Status, Sort) */}
       <div className="flex flex-col gap-3 rounded-lg border border-ink/15 bg-paper/60 p-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+        <button
+          type="button"
+          aria-expanded={isSearchOpen}
+          aria-controls="project-search-controls"
+          onClick={() => setIsSearchOpen((open) => !open)}
+          className="flex w-full items-center justify-between text-sm font-semibold text-ink sm:hidden"
+        >
+          검색 및 필터
+          <ChevronDown className={`h-4 w-4 transition-transform ${isSearchOpen ? "rotate-180" : ""}`} /> {/* <-- 모바일 검색 영역의 열림 상태를 표시합니다. */}
+        </button>
+        <div
+          id="project-search-controls"
+          className={`${isSearchOpen ? "flex" : "hidden"} flex-col items-center gap-3 sm:flex sm:flex-row w-full`} // <-- 모바일에서 검색 영역을 열고 닫습니다.
+        >
           {/* Search Input Bar with Autocomplete Suggestions */}
           <div ref={searchContainerRef} className="relative flex items-center flex-1 w-full">
             <Search className="absolute left-3.5 h-4 w-4 text-mist" />
@@ -609,7 +623,7 @@ export function ProjectListPage() {
 
       {/* Grid Content / Skeletons / Error / Empty */}
       {isPending && !liveFiltered && (!projects || (projects as any[]).length === 0) ? (
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4"> {/* <-- 모바일 로딩 카드도 한 행에 하나씩 표시합니다. */}
           {Array.from({ length: 8 }).map((_, index) => (
             <CardSkeleton key={index} />
           ))}
@@ -620,7 +634,7 @@ export function ProjectListPage() {
         <EmptyState message="조건에 맞는 프로젝트가 없어요. 다른 키워드나 카테고리로 검색해 보세요." />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4"> {/* <-- 모바일 검색 결과를 한 행에 하나씩 표시합니다. */}
             {paginatedProjects.map((project, index) => ( // <-- 현재 페이지의 프로젝트 12개만 표시합니다.
               <Reveal key={project.projectId} delay={Math.min(index, 8) * 0.04}>
                 <ProjectCard project={project} />
