@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import {Link, useSearchParams} from "react-router-dom";
-import {Search, X} from "lucide-react";
+import {ChevronDown, Search, X} from "lucide-react";
 import {
   CardSkeleton,
   EmptyState,
@@ -116,6 +116,7 @@ export function ProjectListPage() {
   const [sort, setSort] = useState(initialSort);
   const [creatorId, setCreatorId] = useState(initialCreatorId);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const previousPageRef = useRef(currentPage);
 
   // Autocomplete suggestions state
@@ -424,7 +425,20 @@ export function ProjectListPage() {
 
       {/* Search Bar & Filter Controls (Category, Status, Sort) */}
       <div className="flex flex-col gap-3 rounded-lg border border-ink/15 bg-paper/60 p-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+        <button
+          type="button"
+          aria-expanded={isSearchOpen}
+          aria-controls="project-search-controls"
+          onClick={() => setIsSearchOpen((open) => !open)}
+          className="flex w-full items-center justify-between text-sm font-semibold text-ink sm:hidden"
+        >
+          검색 및 필터
+          <ChevronDown className={`h-4 w-4 transition-transform ${isSearchOpen ? "rotate-180" : ""}`} /> {/* <-- 모바일 검색 영역의 열림 상태를 표시합니다. */}
+        </button>
+        <div
+          id="project-search-controls"
+          className={`${isSearchOpen ? "flex" : "hidden"} flex-col items-center gap-3 sm:flex sm:flex-row w-full`} // <-- 모바일에서 검색 영역을 열고 닫습니다.
+        >
           {/* Search Input Bar with Autocomplete Suggestions */}
           <div ref={searchContainerRef} className="relative flex items-center flex-1 w-full">
             <Search className="absolute left-3.5 h-4 w-4 text-mist" />
@@ -508,7 +522,7 @@ export function ProjectListPage() {
 
           {/* Category Dropdown Filter */}
           <Select value={categoryId} onValueChange={setCategoryId}>
-            <SelectTrigger className="!rounded-lg">
+            <SelectTrigger className="w-full !rounded-lg sm:w-auto"> {/* <-- 모바일에서 카테고리 선택창을 전체 너비로 표시합니다. */}
               <SelectValue placeholder="카테고리 선택" />
             </SelectTrigger>
             <SelectContent className="!rounded-lg">
@@ -523,7 +537,7 @@ export function ProjectListPage() {
 
           {/* Status Filter */}
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="!rounded-lg">
+            <SelectTrigger className="w-full !rounded-lg sm:w-auto"> {/* <-- 모바일에서 상태 선택창을 전체 너비로 표시합니다. */}
               <SelectValue placeholder="상태" />
             </SelectTrigger>
             <SelectContent className="!rounded-lg">
@@ -538,7 +552,7 @@ export function ProjectListPage() {
 
           {/* Sort Order */}
           <Select value={sort} onValueChange={setSort}>
-            <SelectTrigger className="!rounded-lg">
+            <SelectTrigger className="w-full !rounded-lg sm:w-auto"> {/* <-- 모바일에서 정렬 선택창을 전체 너비로 표시합니다. */}
               <SelectValue placeholder="정렬" />
             </SelectTrigger>
             <SelectContent className="!rounded-lg">
@@ -560,7 +574,7 @@ export function ProjectListPage() {
                 setSort("RELEVANCE");
                 setCreatorId(ALL);
               }}
-              className="shrink-0 rounded-lg border border-ink/20 bg-surface px-3 py-2 text-xs font-semibold text-brand transition-colors hover:border-brand/40 hover:bg-brand/10" // <-- 초기화를 테두리 버튼으로 표시합니다.
+              className="w-full shrink-0 rounded-lg border border-ink/20 bg-surface px-3 py-2 text-xs font-semibold text-brand transition-colors hover:border-brand/40 hover:bg-brand/10 sm:w-auto" // <-- 모바일에서 초기화 버튼을 전체 너비로 표시합니다.
             >
               초기화
             </button>
@@ -609,7 +623,7 @@ export function ProjectListPage() {
 
       {/* Grid Content / Skeletons / Error / Empty */}
       {isPending && !liveFiltered && (!projects || (projects as any[]).length === 0) ? (
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4"> {/* <-- 모바일 로딩 카드도 한 행에 하나씩 표시합니다. */}
           {Array.from({ length: 8 }).map((_, index) => (
             <CardSkeleton key={index} />
           ))}
@@ -620,7 +634,7 @@ export function ProjectListPage() {
         <EmptyState message="조건에 맞는 프로젝트가 없어요. 다른 키워드나 카테고리로 검색해 보세요." />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4"> {/* <-- 모바일 검색 결과를 한 행에 하나씩 표시합니다. */}
             {paginatedProjects.map((project, index) => ( // <-- 현재 페이지의 프로젝트 12개만 표시합니다.
               <Reveal key={project.projectId} delay={Math.min(index, 8) * 0.04}>
                 <ProjectCard project={project} />
