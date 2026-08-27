@@ -228,7 +228,7 @@ export function HomePage() {
             <div className="flex items-center justify-between gap-4">
               <h2 className="flex min-w-0 items-center gap-2 font-display text-2xl font-bold tracking-tight text-ink"> {/* <-- 인기 배지와 카테고리명을 수직 중앙으로 맞춥니다. */}
                 <span>{selectedCategoryName} 프로젝트</span>
-                <span className="rounded-sm bg-brand/15 px-2 py-1 font-sans text-sm font-semibold text-brand">인기순</span> {/* <-- 현재 적용된 인기순 정렬을 배지로 표시합니다. */}
+                <span className="rounded-sm ㅇbg-brand/15 px-2 py-1 font-sans text-sm font-semibold text-brand">인기순</span> {/* <-- 현재 적용된 인기순 정렬을 배지로 표시합니다. */}
               </h2>
               <Link
                 to={`/projects?category=${selectedCategoryId}`}
