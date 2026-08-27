@@ -25,10 +25,10 @@ export function CreatorApprovalPage() {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
-      app.userName.toLowerCase().includes(q) ||
-      app.userEmail.toLowerCase().includes(q) ||
-      app.creatorName.toLowerCase().includes(q) ||
-      app.category.toLowerCase().includes(q)
+      (app.userName && app.userName.toLowerCase().includes(q)) ||
+      (app.userEmail && app.userEmail.toLowerCase().includes(q)) ||
+      (app.creatorName && app.creatorName.toLowerCase().includes(q)) ||
+      (app.category && app.category.toLowerCase().includes(q))
     );
   });
 
@@ -179,7 +179,7 @@ export function CreatorApprovalPage() {
                       <span className="font-display font-extrabold text-ink text-base">
                         {app.creatorName}
                       </span>
-                      <span className="text-xs text-mist font-medium">({app.userName})</span>
+                      {app.userName && <span className="text-xs text-mist font-medium">({app.userName})</span>}
                       <Badge tone="mint">{app.category}</Badge>
                       {app.businessNumber && (
                         <span className="text-[11px] font-mono text-mist border border-ink/15 rounded px-1.5 py-0.5">
@@ -188,9 +188,10 @@ export function CreatorApprovalPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-mist mt-0.5">
-                      <span>이메일: {app.userEmail}</span>
-                      <span>연락처: {app.userPhone}</span>
-                      <span>신청: {new Date(app.appliedAt).toLocaleDateString()}</span>
+                      <span>신청자 ID: #{app.userId}</span>
+                      {app.userEmail && <span>이메일: {app.userEmail}</span>}
+                      {app.userPhone && <span>연락처: {app.userPhone}</span>}
+                      {app.appliedAt && <span>신청: {new Date(app.appliedAt).toLocaleDateString()}</span>}
                     </div>
                   </div>
                 </div>
@@ -295,7 +296,7 @@ export function CreatorApprovalPage() {
         <DialogContent className="max-w-sm">
           <DialogTitle>창작자 승인 확인</DialogTitle>
           <DialogDescription>
-            <strong>[{selectedApp?.creatorName}]</strong> ({selectedApp?.userName}님)의 창작자 신청을 승인하시겠습니까?
+            <strong>[{selectedApp?.creatorName}]</strong> {selectedApp?.userName ? `(${selectedApp.userName}님)` : `(신청자 #${selectedApp?.userId})`}의 창작자 신청을 승인하시겠습니까?
             승인 시 해당 유저의 권한이 창작자(CREATOR)로 전환됩니다.
           </DialogDescription>
           <div className="mt-4 flex justify-end gap-2">
