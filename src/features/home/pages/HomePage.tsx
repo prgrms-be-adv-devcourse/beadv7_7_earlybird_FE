@@ -1,13 +1,13 @@
-import { useMemo } from "react";
-import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
-import { CardSkeleton, EmptyState, ErrorState, Mascot, Skeleton } from "../../../shared/ui";
-import { useProjects } from "../../projects/hooks";
-import { useCategories } from "../../admin/hooks";
-import { ProjectCard } from "../../projects/components/ProjectCard";
-import type { ProjectCategory } from "../../admin/types";
-import type { ProjectSummary } from "../../projects/types";
+import {useMemo} from "react";
+import {Link} from "react-router-dom";
+import {motion} from "framer-motion";
+import {ArrowRight} from "lucide-react";
+import {CardSkeleton, EmptyState, ErrorState, Mascot, Skeleton} from "../../../shared/ui";
+import {useProjects} from "../../projects/hooks";
+import {useCategories} from "../../admin/hooks";
+import {ProjectCard} from "../../projects/components/ProjectCard";
+import type {ProjectCategory} from "../../admin/types";
+import type {ProjectSummary} from "../../projects/types";
 
 function flattenCategoryNames(categories: ProjectCategory[], map: Map<number, string> = new Map()) {
   for (const category of categories) {
@@ -45,7 +45,7 @@ function Rail({
           <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
-      <div className="flex snap-x snap-mandatory gap-5 overflow-x-auto pb-2">
+      <div className="flex snap-x snap-mandatory gap-5 overflow-x-auto pt-2 pb-2"> {/* <-- 카드 호버 시 상단 테두리가 잘리지 않도록 여백을 확보합니다. */}
         {projects.map((project) => (
           <ProjectCard
             key={project.projectId}
@@ -167,12 +167,12 @@ export function HomePage() {
           className="flex flex-col gap-5"
         >
           <h2 className="font-display text-2xl font-bold tracking-tight text-ink">카테고리로 둘러보기</h2>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex w-full touch-pan-x gap-3 overflow-x-scroll pb-2 sm:flex-wrap sm:overflow-x-visible"> {/* <-- 모바일에서는 카테고리 목록을 좌우 스와이프로 이동합니다. */}
             {categories.map((category) => (
               <Link
                 key={category.id}
                 to={`/projects?category=${category.id}`}
-                className="rounded-sm border-2 border-ink bg-surface px-4 py-2 text-sm font-semibold text-ink shadow-stamp-sm transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-stamp-lg"
+                className="shrink-0 rounded-sm border-2 border-ink bg-surface px-4 py-2 text-sm font-semibold text-ink shadow-stamp-sm transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-stamp-lg" // <-- 카테고리 버튼이 줄어들지 않도록 합니다.
               >
                 {category.name}
               </Link>
