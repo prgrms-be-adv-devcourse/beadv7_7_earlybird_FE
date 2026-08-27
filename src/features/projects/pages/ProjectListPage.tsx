@@ -133,11 +133,13 @@ export function ProjectListPage() {
     setSort(currentSort);
   }, [searchParams]);
 
-  // Debounce inputKeyword changes into active query keyword
+  // 2-tier 검색:
+  //  · 타이핑 중(각 글자)  → 이미 받아둔 전체 목록을 클라이언트에서 필터링만 (LLM·서버 호출 없음, 아래 liveFiltered)
+  //  · 엔터 or 500ms 무입력 → keyword를 확정해 기존 하이브리드 검색 플로우(LLM 질의이해+임베딩+kNN) 실행
   useEffect(() => {
     const timer = setTimeout(() => {
       setKeyword(inputKeyword.trim());
-    }, 300);
+    }, 500);
     return () => clearTimeout(timer);
   }, [inputKeyword]);
 
@@ -155,12 +157,35 @@ export function ProjectListPage() {
     setSearchParams(params, { replace: true });
   }, [keyword, categoryId, status, sort, creatorId, setSearchParams]);
 
-  // Fetch projects passing params
+  // Fetch projects passing params (tier 2: 확정된 keyword로만 하이브리드 검색)
   const { data: projects, isPending, isError, error } = useProjects({
     keyword: keyword.trim() || undefined,
     status: status !== ALL ? status : undefined,
     sort: sort === "RELEVANCE" ? undefined : sort,
   });
+
+  // tier 1: 타이핑 중이거나(입력이 아직 keyword로 확정 안 됨) 확정 검색이 첫 로딩 중이면,
+  // 전체 풀(rawAllProjects)을 클라이언트에서 필터링해 바로 보여준다(서버·LLM 호출 없음, 스켈레톤 깜빡임 방지).
+  const trimmedInput = inputKeyword.trim();
+  const isTyping = trimmedInput.length > 0 && trimmedInput !== keyword.trim();
+  const showLive = trimmedInput.length > 0 && (isTyping || (isPending && !projects));
+  const liveFiltered = useMemo(() => {
+    if (!showLive || !rawAllProjects) return null;
+    const term = trimmedInput.toLowerCase();
+    const words = term.split(/\s+/).filter(Boolean);
+    const termNoSpace = term.replace(/\s/g, ""); // "롱 코트" ↔ "롱코트" 매칭
+    return rawAllProjects.filter((p) => {
+      const hay = `${p.title} ${p.summary ?? ""}`.toLowerCase();
+      return (
+        hay.includes(term) ||
+        hay.replace(/\s/g, "").includes(termNoSpace) ||
+        words.every((w) => hay.includes(w))
+      );
+    });
+  }, [showLive, trimmedInput, rawAllProjects]);
+
+  // 그리드에 쓸 소스: 타이핑 중이면 클라 필터 결과, 아니면 하이브리드 검색 결과
+  const baseProjects = liveFiltered ?? projects;
 
   const { data: categories } = useCategories();
 
@@ -180,15 +205,15 @@ export function ProjectListPage() {
   }, [categories]);
 
   const statusOptions = useMemo(
-    () => Array.from(new Set((projects ?? []).map((project) => project.status))),
-    [projects]
+    () => Array.from(new Set((baseProjects ?? []).map((project) => project.status))),
+    [baseProjects]
   );
 
   // Filter & sort including parent/child category tree matching
   const filteredAndSorted = useMemo(() => {
-    if (!projects) return [];
+    if (!baseProjects) return [];
 
-    let list = projects;
+    let list = baseProjects;
 
     if (status !== ALL) {
       list = list.filter((project) => project.status === status);
@@ -214,7 +239,7 @@ export function ProjectListPage() {
     // When sort === "RELEVANCE", preserve the server's Elasticsearch relevance ranking!
 
     return list;
-  }, [projects, status, categoryId, creatorId, sort, categories]);
+  }, [baseProjects, status, categoryId, creatorId, sort, categories]);
 
   const handleClearSearch = () => {
     setInputKeyword("");
@@ -231,6 +256,18 @@ export function ProjectListPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Enter는 추천어 목록 유무와 무관하게 항상 검색을 확정한다(디바운스 우회).
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (showSuggestions && highlightedIndex >= 0 && suggestions[highlightedIndex]) {
+        handleSelectSuggestion(suggestions[highlightedIndex].title);
+      } else {
+        setKeyword(inputKeyword.trim());
+        setShowSuggestions(false);
+      }
+      return;
+    }
+
     if (!showSuggestions || suggestions.length === 0) return;
 
     if (e.key === "ArrowDown") {
@@ -239,14 +276,6 @@ export function ProjectListPage() {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {
-        handleSelectSuggestion(suggestions[highlightedIndex].title);
-      } else {
-        setKeyword(inputKeyword.trim());
-      }
-      setShowSuggestions(false);
     } else if (e.key === "Escape") {
       setShowSuggestions(false);
     }
@@ -443,21 +472,25 @@ export function ProjectListPage() {
         <span>
           검색 결과 <strong className="text-ink font-bold">{filteredAndSorted.length}</strong>개
         </span>
-        {keyword && (
+        {isTyping ? (
+          <span>
+            '<span className="text-brand font-semibold">{trimmedInput}</span>' 입력 중 · Enter로 정밀 검색
+          </span>
+        ) : keyword ? (
           <span>
             '<span className="text-brand font-semibold">{keyword}</span>' 검색어 적용 중
           </span>
-        )}
+        ) : null}
       </div>
 
       {/* Grid Content / Skeletons / Error / Empty */}
-      {isPending && (!projects || (projects as any[]).length === 0) ? (
+      {isPending && !liveFiltered && (!projects || (projects as any[]).length === 0) ? (
         <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, index) => (
             <CardSkeleton key={index} />
           ))}
         </div>
-      ) : isError ? (
+      ) : isError && !isTyping ? (
         <ErrorState error={{ message: errorMsg!, errors: null }} />
       ) : filteredAndSorted.length === 0 ? (
         <EmptyState message="조건에 맞는 프로젝트가 없어요. 다른 키워드나 카테고리로 검색해 보세요." />
