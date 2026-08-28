@@ -509,6 +509,8 @@ export function ProjectDetailPage() {
               friendlyMsg = "현재 구매 신청할 수 없는 리워드입니다.";
             } else if (serverMsg.includes("insufficient") || serverMsg.includes("stock") || serverMsg.includes("재고")) {
               friendlyMsg = "리워드 재고가 부족합니다.";
+            } else if (serverMsg.includes("exceed 99")) {
+              friendlyMsg = "장바구니 수량은 최대 99개까지 가능합니다.";
             } else {
               friendlyMsg = serverMsg;
             }
