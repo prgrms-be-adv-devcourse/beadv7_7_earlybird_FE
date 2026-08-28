@@ -1,12 +1,13 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import {Link, useSearchParams} from "react-router-dom";
-import {Search, X} from "lucide-react";
+import {ChevronDown, Search, X} from "lucide-react";
 import {
   CardSkeleton,
   EmptyState,
   ErrorState,
   Reveal,
   Select,
+  Spinner,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -116,6 +117,7 @@ export function ProjectListPage() {
   const [sort, setSort] = useState(initialSort);
   const [creatorId, setCreatorId] = useState(initialCreatorId);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const previousPageRef = useRef(currentPage);
 
   // Autocomplete suggestions state
@@ -195,11 +197,13 @@ export function ProjectListPage() {
     setSort(currentSort);
   }, [searchParams]);
 
-  // Debounce inputKeyword changes into active query keyword
+  // 2-tier 검색:
+  //  · 타이핑 중(각 글자)  → 이미 받아둔 전체 목록을 클라이언트에서 필터링만 (LLM·서버 호출 없음, 아래 liveFiltered)
+  //  · 엔터 or 500ms 무입력 → keyword를 확정해 기존 하이브리드 검색 플로우(LLM 질의이해+임베딩+kNN) 실행
   useEffect(() => {
     const timer = setTimeout(() => {
       setKeyword(inputKeyword.trim());
-    }, 300);
+    }, 500);
     return () => clearTimeout(timer);
   }, [inputKeyword]);
 
@@ -221,12 +225,39 @@ export function ProjectListPage() {
     setSearchParams(params, { replace: true });
   }, [keyword, categoryId, status, sort, creatorId, searchParams, setSearchParams]);
 
-  // Fetch projects passing params
-  const { data: projects, isPending, isError, error } = useProjects({
+  // Fetch projects passing params (tier 2: 확정된 keyword로만 하이브리드 검색)
+  const { data: projects, isPending, isPlaceholderData, isError, error } = useProjects({
     keyword: keyword.trim() || undefined,
     status: status !== ALL ? status : undefined,
     sort: sort === "RELEVANCE" ? undefined : sort,
   });
+
+  // tier 1: 타이핑 중이거나(입력이 아직 keyword로 확정 안 됨) 확정 검색이 첫 로딩 중이면,
+  // 전체 풀(rawAllProjects)을 클라이언트에서 필터링해 바로 보여준다(서버·LLM 호출 없음, 스켈레톤 깜빡임 방지).
+  const trimmedInput = inputKeyword.trim();
+  const isTyping = trimmedInput.length > 0 && trimmedInput !== keyword.trim();
+  const showLive = trimmedInput.length > 0 && (isTyping || (isPending && !projects));
+  const liveFiltered = useMemo(() => {
+    if (!showLive || !rawAllProjects) return null;
+    const term = trimmedInput.toLowerCase();
+    const words = term.split(/\s+/).filter(Boolean);
+    const termNoSpace = term.replace(/\s/g, ""); // "롱 코트" ↔ "롱코트" 매칭
+    return rawAllProjects.filter((p) => {
+      const hay = `${p.title} ${p.summary ?? ""}`.toLowerCase();
+      return (
+        hay.includes(term) ||
+        hay.replace(/\s/g, "").includes(termNoSpace) ||
+        words.every((w) => hay.includes(w))
+      );
+    });
+  }, [showLive, trimmedInput, rawAllProjects]);
+
+  // 그리드에 쓸 소스: 타이핑 중이면 클라 필터 결과, 아니면 하이브리드 검색 결과
+  const baseProjects = liveFiltered ?? projects;
+
+  // 확정 검색(tier 2) 응답 대기 중: keepPreviousData로 이전 결과가 남아있는 그 구간.
+  // 라이브뷰(showLive)가 아니고, placeholder(=이전 데이터)를 보여주는 중일 때만.
+  const searchPending = isPlaceholderData && !showLive;
 
   const { data: categories } = useCategories();
 
@@ -246,15 +277,15 @@ export function ProjectListPage() {
   }, [categories]);
 
   const statusOptions = useMemo(
-    () => Array.from(new Set((projects ?? []).map((project) => project.status))),
-    [projects]
+    () => Array.from(new Set((baseProjects ?? []).map((project) => project.status))),
+    [baseProjects]
   );
 
   // Filter & sort including parent/child category tree matching
   const filteredAndSorted = useMemo(() => {
-    if (!projects) return [];
+    if (!baseProjects) return [];
 
-    let list = projects;
+    let list = baseProjects;
 
     if (status !== ALL) {
       list = list.filter((project) => project.status === status);
@@ -280,7 +311,7 @@ export function ProjectListPage() {
     // When sort === "RELEVANCE", preserve the server's Elasticsearch relevance ranking!
 
     return list;
-  }, [projects, status, categoryId, creatorId, sort, categories]);
+  }, [baseProjects, status, categoryId, creatorId, sort, categories]);
 
   useEffect(() => {
     setCurrentPage(1); // <-- 검색·필터 조건이 바뀌면 첫 페이지를 표시합니다.
@@ -348,6 +379,18 @@ export function ProjectListPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Enter는 추천어 목록 유무와 무관하게 항상 검색을 확정한다(디바운스 우회).
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (showSuggestions && highlightedIndex >= 0 && suggestions[highlightedIndex]) {
+        handleSelectSuggestion(suggestions[highlightedIndex].title);
+      } else {
+        setKeyword(inputKeyword.trim());
+        setShowSuggestions(false);
+      }
+      return;
+    }
+
     if (!showSuggestions || suggestions.length === 0) return;
 
     if (e.key === "ArrowDown") {
@@ -356,14 +399,6 @@ export function ProjectListPage() {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {
-        handleSelectSuggestion(suggestions[highlightedIndex].title);
-      } else {
-        setKeyword(inputKeyword.trim());
-      }
-      setShowSuggestions(false);
     } else if (e.key === "Escape") {
       setShowSuggestions(false);
     }
@@ -395,7 +430,20 @@ export function ProjectListPage() {
 
       {/* Search Bar & Filter Controls (Category, Status, Sort) */}
       <div className="flex flex-col gap-3 rounded-lg border border-ink/15 bg-paper/60 p-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+        <button
+          type="button"
+          aria-expanded={isSearchOpen}
+          aria-controls="project-search-controls"
+          onClick={() => setIsSearchOpen((open) => !open)}
+          className="flex w-full items-center justify-between text-sm font-semibold text-ink sm:hidden"
+        >
+          검색 및 필터
+          <ChevronDown className={`h-4 w-4 transition-transform ${isSearchOpen ? "rotate-180" : ""}`} /> {/* <-- 모바일 검색 영역의 열림 상태를 표시합니다. */}
+        </button>
+        <div
+          id="project-search-controls"
+          className={`${isSearchOpen ? "flex" : "hidden"} flex-col items-center gap-3 sm:flex sm:flex-row w-full`} // <-- 모바일에서 검색 영역을 열고 닫습니다.
+        >
           {/* Search Input Bar with Autocomplete Suggestions */}
           <div ref={searchContainerRef} className="relative flex items-center flex-1 w-full">
             <Search className="absolute left-3.5 h-4 w-4 text-mist" />
@@ -479,7 +527,7 @@ export function ProjectListPage() {
 
           {/* Category Dropdown Filter */}
           <Select value={categoryId} onValueChange={setCategoryId}>
-            <SelectTrigger className="!rounded-lg">
+            <SelectTrigger className="w-full !rounded-lg sm:w-auto"> {/* <-- 모바일에서 카테고리 선택창을 전체 너비로 표시합니다. */}
               <SelectValue placeholder="카테고리 선택" />
             </SelectTrigger>
             <SelectContent className="!rounded-lg">
@@ -494,7 +542,7 @@ export function ProjectListPage() {
 
           {/* Status Filter */}
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="!rounded-lg">
+            <SelectTrigger className="w-full !rounded-lg sm:w-auto"> {/* <-- 모바일에서 상태 선택창을 전체 너비로 표시합니다. */}
               <SelectValue placeholder="상태" />
             </SelectTrigger>
             <SelectContent className="!rounded-lg">
@@ -509,7 +557,7 @@ export function ProjectListPage() {
 
           {/* Sort Order */}
           <Select value={sort} onValueChange={setSort}>
-            <SelectTrigger className="!rounded-lg">
+            <SelectTrigger className="w-full !rounded-lg sm:w-auto"> {/* <-- 모바일에서 정렬 선택창을 전체 너비로 표시합니다. */}
               <SelectValue placeholder="정렬" />
             </SelectTrigger>
             <SelectContent className="!rounded-lg">
@@ -531,7 +579,7 @@ export function ProjectListPage() {
                 setSort("RELEVANCE");
                 setCreatorId(ALL);
               }}
-              className="shrink-0 rounded-lg border border-ink/20 bg-surface px-3 py-2 text-xs font-semibold text-brand transition-colors hover:border-brand/40 hover:bg-brand/10" // <-- 초기화를 테두리 버튼으로 표시합니다.
+              className="w-full shrink-0 rounded-lg border border-ink/20 bg-surface px-3 py-2 text-xs font-semibold text-brand transition-colors hover:border-brand/40 hover:bg-brand/10 sm:w-auto" // <-- 모바일에서 초기화 버튼을 전체 너비로 표시합니다.
             >
               초기화
             </button>
@@ -561,11 +609,15 @@ export function ProjectListPage() {
           검색 결과 <strong className="text-ink font-bold">{filteredAndSorted.length}</strong>개
         </span>
         <div className="flex items-center gap-3">
-          {keyword && (
+          {isTyping ? (
+            <span>
+              '<span className="text-brand font-semibold">{trimmedInput}</span>' 입력 중 · Enter로 정밀 검색
+            </span>
+          ) : keyword ? (
             <span>
               '<span className="text-brand font-semibold">{keyword}</span>' 검색어 적용 중
             </span>
-          )}
+          ) : null}
           {totalPages > 1 && (
             <span className="hidden rounded-lg border-2 border-ink bg-surface px-3 py-1.5 text-sm font-bold text-ink shadow-stamp-sm sm:inline-flex"> {/* <-- 현재 페이지를 검색 결과와 같은 줄의 오른쪽에 작게 표시합니다. */}
               현재 {currentPage} / {totalPages} 페이지
@@ -575,19 +627,32 @@ export function ProjectListPage() {
       </div>
 
       {/* Grid Content / Skeletons / Error / Empty */}
-      {isPending && (!projects || (projects as any[]).length === 0) ? (
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+      {isPending && !liveFiltered && (!projects || (projects as any[]).length === 0) ? (
+        <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4"> {/* <-- 모바일 로딩 카드도 한 행에 하나씩 표시합니다. */}
           {Array.from({ length: 8 }).map((_, index) => (
             <CardSkeleton key={index} />
           ))}
         </div>
-      ) : isError ? (
+      ) : isError && !isTyping ? (
         <ErrorState error={{ message: errorMsg!, errors: null }} />
       ) : filteredAndSorted.length === 0 ? (
         <EmptyState message="조건에 맞는 프로젝트가 없어요. 다른 키워드나 카테고리로 검색해 보세요." />
       ) : (
-        <>
-          <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+        // 확정 검색(tier 2) 응답 대기 중엔 이전 결과(placeholderData)를 흐리게 눌러 "로딩 중"임을 알림
+        // (타이핑 라이브뷰 showLive 중엔 즉시 반응이라 제외)
+        <div className="relative">
+          {searchPending && (
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center pt-6">
+              <div className="rounded-full border-2 border-ink bg-surface px-2 shadow-stamp-sm">
+                <Spinner label="검색 중..." />
+              </div>
+            </div>
+          )}
+          <div
+            aria-busy={searchPending}
+            className={`transition-opacity duration-200 ${searchPending ? "pointer-events-none opacity-40" : ""}`}
+          >
+          <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4"> {/* <-- 모바일 검색 결과를 한 행에 하나씩 표시합니다. */}
             {paginatedProjects.map((project, index) => ( // <-- 현재 페이지의 프로젝트 12개만 표시합니다.
               <Reveal key={project.projectId} delay={Math.min(index, 8) * 0.04}>
                 <ProjectCard project={project} />
@@ -610,7 +675,8 @@ export function ProjectListPage() {
               </div>
             )}
           </div>
-        </>
+        </div>
+        </div>
       )}
     </div>
   );

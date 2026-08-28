@@ -6,6 +6,13 @@ export const USER_SERVICE = {
   me: "/api/v1/users/me",
   creator: (userId: number | string) => `/api/v1/users/creators/${userId}`,
   switchRole: "/api/v1/users/me/role",
+  applyCreator: "/api/v1/users/me/creator-application",
+  creatorApplications: (status?: string) =>
+    status ? `/api/v1/users/creator-applications?status=${status}` : "/api/v1/users/creator-applications",
+  approveCreatorApplication: (applicationId: number | string) =>
+    `/api/v1/users/creator-applications/${applicationId}/approve`,
+  rejectCreatorApplication: (applicationId: number | string) =>
+    `/api/v1/users/creator-applications/${applicationId}/reject`,
 };
 
 export const PROJECT_SERVICE = {
