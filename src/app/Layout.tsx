@@ -2,15 +2,15 @@ import {useState} from "react";
 import {Link, Outlet, useLocation, useNavigate} from "react-router-dom";
 import {useQueryClient} from "@tanstack/react-query";
 import {AnimatePresence, motion} from "framer-motion";
-import {ArrowRight, Menu} from "lucide-react";
+import {ArrowRight, Menu, Search} from "lucide-react";
 import {
-  ChevronDownIcon,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  Mascot,
+    ChevronDownIcon,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+    Mascot,
 } from "../shared/ui";
 import {useAuthStore} from "../shared/auth/authStore";
 import {FloatingCartBar} from "../features/cart/components/FloatingCartBar";
@@ -211,11 +211,23 @@ export function Layout() {
       <header className="sticky top-0 z-40 border-b-2 border-ink bg-surface">
         {/* Upper Main Nav Bar (GNB) */}
         <div className="flex items-center justify-between px-6 py-3 gap-4">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 font-display text-xl font-extrabold tracking-tight text-ink shrink-0">
-            <Mascot variant="face" className="h-8 w-8" />
-            Earlybird
-          </Link>
+          <div className="flex min-w-0 items-center gap-4"> {/* <-- 홈에서 로고 오른쪽에 프로젝트 검색 바로가기를 표시합니다. */}
+            <Link to="/" className="flex shrink-0 items-center gap-2 font-display text-xl font-extrabold tracking-tight text-ink">
+              <Mascot variant="face" className="h-8 w-8" />
+              Earlybird
+            </Link>
+            {location.pathname === "/" && (
+              <Link
+                to="/projects"
+                state={{focusSearch: true}} // <-- 프로젝트 페이지 이동 후 검색창에 바로 입력할 수 있게 합니다.
+                aria-label="프로젝트 검색 페이지로 이동"
+                className="hidden w-56 items-center gap-2 rounded-lg border border-ink/20 bg-paper/60 px-3 py-2 text-sm text-mist transition-colors hover:border-brand hover:text-brand sm:flex lg:w-72"
+              >
+                <Search className="h-4 w-4 shrink-0" />
+                <span className="truncate">프로젝트를 검색해 보세요</span>
+              </Link>
+            )}
+          </div>
 
           {/* Right Section Navigation */}
           <nav className="hidden items-center gap-4 text-sm font-medium text-ink/80 md:flex">
