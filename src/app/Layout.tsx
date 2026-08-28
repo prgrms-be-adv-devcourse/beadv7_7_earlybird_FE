@@ -1,16 +1,15 @@
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import {Link, Outlet, useLocation, useNavigate} from "react-router-dom";
 import {useQueryClient} from "@tanstack/react-query";
-import {AnimatePresence, motion} from "framer-motion";
 import {ArrowRight, Menu, Search} from "lucide-react";
 import {
-    ChevronDownIcon,
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-    Mascot,
+  ChevronDownIcon,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Mascot,
 } from "../shared/ui";
 import {useAuthStore} from "../shared/auth/authStore";
 import {FloatingCartBar} from "../features/cart/components/FloatingCartBar";
@@ -180,6 +179,10 @@ export function Layout() {
   const switchRoleMutation = useSwitchRole();
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    window.scrollTo({top: 0, behavior: "auto"}); // <-- SPA 경로 전환 후 이전 페이지의 스크롤 위치가 홈 화면에 남지 않게 합니다.
+  }, [location.pathname]);
 
   const handleLogout = () => {
     // 백엔드 세션/토큰 무효화 요청을 비동기로 전송 (네트워크 지연/행으로 인한 UI 블로킹 방지)
@@ -463,17 +466,7 @@ export function Layout() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-8">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            <Outlet />
-          </motion.div>
-        </AnimatePresence>
+        <Outlet />
       </main>
       <FloatingCartBar />
       <ChatWidget />
