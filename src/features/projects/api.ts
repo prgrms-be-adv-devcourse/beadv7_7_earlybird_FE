@@ -21,7 +21,10 @@ export interface FetchProjectsParams {
   sort?: string;
 }
 
-export async function fetchProjects(params?: FetchProjectsParams): Promise<ProjectSummary[]> {
+export async function fetchProjects(
+  params?: FetchProjectsParams,
+  signal?: AbortSignal,
+): Promise<ProjectSummary[]> {
   const searchParams = new URLSearchParams();
   if (params?.keyword) searchParams.set("keyword", params.keyword);
   if (params?.categoryId && params.categoryId !== "ALL") searchParams.set("categoryId", String(params.categoryId));
@@ -31,7 +34,8 @@ export async function fetchProjects(params?: FetchProjectsParams): Promise<Proje
   const queryString = searchParams.toString();
   const url = queryString ? `${PROJECT_SERVICE.projects}?${queryString}` : PROJECT_SERVICE.projects;
 
-  const response = await apiClient.get<ApiResponse<ProjectSummary[]>>(url);
+  // signal 전달 → 검색어가 빠르게 바뀌면 React Query가 이전 요청을 취소한다(느린 이전 응답이 최신을 덮는 것 방지).
+  const response = await apiClient.get<ApiResponse<ProjectSummary[]>>(url, { signal });
   return response.data.data ?? [];
 }
 

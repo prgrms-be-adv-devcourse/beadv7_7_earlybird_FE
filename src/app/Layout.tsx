@@ -1,23 +1,24 @@
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "framer-motion";
-import { Menu } from "lucide-react";
+import {useState} from "react";
+import {Link, Outlet, useLocation, useNavigate} from "react-router-dom";
+import {useQueryClient} from "@tanstack/react-query";
+import {AnimatePresence, motion} from "framer-motion";
+import {ArrowRight, Menu, Search} from "lucide-react";
 import {
-  ChevronDownIcon,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  Mascot,
+    ChevronDownIcon,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+    Mascot,
 } from "../shared/ui";
-import { useAuthStore } from "../shared/auth/authStore";
-import { FloatingCartBar } from "../features/cart/components/FloatingCartBar";
-import { ChatWidget } from "../features/chat/components/ChatWidget";
-import { useCategories } from "../features/admin/hooks";
-import type { ProjectCategory } from "../features/admin/types";
-import { logoutRequest } from "../features/auth/api";
-import { useSwitchRole } from "../features/auth/hooks";
+import {useAuthStore} from "../shared/auth/authStore";
+import {FloatingCartBar} from "../features/cart/components/FloatingCartBar";
+import {ChatWidget} from "../features/chat/components/ChatWidget";
+import {useCategories} from "../features/admin/hooks";
+import type {ProjectCategory} from "../features/admin/types";
+import {logoutRequest} from "../features/auth/api";
+import {useSwitchRole} from "../features/auth/hooks";
 
 
 function CategoryTreeItem({
@@ -37,7 +38,7 @@ function CategoryTreeItem({
       <button
         type="button"
         onClick={() => onSelect(category.id)}
-        className={`w-full text-left py-1 text-xs font-bold rounded transition-colors flex items-center justify-between ${
+        className={`flex w-full items-center justify-between rounded py-2.5 text-left text-sm font-bold transition-colors sm:py-1 sm:text-xs ${ // <-- 모바일 하위 카테고리의 터치 영역과 글씨를 키웁니다.
           depth === 1
             ? "px-2.5 text-ink hover:bg-paper/80 hover:text-brand"
             : "px-2 text-mist hover:text-brand font-semibold"
@@ -61,54 +62,102 @@ function HeaderCategoryNav() {
   const navigate = useNavigate();
   const { data: categories } = useCategories();
   const topCategories = categories ?? [];
+  const [mobileOpenCategoryId, setMobileOpenCategoryId] = useState<number | null>(null);
 
   const handleSelect = (catId: number) => {
     navigate(`/projects?category=${catId}`);
   };
 
+  const handleTopCategoryClick = (catId: number, hasChildren: boolean) => {
+    if (hasChildren && window.matchMedia("(max-width: 639px)").matches) {
+      setMobileOpenCategoryId((currentId) => currentId === catId ? null : catId);
+      return;
+    }
+    handleSelect(catId);
+  };
+
+  const mobileOpenCategory = topCategories.find((category) => category.id === mobileOpenCategoryId);
+
   return (
-    <div className="flex items-center gap-1">
-      {topCategories.map((topCat) => {
-        const hasChildren = topCat.children && topCat.children.length > 0;
-        return (
-          <div key={topCat.id} className="group relative">
+    <div className="relative w-full">
+      <div className="flex items-center gap-2 overflow-x-auto py-2 pl-6 pr-16 touch-pan-x no-scrollbar sm:overflow-visible sm:pr-6"> {/* <-- 모바일 오른쪽 안내가 카테고리를 가리지 않도록 여백을 둡니다. */}
+        <Link
+          to="/projects"
+          className="shrink-0 border-r border-ink/15 pr-3 text-xs font-black text-brand hover:underline"
+        >
+          📁 전체 카테고리
+        </Link>
+        <div className="flex w-max items-center gap-1">
+          {topCategories.map((topCat) => {
+            const hasChildren = topCat.children && topCat.children.length > 0;
+            return (
+              <div key={topCat.id} className="group relative">
+                <button
+                  type="button"
+                  onClick={() => handleTopCategoryClick(topCat.id, hasChildren)}
+                  className="flex items-center gap-1 px-2.5 py-1 text-sm font-bold text-ink rounded-md transition-colors hover:bg-brand/10 hover:text-brand whitespace-nowrap"
+                >
+                  <span>{topCat.name}</span>
+                  {hasChildren && (
+                    <ChevronDownIcon className="h-3.5 w-3.5 text-mist transition-transform duration-200 group-hover:rotate-180" />
+                  )}
+                </button>
+
+                {hasChildren && (
+                  <div className="invisible absolute left-0 top-full z-50 hidden pt-1.5 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 sm:block">
+                    <div className="flex max-h-[400px] min-w-[200px] flex-col gap-0.5 overflow-y-auto rounded-lg border-2 border-ink bg-surface p-2.5 shadow-stamp-lg">
+                      <button
+                        type="button"
+                        onClick={() => handleSelect(topCat.id)}
+                        className="w-full rounded px-2.5 py-1.5 text-left text-xs font-extrabold text-brand transition-colors hover:bg-brand/10"
+                      >
+                        전체 {topCat.name} 보기
+                      </button>
+                      <div className="my-1 h-px bg-ink/15" />
+
+                      {topCat.children.map((subCat) => (
+                        <CategoryTreeItem
+                          key={subCat.id}
+                          category={subCat}
+                          depth={1}
+                          onSelect={handleSelect}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="pointer-events-none absolute inset-y-0 right-0 flex w-16 items-center justify-end bg-gradient-to-l from-surface via-surface/95 to-transparent pr-3 sm:hidden" aria-hidden> {/* <-- 모바일 상단 카테고리를 오른쪽으로 넘길 수 있음을 강조합니다. */}
+        <span className="flex h-8 w-8 animate-pulse items-center justify-center rounded-full border-2 border-brand bg-surface text-brand shadow-sm">
+          <ArrowRight className="h-4 w-4" />
+        </span>
+      </div>
+
+      {mobileOpenCategory && (
+        <div className="border-t border-ink/10 bg-paper/60 px-6 py-2 sm:hidden"> {/* <-- 모바일 하위 카테고리를 스크롤 영역 밖에 펼칩니다. */}
+          <div className="flex flex-col gap-0.5">
             <button
               type="button"
-              onClick={() => handleSelect(topCat.id)}
-              className="flex items-center gap-1 px-2.5 py-1 text-sm font-bold text-ink rounded-md transition-colors hover:bg-brand/10 hover:text-brand whitespace-nowrap"
+              onClick={() => handleSelect(mobileOpenCategory.id)}
+              className="w-full rounded px-2.5 py-1.5 text-left text-xs font-extrabold text-brand transition-colors hover:bg-brand/10"
             >
-              <span>{topCat.name}</span>
-              {hasChildren && (
-                <ChevronDownIcon className="h-3.5 w-3.5 transition-transform duration-200 group-hover:rotate-180 text-mist" />
-              )}
+              전체 {mobileOpenCategory.name} 보기
             </button>
-
-            {hasChildren && (
-              <div className="invisible absolute left-0 top-full pt-1.5 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 z-50">
-                <div className="min-w-[200px] rounded-lg border-2 border-ink bg-surface p-2.5 shadow-stamp-lg flex flex-col gap-0.5 max-h-[400px] overflow-y-auto">
-                  <button
-                    type="button"
-                    onClick={() => handleSelect(topCat.id)}
-                    className="w-full text-left px-2.5 py-1.5 text-xs font-extrabold text-brand hover:bg-brand/10 rounded transition-colors"
-                  >
-                    전체 {topCat.name} 보기
-                  </button>
-                  <div className="my-1 h-px bg-ink/15" />
-
-                  {topCat.children.map((subCat) => (
-                    <CategoryTreeItem
-                      key={subCat.id}
-                      category={subCat}
-                      depth={1}
-                      onSelect={handleSelect}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+            {mobileOpenCategory.children.map((subCategory) => (
+              <CategoryTreeItem
+                key={subCategory.id}
+                category={subCategory}
+                depth={1}
+                onSelect={handleSelect}
+              />
+            ))}
           </div>
-        );
-      })}
+        </div>
+      )}
     </div>
   );
 }
@@ -162,11 +211,23 @@ export function Layout() {
       <header className="sticky top-0 z-40 border-b-2 border-ink bg-surface">
         {/* Upper Main Nav Bar (GNB) */}
         <div className="flex items-center justify-between px-6 py-3 gap-4">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 font-display text-xl font-extrabold tracking-tight text-ink shrink-0">
-            <Mascot variant="face" className="h-8 w-8" />
-            Earlybird
-          </Link>
+          <div className="flex min-w-0 items-center gap-4"> {/* <-- 홈에서 로고 오른쪽에 프로젝트 검색 바로가기를 표시합니다. */}
+            <Link to="/" className="flex shrink-0 items-center gap-2 font-display text-xl font-extrabold tracking-tight text-ink">
+              <Mascot variant="face" className="h-8 w-8" />
+              Earlybird
+            </Link>
+            {location.pathname === "/" && (
+              <Link
+                to="/projects"
+                state={{focusSearch: true}} // <-- 프로젝트 페이지 이동 후 검색창에 바로 입력할 수 있게 합니다.
+                aria-label="프로젝트 검색 페이지로 이동"
+                className="hidden w-56 items-center gap-2 rounded-lg border border-ink/20 bg-paper/60 px-3 py-2 text-sm text-mist transition-colors hover:border-brand hover:text-brand sm:flex lg:w-72"
+              >
+                <Search className="h-4 w-4 shrink-0" />
+                <span className="truncate">프로젝트를 검색해 보세요</span>
+              </Link>
+            )}
+          </div>
 
           {/* Right Section Navigation */}
           <nav className="hidden items-center gap-4 text-sm font-medium text-ink/80 md:flex">
@@ -266,33 +327,29 @@ export function Layout() {
                     </DropdownMenuItem>
                   )}
 
-                  {import.meta.env.DEV && (
-                    <>
-                      <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
-                      <div className="px-2 py-1 text-[11px] font-semibold text-mist">
-                        역할 즉시 전환 (개발 전용)
-                        {switchRoleMutation.isPending && " ⏳"}
-                      </div>
-                      <DropdownMenuItem
-                        disabled={switchRoleMutation.isPending}
-                        onSelect={() => switchRoleMutation.mutate("BACKER")}
-                      >
-                        후원자(BACKER)로 전환
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={switchRoleMutation.isPending}
-                        onSelect={() => switchRoleMutation.mutate("CREATOR")}
-                      >
-                        창작자(CREATOR)로 전환
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={switchRoleMutation.isPending}
-                        onSelect={() => switchRoleMutation.mutate("ADMIN")}
-                      >
-                        관리자(ADMIN)로 전환
-                      </DropdownMenuItem>
-                    </>
-                  )}
+                  <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
+                  <div className="px-2 py-1 text-[11px] font-semibold text-mist">
+                    역할 즉시 전환
+                    {switchRoleMutation.isPending && " ⏳"}
+                  </div>
+                  <DropdownMenuItem
+                    disabled={switchRoleMutation.isPending}
+                    onSelect={() => switchRoleMutation.mutate("BACKER")}
+                  >
+                    후원자(BACKER)로 전환
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={switchRoleMutation.isPending}
+                    onSelect={() => switchRoleMutation.mutate("CREATOR")}
+                  >
+                    창작자(CREATOR)로 전환
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={switchRoleMutation.isPending}
+                    onSelect={() => switchRoleMutation.mutate("ADMIN")}
+                  >
+                    관리자(ADMIN)로 전환
+                  </DropdownMenuItem>
 
                   <DropdownMenuSeparator className="my-1 h-px bg-ink/15" />
                   <DropdownMenuItem onSelect={handleLogout} className="text-red-600">
@@ -400,13 +457,7 @@ export function Layout() {
         </div>
 
         {/* Lower Sub Category Bar (LNB) - 상시 표시 2단 바 */}
-        <div className="border-t border-ink/10 bg-paper/60 px-6 py-2 flex items-center gap-2 relative z-30 overflow-visible">
-          <Link
-            to="/projects"
-            className="text-xs font-black text-brand hover:underline shrink-0 pr-3 border-r border-ink/15"
-          >
-            📁 전체 카테고리
-          </Link>
+        <div className="relative z-30 border-t border-ink/10 bg-paper/60"> {/* <-- 모바일 하위 카테고리 목록이 스크롤 영역 밖에 펼쳐집니다. */}
           <HeaderCategoryNav />
         </div>
       </header>

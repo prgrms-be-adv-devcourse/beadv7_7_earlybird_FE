@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../../shared/auth/authStore";
 import {
   approveCreatorApplication,
-  cancelCreatorApplication,
   fetchCreatorApplications,
   fetchMyCreatorApplication,
   rejectCreatorApplication,
@@ -23,16 +22,6 @@ export function useSubmitCreatorApplication() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: SubmitCreatorApplicationPayload) => submitCreatorApplication(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["creator"] });
-    },
-  });
-}
-
-export function useCancelCreatorApplication() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (applicationId: number) => cancelCreatorApplication(applicationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["creator"] });
     },

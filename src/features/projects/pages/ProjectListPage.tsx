@@ -1,8 +1,11 @@
 import {useEffect, useMemo, useRef, useState} from "react";
-import {Link, useSearchParams} from "react-router-dom";
-import {Search, X} from "lucide-react";
+import {Link, useLocation, useSearchParams} from "react-router-dom";
+import {ChevronDown, Search, X} from "lucide-react";
 import {
   CardSkeleton,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
   EmptyState,
   ErrorState,
   Reveal,
@@ -11,15 +14,23 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Spinner,
 } from "../../../shared/ui";
 import {useProjects} from "../hooks";
 import {useCategories} from "../../admin/hooks";
 import {ProjectCard} from "../components/ProjectCard";
-import {getCategoryIdsIncludingChildren, getCreatorDisplayName, getStatusLabel,} from "../utils";
+import {
+  flattenCategories,
+  getCategoryIdsIncludingChildren,
+  getCategoryPathString,
+  getCreatorDisplayName,
+  getStatusLabel,
+} from "../utils";
 
 import {useAuthStore} from "../../../shared/auth/authStore";
 
 const ALL = "ALL";
+const PAGE_SIZE = 8;
 
 function HighlightMatch({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <>{text}</>;
@@ -40,8 +51,66 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   );
 }
 
+// 추가 : 현재 페이지 주변의 최대 5개 페이지 번호를 표시합니다.
+function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+
+  const startPage = Math.min(
+    Math.max(currentPage - 4, 1),
+    Math.max(totalPages - 4, 1),
+  );
+  const pages = Array.from(
+    {length: Math.min(5, totalPages)},
+    (_, index) => startPage + index,
+  );
+
+  return (
+    <div className="flex items-center justify-center gap-2">
+      <button
+        type="button"
+        disabled={currentPage === 1}
+        onClick={() => onPageChange(currentPage - 1)}
+        className="rounded-lg border border-ink/20 bg-surface px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        ←
+      </button>
+      {pages.map((page) => (
+        <button
+          key={page}
+          type="button"
+          onClick={() => onPageChange(page)}
+          className={`h-9 w-9 rounded-lg border text-sm font-semibold ${
+            page === currentPage
+              ? "border-brand bg-brand text-white"
+              : "border-ink/20 bg-surface text-ink"
+          }`}
+        >
+          {page}
+        </button>
+      ))}
+      <button
+        type="button"
+        disabled={currentPage === totalPages}
+        onClick={() => onPageChange(currentPage + 1)}
+        className="rounded-lg border border-ink/20 bg-surface px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        →
+      </button>
+    </div>
+  );
+}
+
 export function ProjectListPage() {
   const user = useAuthStore((state) => state.user);
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Read initial filter values from URL params
@@ -57,10 +126,16 @@ export function ProjectListPage() {
   const [categoryId, setCategoryId] = useState(initialCategory);
   const [sort, setSort] = useState(initialSort);
   const [creatorId, setCreatorId] = useState(initialCreatorId);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [expandedCategoryId, setExpandedCategoryId] = useState<number | null>(null);
+  const previousPageRef = useRef(currentPage);
 
   // Autocomplete suggestions state
   const searchContainerRef = useRef<HTMLDivElement>(null);
-  const isUpdatingUrlRef = useRef(false); // <-- 내부 필터 변경으로 URL을 갱신하는지 구분합니다.
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const pendingSearchRef = useRef<string | null>(null); // <-- 내부에서 갱신한 URL 문자열만 구분합니다.
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
@@ -112,12 +187,20 @@ export function ProjectListPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!location.state?.focusSearch) return;
+    setIsSearchOpen(true);
+    requestAnimationFrame(() => searchInputRef.current?.focus()); // <-- 홈 검색 링크로 들어오면 추가 클릭 없이 입력을 시작합니다.
+  }, [location.key, location.state]);
+
   // Sync state if URL searchParams change externally
   useEffect(() => {
-    if (isUpdatingUrlRef.current) {
-      isUpdatingUrlRef.current = false; // <-- 내부 갱신 URL은 입력 중인 검색어에 다시 반영하지 않습니다.
+    const currentSearch = searchParams.toString();
+    if (pendingSearchRef.current === currentSearch) {
+      pendingSearchRef.current = null; // <-- 현재 필터 상태로 갱신한 URL만 동기화를 건너뜁니다.
       return;
     }
+    pendingSearchRef.current = null;
 
     const currentUrlKeyword = searchParams.get("keyword") || "";
     const currentCreatorId = searchParams.get("creatorId") || ALL;
@@ -133,11 +216,13 @@ export function ProjectListPage() {
     setSort(currentSort);
   }, [searchParams]);
 
-  // Debounce inputKeyword changes into active query keyword
+  // 2-tier 검색:
+  //  · 타이핑 중(각 글자)  → 이미 받아둔 전체 목록을 클라이언트에서 필터링만 (LLM·서버 호출 없음, 아래 liveFiltered)
+  //  · 엔터 or 500ms 무입력 → keyword를 확정해 기존 하이브리드 검색 플로우(LLM 질의이해+임베딩+kNN) 실행
   useEffect(() => {
     const timer = setTimeout(() => {
       setKeyword(inputKeyword.trim());
-    }, 300);
+    }, 500);
     return () => clearTimeout(timer);
   }, [inputKeyword]);
 
@@ -151,44 +236,70 @@ export function ProjectListPage() {
     if (status !== ALL) params.status = status;
     if (sort !== "RELEVANCE") params.sort = sort;
     if (creatorId !== ALL) params.creatorId = creatorId;
-    isUpdatingUrlRef.current = true; // <-- 현재 필터 상태로 URL을 갱신했음을 표시합니다.
-    setSearchParams(params, { replace: true });
-  }, [keyword, categoryId, status, sort, creatorId, setSearchParams]);
 
-  // Fetch projects passing params
-  const { data: projects, isPending, isError, error } = useProjects({
+    const nextSearch = new URLSearchParams(params).toString();
+    if (nextSearch === searchParams.toString()) return;
+
+    pendingSearchRef.current = nextSearch; // <-- 이 URL과 일치하는 갱신만 내부 변경으로 처리합니다.
+    setSearchParams(params, { replace: true });
+  }, [keyword, categoryId, status, sort, creatorId, searchParams, setSearchParams]);
+
+  // Fetch projects passing params (tier 2: 확정된 keyword로만 하이브리드 검색)
+  const { data: projects, isPending, isPlaceholderData, isError, error } = useProjects({
     keyword: keyword.trim() || undefined,
     status: status !== ALL ? status : undefined,
     sort: sort === "RELEVANCE" ? undefined : sort,
   });
 
+  // tier 1: 타이핑 중이거나(입력이 아직 keyword로 확정 안 됨) 확정 검색이 첫 로딩 중이면,
+  // 전체 풀(rawAllProjects)을 클라이언트에서 필터링해 바로 보여준다(서버·LLM 호출 없음, 스켈레톤 깜빡임 방지).
+  const trimmedInput = inputKeyword.trim();
+  const isTyping = trimmedInput.length > 0 && trimmedInput !== keyword.trim();
+  const showLive = trimmedInput.length > 0 && (isTyping || (isPending && !projects));
+  const liveFiltered = useMemo(() => {
+    if (!showLive || !rawAllProjects) return null;
+    const term = trimmedInput.toLowerCase();
+    const words = term.split(/\s+/).filter(Boolean);
+    const termNoSpace = term.replace(/\s/g, ""); // "롱 코트" ↔ "롱코트" 매칭
+    return rawAllProjects.filter((p) => {
+      const hay = `${p.title} ${p.summary ?? ""}`.toLowerCase();
+      return (
+        hay.includes(term) ||
+        hay.replace(/\s/g, "").includes(termNoSpace) ||
+        words.every((w) => hay.includes(w))
+      );
+    });
+  }, [showLive, trimmedInput, rawAllProjects]);
+
+  // 그리드에 쓸 소스: 타이핑 중이면 클라 필터 결과, 아니면 하이브리드 검색 결과
+  const baseProjects = liveFiltered ?? projects;
+
+  // 확정 검색(tier 2) 응답 대기 중: keepPreviousData로 이전 결과가 남아있는 그 구간.
+  // 라이브뷰(showLive)가 아니고, placeholder(=이전 데이터)를 보여주는 중일 때만.
+  const searchPending = isPlaceholderData && !showLive;
+
   const { data: categories } = useCategories();
 
   const categoryOptions = useMemo(() => {
-    if (!categories) return [];
-    const parents = categories.filter((c) => !c.parentProjectCategoryId);
-    const result: { id: string; label: string }[] = [];
-
-    parents.forEach((parent) => {
-      result.push({ id: String(parent.id), label: `📁 ${parent.name}` });
-      const children = categories.filter((c) => c.parentProjectCategoryId === parent.id);
-      children.forEach((child) => {
-        result.push({ id: String(child.id), label: `↳ ${child.name}` });
-      });
-    });
-    return result;
+    return flattenCategories(categories ?? []).map((category) => ({ // <-- 트리의 모든 하위 카테고리를 선택 항목에 포함합니다.
+      id: String(category.id),
+      label: category.level === 0 ? `📁 ${category.name}` : category.displayName,
+    }));
   }, [categories]);
+  const selectedCategoryPath = categoryId === ALL
+    ? ""
+    : getCategoryPathString(categories, Number(categoryId)).replaceAll(" > ", " - "); // <-- 선택한 상위·하위 카테고리 경로를 표시합니다.
 
   const statusOptions = useMemo(
-    () => Array.from(new Set((projects ?? []).map((project) => project.status))),
-    [projects]
+    () => Array.from(new Set((baseProjects ?? []).map((project) => project.status))),
+    [baseProjects]
   );
 
   // Filter & sort including parent/child category tree matching
   const filteredAndSorted = useMemo(() => {
-    if (!projects) return [];
+    if (!baseProjects) return [];
 
-    let list = projects;
+    let list = baseProjects;
 
     if (status !== ALL) {
       list = list.filter((project) => project.status === status);
@@ -214,7 +325,58 @@ export function ProjectListPage() {
     // When sort === "RELEVANCE", preserve the server's Elasticsearch relevance ranking!
 
     return list;
-  }, [projects, status, categoryId, creatorId, sort, categories]);
+  }, [baseProjects, status, categoryId, creatorId, sort, categories]);
+
+  useEffect(() => {
+    setCurrentPage(1); // <-- 검색·필터 조건이 바뀌면 첫 페이지를 표시합니다.
+  }, [keyword, categoryId, status, sort, creatorId]);
+
+  // 추가 : 모바일에서 페이지 이동 시 화면 최상단으로 이동합니다.
+  useEffect(() => {
+    const previousPage = previousPageRef.current;
+    previousPageRef.current = currentPage;
+
+    if (
+      previousPage === currentPage ||
+      !window.matchMedia("(max-width: 639px)").matches
+    ) {
+      return;
+    }
+
+    window.scrollTo({top: 0, behavior: "smooth"});
+  }, [currentPage]);
+
+  const totalPages = Math.ceil(filteredAndSorted.length / PAGE_SIZE);
+  const paginatedProjects = filteredAndSorted.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
+  // 추가 : 검색·드롭다운 입력 중이 아닐 때 좌우 방향키로 페이지를 이동합니다.
+  useEffect(() => {
+    const handlePageKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (
+        target.matches("input, textarea, select") ||
+        target.isContentEditable ||
+        target.closest('[role="combobox"]')
+      ) {
+        return;
+      }
+
+      if (event.key === "ArrowLeft" && currentPage > 1) {
+        event.preventDefault();
+        setCurrentPage((page) => page - 1);
+      }
+      if (event.key === "ArrowRight" && currentPage < totalPages) {
+        event.preventDefault();
+        setCurrentPage((page) => page + 1);
+      }
+    };
+
+    window.addEventListener("keydown", handlePageKeyDown);
+    return () => window.removeEventListener("keydown", handlePageKeyDown);
+  }, [currentPage, totalPages]);
 
   const handleClearSearch = () => {
     setInputKeyword("");
@@ -231,6 +393,18 @@ export function ProjectListPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Enter는 추천어 목록 유무와 무관하게 항상 검색을 확정한다(디바운스 우회).
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (showSuggestions && highlightedIndex >= 0 && suggestions[highlightedIndex]) {
+        handleSelectSuggestion(suggestions[highlightedIndex].title);
+      } else {
+        setKeyword(inputKeyword.trim());
+        setShowSuggestions(false);
+      }
+      return;
+    }
+
     if (!showSuggestions || suggestions.length === 0) return;
 
     if (e.key === "ArrowDown") {
@@ -239,14 +413,6 @@ export function ProjectListPage() {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {
-        handleSelectSuggestion(suggestions[highlightedIndex].title);
-      } else {
-        setKeyword(inputKeyword.trim());
-      }
-      setShowSuggestions(false);
     } else if (e.key === "Escape") {
       setShowSuggestions(false);
     }
@@ -263,8 +429,8 @@ export function ProjectListPage() {
       {/* Top Header */}
       <div className="flex items-center justify-between border-b border-ink/10 pb-4">
         <div>
-          <h1 className="font-display text-2xl font-bold text-ink">🔍 프로젝트 탐색 및 검색</h1>
-          <p className="text-xs text-mist">카테고리 드롭다운과 키워드로 원하시는 프로젝트를 쉽게 찾아보세요.</p>
+          <h1 className="font-display text-2xl font-bold text-ink">🔍 프로젝트 검색</h1>
+          <p className="text-xs text-mist">카테고리와 키워드로 원하시는 프로젝트를 쉽게 찾아보세요.</p>
         </div>
         {user?.role === "CREATOR" && (
           <Link
@@ -278,11 +444,25 @@ export function ProjectListPage() {
 
       {/* Search Bar & Filter Controls (Category, Status, Sort) */}
       <div className="flex flex-col gap-3 rounded-lg border border-ink/15 bg-paper/60 p-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+        <button
+          type="button"
+          aria-expanded={isSearchOpen}
+          aria-controls="project-search-controls"
+          onClick={() => setIsSearchOpen((open) => !open)}
+          className="flex w-full items-center justify-between text-sm font-semibold text-ink sm:hidden"
+        >
+          검색 및 필터
+          <ChevronDown className={`h-4 w-4 transition-transform ${isSearchOpen ? "rotate-180" : ""}`} /> {/* <-- 모바일 검색 영역의 열림 상태를 표시합니다. */}
+        </button>
+        <div
+          id="project-search-controls"
+          className={`${isSearchOpen ? "flex" : "hidden"} flex-col items-center gap-3 sm:flex sm:flex-row w-full`} // <-- 모바일에서 검색 영역을 열고 닫습니다.
+        >
           {/* Search Input Bar with Autocomplete Suggestions */}
           <div ref={searchContainerRef} className="relative flex items-center flex-1 w-full">
             <Search className="absolute left-3.5 h-4 w-4 text-mist" />
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="프로젝트 제목 또는 한 줄 요약으로 검색..."
               value={inputKeyword}
@@ -361,23 +541,74 @@ export function ProjectListPage() {
           </div>
 
           {/* Category Dropdown Filter */}
-          <Select value={categoryId} onValueChange={setCategoryId}>
-            <SelectTrigger className="!rounded-lg">
-              <SelectValue placeholder="카테고리 선택" />
-            </SelectTrigger>
-            <SelectContent className="!rounded-lg">
-              <SelectItem value={ALL}>📁 전체 카테고리</SelectItem>
-              {categoryOptions.map((opt) => (
-                <SelectItem key={opt.id} value={opt.id}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <DropdownMenu open={isCategoryOpen} onOpenChange={setIsCategoryOpen}>
+            <DropdownMenuTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border-2 border-ink/25 bg-surface px-3 py-2 text-sm text-ink outline-none data-[state=open]:border-ink sm:w-56"> {/* <-- 선택된 이름이 길어도 카테고리 선택란의 폭을 유지합니다. */}
+              <span className="truncate">{categoryId === ALL ? "📁 전체 카테고리" : categoryOptions.find((option) => option.id === categoryId)?.label ?? "카테고리 선택"}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-mist" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="max-h-[min(24rem,var(--radix-dropdown-menu-content-available-height))] w-56 min-w-0 overflow-y-auto !rounded-lg"> {/* <-- 하위 항목이 많거나 이름이 길어도 메뉴 크기를 고정합니다. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setCategoryId(ALL);
+                  setIsCategoryOpen(false);
+                }}
+                className="w-full rounded-sm px-3 py-2 text-left text-sm text-ink hover:bg-paper"
+              >
+                📁 전체 카테고리
+              </button>
+              {(categories ?? []).map((parent) => {
+                const hasChildren = parent.children.length > 0;
+                const isExpanded = expandedCategoryId === parent.id;
+
+                return (
+                  <div key={parent.id}>
+                    <div className="flex items-center rounded-sm hover:bg-paper">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCategoryId(String(parent.id));
+                          setIsCategoryOpen(false);
+                        }}
+                        className="flex-1 px-3 py-2 text-left text-sm text-ink"
+                      >
+                        📁 {parent.name}
+                      </button>
+                      {hasChildren && (
+                        <button
+                          type="button"
+                          aria-label={`${parent.name} 하위 카테고리 ${isExpanded ? "닫기" : "열기"}`}
+                          aria-expanded={isExpanded}
+                          onClick={() => setExpandedCategoryId(isExpanded ? null : parent.id)}
+                          className="mr-1 rounded p-2 text-mist hover:bg-ink/10 hover:text-ink"
+                        >
+                          <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                        </button>
+                      )}
+                    </div>
+                    {isExpanded && flattenCategories(parent.children).map((child) => (
+                      <button
+                        key={child.id}
+                        type="button"
+                        onClick={() => {
+                          setCategoryId(String(child.id));
+                          setIsCategoryOpen(false);
+                        }}
+                        className="w-full break-words rounded-sm px-3 py-2 text-left text-sm text-ink hover:bg-paper"
+                        style={{paddingLeft: `${(child.level + 2) * 12}px`}}
+                      >
+                        └ {child.name}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Status Filter */}
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="!rounded-lg">
+            <SelectTrigger className="w-full !rounded-lg sm:w-auto"> {/* <-- 모바일에서 상태 선택창을 전체 너비로 표시합니다. */}
               <SelectValue placeholder="상태" />
             </SelectTrigger>
             <SelectContent className="!rounded-lg">
@@ -392,7 +623,7 @@ export function ProjectListPage() {
 
           {/* Sort Order */}
           <Select value={sort} onValueChange={setSort}>
-            <SelectTrigger className="!rounded-lg">
+            <SelectTrigger className="w-full !rounded-lg sm:w-auto"> {/* <-- 모바일에서 정렬 선택창을 전체 너비로 표시합니다. */}
               <SelectValue placeholder="정렬" />
             </SelectTrigger>
             <SelectContent className="!rounded-lg">
@@ -414,9 +645,9 @@ export function ProjectListPage() {
                 setSort("RELEVANCE");
                 setCreatorId(ALL);
               }}
-              className="text-xs font-semibold text-brand hover:underline shrink-0"
+              className="w-full shrink-0 rounded-lg border border-ink/20 bg-surface px-3 py-2 text-xs font-semibold text-brand transition-colors hover:border-brand/40 hover:bg-brand/10 sm:w-auto" // <-- 모바일에서 초기화 버튼을 전체 너비로 표시합니다.
             >
-              초기화 🔄
+              초기화
             </button>
           )}
         </div>
@@ -439,35 +670,83 @@ export function ProjectListPage() {
       </div>
 
       {/* Result Count Header */}
-      <div className="flex items-center justify-between text-xs text-mist px-1">
-        <span>
-          검색 결과 <strong className="text-ink font-bold">{filteredAndSorted.length}</strong>개
-        </span>
-        {keyword && (
-          <span>
-            '<span className="text-brand font-semibold">{keyword}</span>' 검색어 적용 중
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-mist">
+        <div className="flex min-w-0 items-center gap-2 text-sm"> {/* <-- 검색 결과 오른쪽에 선택한 카테고리 경로를 표시합니다. */}
+          <span className="shrink-0">
+            검색 결과 <strong className="text-ink font-bold">{filteredAndSorted.length}</strong>개
           </span>
-        )}
+          {selectedCategoryPath && (
+            <span className="truncate font-semibold text-brand">· {selectedCategoryPath}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {isTyping ? (
+            <span>
+              '<span className="text-brand font-semibold">{trimmedInput}</span>' 입력 중 · Enter로 정밀 검색
+            </span>
+          ) : keyword ? (
+            <span>
+              '<span className="text-brand font-semibold">{keyword}</span>' 검색어 적용 중
+            </span>
+          ) : null}
+          {totalPages > 1 && (
+            <span className="hidden rounded-lg border-2 border-ink bg-surface px-3 py-1.5 text-sm font-bold text-ink shadow-stamp-sm sm:inline-flex"> {/* <-- 현재 페이지를 검색 결과와 같은 줄의 오른쪽에 작게 표시합니다. */}
+              현재 {currentPage} / {totalPages} 페이지
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Grid Content / Skeletons / Error / Empty */}
-      {isPending && (!projects || (projects as any[]).length === 0) ? (
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+      {isPending && !liveFiltered && (!projects || (projects as any[]).length === 0) ? (
+        <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4"> {/* <-- 모바일 로딩 카드도 한 행에 하나씩 표시합니다. */}
           {Array.from({ length: 8 }).map((_, index) => (
             <CardSkeleton key={index} />
           ))}
         </div>
-      ) : isError ? (
+      ) : isError && !isTyping ? (
         <ErrorState error={{ message: errorMsg!, errors: null }} />
       ) : filteredAndSorted.length === 0 ? (
         <EmptyState message="조건에 맞는 프로젝트가 없어요. 다른 키워드나 카테고리로 검색해 보세요." />
       ) : (
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
-          {filteredAndSorted.map((project, index) => (
-            <Reveal key={project.projectId} delay={Math.min(index, 8) * 0.04}>
-              <ProjectCard project={project} />
-            </Reveal>
-          ))}
+        // 확정 검색(tier 2) 응답 대기 중엔 이전 결과(placeholderData)를 흐리게 눌러 "로딩 중"임을 알림
+        // (타이핑 라이브뷰 showLive 중엔 즉시 반응이라 제외)
+        <div className="relative">
+          {searchPending && (
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center pt-6">
+              <div className="rounded-full border-2 border-ink bg-surface px-2 shadow-stamp-sm">
+                <Spinner label="검색 중..." />
+              </div>
+            </div>
+          )}
+          <div
+            aria-busy={searchPending}
+            className={`transition-opacity duration-200 ${searchPending ? "pointer-events-none opacity-40" : ""}`}
+          >
+          <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4"> {/* <-- 모바일 검색 결과를 한 행에 하나씩 표시합니다. */}
+            {paginatedProjects.map((project, index) => ( // <-- 현재 페이지의 프로젝트 12개만 표시합니다.
+              <Reveal key={project.projectId} delay={Math.min(index, 8) * 0.04}>
+                <ProjectCard project={project} />
+              </Reveal>
+            ))}
+          </div>
+
+          <div className="relative"> {/* <-- 페이지 번호 중앙 정렬과 방향키 안내 우측 정렬을 함께 유지합니다. */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+
+            {totalPages > 1 && (
+              <div className="absolute right-0 top-1/2 hidden -translate-y-1/2 sm:flex"> {/* <-- 방향키 안내를 페이지 번호와 같은 높이의 오른쪽에 표시합니다. */}
+              <span className="rounded-lg border-2 border-ink bg-surface px-3 py-1.5 text-xs font-bold text-ink shadow-stamp-sm"> {/* <-- 방향키 안내를 기존 크기의 약 4분의 3으로 표시합니다. */}
+                ← 방향키로 페이지 이동 →
+              </span>
+              </div>
+            )}
+          </div>
+        </div>
         </div>
       )}
     </div>

@@ -24,10 +24,10 @@ import { fetchPendingProjects } from "../admin/api";
 export function useProjects(params?: FetchProjectsParams) {
   return useQuery({
     queryKey: ["projects", "list", params],
-    queryFn: () => fetchProjects(params),
+    queryFn: ({ signal }) => fetchProjects(params, signal),
     placeholderData: keepPreviousData,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: params?.keyword ? 30_000 : 0,
+    refetchOnWindowFocus: !params?.keyword,
   });
 }
 

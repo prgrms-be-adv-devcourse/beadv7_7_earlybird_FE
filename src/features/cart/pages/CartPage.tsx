@@ -1,9 +1,10 @@
 import {useEffect, useRef, useState} from "react";
-import {useNavigate} from "react-router-dom";
+import {Link, useNavigate} from "react-router-dom";
 import {useQueryClient} from "@tanstack/react-query";
 import {Minus, Plus} from "lucide-react";
 import {useCart, useClearCart, useRemoveCartItem, useUpdateCartItems} from "../hooks";
 import {usePlaceOrder} from "../../orders/hooks";
+import {useFilesByOwner} from "../../files/hooks";
 import {generateUUID} from "../../orders/utils";
 import {Button, Card, Dialog, DialogContent, DialogDescription, DialogTitle, Skeleton} from "../../../shared/ui";
 import {ErrorState} from "../../../shared/ui/ErrorState";
@@ -13,27 +14,44 @@ import {useAuthStore} from "../../../shared/auth/authStore";
 
 
 function CartRewardRow({
+  projectId,
   reward,
   onRemove,
   onChangeQuantity,
   isRemoving,
   isUpdating,
 }: {
+  projectId: number;
   reward: CartReward;
   onRemove: () => void;
   onChangeQuantity: (quantity: number) => void;
   isRemoving: boolean;
   isUpdating: boolean;
 }) {
+  const {data: rewardFiles} = useFilesByOwner("REWARD", reward.rewardId, true); // <-- 장바구니 리워드 사진을 조회합니다.
+  const thumbnailUrl = rewardFiles?.[0]?.storedUrl;
   const unitPrice = reward.unitPrice > 0 ? reward.unitPrice : reward.totalPrice / (reward.quantity || 1);
   const totalPrice = reward.totalPrice > 0 ? reward.totalPrice : unitPrice * reward.quantity;
 
   return (
     <li className="flex items-center justify-between border-b border-ink/5 py-3 last:border-none">
-      <div className="flex flex-col gap-0.5">
-        <span className="font-semibold text-ink">{reward.rewardName}</span>
-        <span className="text-xs text-mist">단가: {unitPrice.toLocaleString()}원</span>
-      </div>
+      <Link to={`/projects/${projectId}`} className="flex min-w-0 items-center gap-3 hover:text-brand"> {/* <-- 사진과 제목을 누르면 프로젝트 상세로 이동합니다. */}
+        {thumbnailUrl ? (
+          <img
+            src={thumbnailUrl}
+            alt={reward.rewardName}
+            className="h-14 w-14 shrink-0 rounded-sm border border-ink/20 bg-paper object-cover"
+          />
+        ) : (
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-sm border border-dashed border-ink/30 bg-paper px-1 text-center text-[9px] leading-tight text-mist">
+            이미지 준비중입니다
+          </div>
+        )}
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate font-semibold text-ink hover:text-brand">{reward.rewardName}</span>
+가
+        </div>
+      </Link>
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1 rounded-sm border border-ink/20">
           <button
@@ -243,6 +261,7 @@ export function CartPage() {
               {project.rewards.map((reward) => (
                 <CartRewardRow
                   key={reward.cartItemId}
+                  projectId={project.projectId}
                   reward={reward}
                   onRemove={() => removeCartItemMutation.mutate(reward.rewardId)}
                   onChangeQuantity={(quantity) => {

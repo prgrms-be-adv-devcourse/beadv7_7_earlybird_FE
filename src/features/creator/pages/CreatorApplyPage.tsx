@@ -2,9 +2,9 @@ import {useEffect, useState} from "react";
 import {useNavigate} from "react-router-dom";
 import {AlertCircle, ArrowRight, Building2, Clock, FileText, Sparkles, User} from "lucide-react";
 import {useAuthStore} from "../../../shared/auth/authStore";
-import {useCancelCreatorApplication, useMyCreatorApplication, useSubmitCreatorApplication} from "../hooks";
+import {useMyCreatorApplication, useSubmitCreatorApplication} from "../hooks";
 import {BANK_LIST} from "../types";
-import {Badge, Button, Card, Dialog, DialogContent, DialogDescription, DialogTitle, Mascot} from "../../../shared/ui";
+import {Badge, Button, Card, Mascot} from "../../../shared/ui";
 
 const CATEGORIES = [
   "패션",
@@ -23,7 +23,6 @@ export function CreatorApplyPage() {
   const user = useAuthStore((state) => state.user);
   const { data: application, isLoading } = useMyCreatorApplication();
   const submitMutation = useSubmitCreatorApplication();
-  const cancelMutation = useCancelCreatorApplication();
 
   const [creatorName, setCreatorName] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
@@ -36,8 +35,8 @@ export function CreatorApplyPage() {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreeHonesty, setAgreeHonesty] = useState(false);
 
+  const [submittedApp, setSubmittedApp] = useState<any>(null);
   const [isEditingRejected, setIsEditingRejected] = useState(false);
-  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -103,8 +102,10 @@ export function CreatorApplyPage() {
     );
   }
 
+  const currentApp = application || submittedApp;
+
   // 심사 대기 중 상태
-  if (application && application.status === "PENDING") {
+  if (currentApp && currentApp.status === "PENDING") {
     return (
       <div className="mx-auto max-w-2xl py-12">
         {submitSuccess && (
@@ -127,7 +128,9 @@ export function CreatorApplyPage() {
                 <Badge tone="peach">심사 대기</Badge>
               </div>
               <p className="text-xs text-mist mt-0.5">
-                신청 일시: {new Date(application.appliedAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                {currentApp.appliedAt
+                  ? `신청 일시: ${new Date(currentApp.appliedAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}`
+                  : "관리자 심사 대기 중"}
               </p>
             </div>
           </div>
@@ -135,23 +138,23 @@ export function CreatorApplyPage() {
           <div className="my-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
             <div className="rounded-sm bg-white p-4 border border-ink/10">
               <span className="text-xs text-mist block">창작자 / 팀명</span>
-              <span className="font-bold text-ink text-base">{application.creatorName}</span>
-              <span className="mt-1 inline-block text-xs text-brand font-semibold">분야: {application.category}</span>
-              {application.businessNumber && (
-                <span className="text-xs text-mist block mt-1">사업자번호: {application.businessNumber}</span>
+              <span className="font-bold text-ink text-base">{currentApp.creatorName}</span>
+              <span className="mt-1 inline-block text-xs text-brand font-semibold">분야: {currentApp.category}</span>
+              {currentApp.businessNumber && (
+                <span className="text-xs text-mist block mt-1">사업자번호: {currentApp.businessNumber}</span>
               )}
             </div>
             <div className="rounded-sm bg-white p-4 border border-ink/10">
               <span className="text-xs text-mist block">정산 계좌 정보</span>
-              <span className="font-bold text-ink text-base">{application.bankName}</span>
-              <span className="text-xs text-mist block mt-0.5">{application.accountNumber} (예금주: {application.accountHolder})</span>
+              <span className="font-bold text-ink text-base">{currentApp.bankName}</span>
+              <span className="text-xs text-mist block mt-0.5">{currentApp.accountNumber} (예금주: {currentApp.accountHolder})</span>
             </div>
             <div className="col-span-full rounded-sm bg-white p-4 border border-ink/10">
               <span className="text-xs text-mist block">소개 및 계획</span>
-              <p className="mt-1 text-sm text-ink/80 whitespace-pre-wrap">{application.introduction}</p>
-              {application.portfolioUrl && (
+              <p className="mt-1 text-sm text-ink/80 whitespace-pre-wrap">{currentApp.introduction}</p>
+              {currentApp.portfolioUrl && (
                 <div className="mt-2 text-xs text-mist">
-                  참고 링크: <a href={application.portfolioUrl} target="_blank" rel="noreferrer" className="text-brand hover:underline">{application.portfolioUrl}</a>
+                  참고 링크: <a href={currentApp.portfolioUrl} target="_blank" rel="noreferrer" className="text-brand hover:underline">{currentApp.portfolioUrl}</a>
                 </div>
               )}
             </div>
@@ -161,53 +164,18 @@ export function CreatorApplyPage() {
             💡 <strong>관리자 심사 안내</strong>: 영업일 기준 통상 1~2일 내에 심사가 완료됩니다. 심사가 승인되면 별도의 재로그인 없이 즉시 창작자(CREATOR) 권한으로 전환되어 프로젝트를 등록하실 수 있습니다.
           </div>
 
-          <div className="flex items-center justify-between">
-            <Button
-              variant="secondary"
-              onClick={() => setIsCancelConfirmOpen(true)}
-              className="text-xs text-red-600 border-red-200 hover:bg-red-50"
-            >
-              신청 취소하기
-            </Button>
+          <div className="flex items-center justify-end">
             <Button onClick={() => navigate("/")}>
               홈으로 돌아가기
             </Button>
           </div>
         </Card>
-
-        <Dialog open={isCancelConfirmOpen} onOpenChange={setIsCancelConfirmOpen}>
-          <DialogContent className="max-w-sm">
-            <DialogTitle>창작자 신청 취소</DialogTitle>
-            <DialogDescription>
-              정말 창작자 등록 신청을 취소하시겠습니까? 신청 내역이 삭제됩니다.
-            </DialogDescription>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setIsCancelConfirmOpen(false)}>
-                돌아가기
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={cancelMutation.isPending}
-                onClick={() => {
-                  cancelMutation.mutate(application.id, {
-                    onSuccess: () => {
-                      setIsCancelConfirmOpen(false);
-                    },
-                  });
-                }}
-                className="bg-red-600 text-white hover:bg-red-700"
-              >
-                {cancelMutation.isPending ? "취소 중..." : "신청 취소 확정"}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     );
   }
 
   // 반려된 상태 안내
-  if (application && application.status === "REJECTED" && !isEditingRejected && !submitSuccess) {
+  if (currentApp && currentApp.status === "REJECTED" && !isEditingRejected && !submitSuccess) {
     return (
       <div className="mx-auto max-w-2xl py-12">
         <Card className="flex flex-col p-8 border-2 border-red-300 bg-red-50/40">
@@ -221,7 +189,7 @@ export function CreatorApplyPage() {
                 <Badge tone="peach" className="bg-red-100 text-red-700 border-red-300">심사 반려</Badge>
               </div>
               <p className="text-xs text-mist mt-0.5">
-                신청일: {new Date(application.appliedAt).toLocaleDateString()}
+                {currentApp.appliedAt ? `신청일: ${new Date(currentApp.appliedAt).toLocaleDateString()}` : "심사 완료"}
               </p>
             </div>
           </div>
@@ -229,7 +197,7 @@ export function CreatorApplyPage() {
           <div className="my-6 rounded-sm bg-white p-5 border border-red-200">
             <span className="text-xs font-bold text-red-700 block mb-1">반려 사유</span>
             <p className="text-sm font-medium text-ink">
-              {application.rejectReason || "정산 계좌 정보 불일치 또는 활동 계획 보완이 필요합니다."}
+              {currentApp.rejectReason || "정산 계좌 정보 불일치 또는 활동 계획 보완이 필요합니다."}
             </p>
           </div>
 
@@ -290,7 +258,8 @@ export function CreatorApplyPage() {
         accountHolder: accountHolder.trim(),
       },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
+          setSubmittedApp(data);
           setSubmitSuccess(true);
           setIsEditingRejected(false);
         },
