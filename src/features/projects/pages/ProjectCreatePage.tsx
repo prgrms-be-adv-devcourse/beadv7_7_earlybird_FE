@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCreateProject, useCreateReward, useDeleteReward, useUpdateProject } from "../hooks";
 import { useCategories } from "../../admin/hooks";
@@ -7,7 +7,7 @@ import { useUploadFile } from "../../files/hooks";
 import { ACCEPTED_IMAGE_TYPES, IMAGE_FORMAT_GUIDE } from "../../files/types";
 import { Button, Card, ErrorState } from "../../../shared/ui";
 import type { CreateRewardRequest } from "../types";
-import { flattenCategories } from "../utils";
+import { CategoryCascader } from "../components/CategoryCascader";
 import { generateUUID } from "../../orders/utils";
 
 type RewardFormItem = Omit<CreateRewardRequest, "idempotencyKey">;
@@ -68,11 +68,6 @@ export function ProjectCreatePage() {
   // 재시도 시 동일한 키를 재전송해 프로젝트/리워드 중복 생성을 막기 위한 멱등키 (BE @NotNull)
   const projectIdempotencyKeyRef = useRef<string | null>(null);
   const rewardIdempotencyKeysRef = useRef<(string | null)[]>([]);
-
-  const flatCategoryOptions = useMemo(
-    () => flattenCategories(categories ?? []),
-    [categories]
-  );
 
   const handleAddReward = () => {
     setRewards((prev) => [
@@ -304,18 +299,12 @@ export function ProjectCreatePage() {
 
           <div>
             <label className="mb-1 block text-sm font-semibold text-ink">카테고리 *</label>
-            <select
-              disabled={createdProjectId !== null}
+            <CategoryCascader
+              categories={categories ?? []}
               value={categoryId}
-              onChange={(e) => setCategoryId(Number(e.target.value))}
-              className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none bg-surface"
-            >
-              {flatCategoryOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.displayName}
-                </option>
-              ))}
-            </select>
+              onChange={setCategoryId}
+              disabled={createdProjectId !== null}
+            />
           </div>
 
           <div>
