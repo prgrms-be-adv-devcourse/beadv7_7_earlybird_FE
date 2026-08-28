@@ -1,22 +1,31 @@
 import {useEffect, useMemo, useRef, useState} from "react";
-import {Link, useSearchParams} from "react-router-dom";
+import {Link, useLocation, useSearchParams} from "react-router-dom";
 import {ChevronDown, Search, X} from "lucide-react";
 import {
   CardSkeleton,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
   EmptyState,
   ErrorState,
   Reveal,
   Select,
-  Spinner,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Spinner,
 } from "../../../shared/ui";
 import {useProjects} from "../hooks";
 import {useCategories} from "../../admin/hooks";
 import {ProjectCard} from "../components/ProjectCard";
-import {getCategoryIdsIncludingChildren, getCreatorDisplayName, getStatusLabel,} from "../utils";
+import {
+  flattenCategories,
+  getCategoryIdsIncludingChildren,
+  getCategoryPathString,
+  getCreatorDisplayName,
+  getStatusLabel,
+} from "../utils";
 
 import {useAuthStore} from "../../../shared/auth/authStore";
 
@@ -101,6 +110,7 @@ function Pagination({
 
 export function ProjectListPage() {
   const user = useAuthStore((state) => state.user);
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Read initial filter values from URL params
@@ -118,10 +128,13 @@ export function ProjectListPage() {
   const [creatorId, setCreatorId] = useState(initialCreatorId);
   const [currentPage, setCurrentPage] = useState(1);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [expandedCategoryId, setExpandedCategoryId] = useState<number | null>(null);
   const previousPageRef = useRef(currentPage);
 
   // Autocomplete suggestions state
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const pendingSearchRef = useRef<string | null>(null); // <-- 내부에서 갱신한 URL 문자열만 구분합니다.
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -173,6 +186,12 @@ export function ProjectListPage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!location.state?.focusSearch) return;
+    setIsSearchOpen(true);
+    requestAnimationFrame(() => searchInputRef.current?.focus()); // <-- 홈 검색 링크로 들어오면 추가 클릭 없이 입력을 시작합니다.
+  }, [location.key, location.state]);
 
   // Sync state if URL searchParams change externally
   useEffect(() => {
@@ -262,19 +281,14 @@ export function ProjectListPage() {
   const { data: categories } = useCategories();
 
   const categoryOptions = useMemo(() => {
-    if (!categories) return [];
-    const parents = categories.filter((c) => !c.parentProjectCategoryId);
-    const result: { id: string; label: string }[] = [];
-
-    parents.forEach((parent) => {
-      result.push({ id: String(parent.id), label: `📁 ${parent.name}` });
-      const children = categories.filter((c) => c.parentProjectCategoryId === parent.id);
-      children.forEach((child) => {
-        result.push({ id: String(child.id), label: `↳ ${child.name}` });
-      });
-    });
-    return result;
+    return flattenCategories(categories ?? []).map((category) => ({ // <-- 트리의 모든 하위 카테고리를 선택 항목에 포함합니다.
+      id: String(category.id),
+      label: category.level === 0 ? `📁 ${category.name}` : category.displayName,
+    }));
   }, [categories]);
+  const selectedCategoryPath = categoryId === ALL
+    ? ""
+    : getCategoryPathString(categories, Number(categoryId)).replaceAll(" > ", " - "); // <-- 선택한 상위·하위 카테고리 경로를 표시합니다.
 
   const statusOptions = useMemo(
     () => Array.from(new Set((baseProjects ?? []).map((project) => project.status))),
@@ -448,6 +462,7 @@ export function ProjectListPage() {
           <div ref={searchContainerRef} className="relative flex items-center flex-1 w-full">
             <Search className="absolute left-3.5 h-4 w-4 text-mist" />
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="프로젝트 제목 또는 한 줄 요약으로 검색..."
               value={inputKeyword}
@@ -526,19 +541,70 @@ export function ProjectListPage() {
           </div>
 
           {/* Category Dropdown Filter */}
-          <Select value={categoryId} onValueChange={setCategoryId}>
-            <SelectTrigger className="w-full !rounded-lg sm:w-auto"> {/* <-- 모바일에서 카테고리 선택창을 전체 너비로 표시합니다. */}
-              <SelectValue placeholder="카테고리 선택" />
-            </SelectTrigger>
-            <SelectContent className="!rounded-lg">
-              <SelectItem value={ALL}>📁 전체 카테고리</SelectItem>
-              {categoryOptions.map((opt) => (
-                <SelectItem key={opt.id} value={opt.id}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <DropdownMenu open={isCategoryOpen} onOpenChange={setIsCategoryOpen}>
+            <DropdownMenuTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border-2 border-ink/25 bg-surface px-3 py-2 text-sm text-ink outline-none data-[state=open]:border-ink sm:w-56"> {/* <-- 선택된 이름이 길어도 카테고리 선택란의 폭을 유지합니다. */}
+              <span className="truncate">{categoryId === ALL ? "📁 전체 카테고리" : categoryOptions.find((option) => option.id === categoryId)?.label ?? "카테고리 선택"}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-mist" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="max-h-[min(24rem,var(--radix-dropdown-menu-content-available-height))] w-56 min-w-0 overflow-y-auto !rounded-lg"> {/* <-- 하위 항목이 많거나 이름이 길어도 메뉴 크기를 고정합니다. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setCategoryId(ALL);
+                  setIsCategoryOpen(false);
+                }}
+                className="w-full rounded-sm px-3 py-2 text-left text-sm text-ink hover:bg-paper"
+              >
+                📁 전체 카테고리
+              </button>
+              {(categories ?? []).map((parent) => {
+                const hasChildren = parent.children.length > 0;
+                const isExpanded = expandedCategoryId === parent.id;
+
+                return (
+                  <div key={parent.id}>
+                    <div className="flex items-center rounded-sm hover:bg-paper">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCategoryId(String(parent.id));
+                          setIsCategoryOpen(false);
+                        }}
+                        className="flex-1 px-3 py-2 text-left text-sm text-ink"
+                      >
+                        📁 {parent.name}
+                      </button>
+                      {hasChildren && (
+                        <button
+                          type="button"
+                          aria-label={`${parent.name} 하위 카테고리 ${isExpanded ? "닫기" : "열기"}`}
+                          aria-expanded={isExpanded}
+                          onClick={() => setExpandedCategoryId(isExpanded ? null : parent.id)}
+                          className="mr-1 rounded p-2 text-mist hover:bg-ink/10 hover:text-ink"
+                        >
+                          <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                        </button>
+                      )}
+                    </div>
+                    {isExpanded && flattenCategories(parent.children).map((child) => (
+                      <button
+                        key={child.id}
+                        type="button"
+                        onClick={() => {
+                          setCategoryId(String(child.id));
+                          setIsCategoryOpen(false);
+                        }}
+                        className="w-full break-words rounded-sm px-3 py-2 text-left text-sm text-ink hover:bg-paper"
+                        style={{paddingLeft: `${(child.level + 2) * 12}px`}}
+                      >
+                        └ {child.name}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Status Filter */}
           <Select value={status} onValueChange={setStatus}>
@@ -605,9 +671,14 @@ export function ProjectListPage() {
 
       {/* Result Count Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-mist">
-        <span className="text-sm"> {/* <-- 검색 결과 개수 글씨를 키웁니다. */}
-          검색 결과 <strong className="text-ink font-bold">{filteredAndSorted.length}</strong>개
-        </span>
+        <div className="flex min-w-0 items-center gap-2 text-sm"> {/* <-- 검색 결과 오른쪽에 선택한 카테고리 경로를 표시합니다. */}
+          <span className="shrink-0">
+            검색 결과 <strong className="text-ink font-bold">{filteredAndSorted.length}</strong>개
+          </span>
+          {selectedCategoryPath && (
+            <span className="truncate font-semibold text-brand">· {selectedCategoryPath}</span>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           {isTyping ? (
             <span>
