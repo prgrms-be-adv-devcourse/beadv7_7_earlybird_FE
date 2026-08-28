@@ -41,7 +41,8 @@ const CATEGORY_IMAGE_URLS: Record<string, string> = {
   "패션": "/category/fashion.png",
   "반려동물": "/category/pet.png",
   "전자기기": "/category/electronic.png",
-  "도서·출판": "/category/book.png",
+  "도서": "/category/book.png",
+  "음식": "/category/food.png",
 };
 
 function flattenCategoryNames(categories: ProjectCategory[], map: Map<number, string> = new Map()) {
