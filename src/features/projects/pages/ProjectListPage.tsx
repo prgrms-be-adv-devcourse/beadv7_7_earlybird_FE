@@ -731,7 +731,7 @@ export function ProjectListPage() {
             ))}
           </div>
 
-          <div className="relative"> {/* <-- 페이지 번호 중앙 정렬과 방향키 안내 우측 정렬을 함께 유지합니다. */}
+          <div className="relative mt-8"> {/* <-- 페이지 번호 중앙 정렬과 방향키 안내 우측 정렬을 함께 유지합니다. */}
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
