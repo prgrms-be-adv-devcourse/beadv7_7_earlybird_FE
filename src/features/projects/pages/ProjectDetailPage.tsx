@@ -30,7 +30,7 @@ import { useProject, useRewards } from "../hooks";
 import { useCategories } from "../../admin/hooks";
 import { useAddCartItems, useCart } from "../../cart/hooks";
 import { useAuthStore } from "../../../shared/auth/authStore";
-import { useFilesByOwner } from "../../files/hooks";
+import { useFilesByOwner, resolveThumbnailUrl } from "../../files/hooks";
 import { ProjectBoardTabs } from "../../board/components/ProjectBoardTabs";
 import { ProjectEditModal } from "../components/ProjectEditModal";
 import { RewardEditModal } from "../components/RewardEditModal";
@@ -355,7 +355,7 @@ export function ProjectDetailPage() {
   const { data: categories } = useCategories();
   const { data: projectFiles } = useFilesByOwner("PROJECT", projectId, true);
   const categoryPath = getCategoryPathString(categories, project?.categoryId);
-  const projectThumbnailUrl = projectFiles && projectFiles.length > 0 ? projectFiles[0].storedUrl : null;
+  const projectThumbnailUrl = resolveThumbnailUrl(projectFiles, project?.thumbnailId);
 
   const [selectedRewardId, setSelectedRewardId] = useState<number | null>(null);
   const [selectedQuantity, setSelectedQuantity] = useState<number>(1);

@@ -11,7 +11,7 @@ import { formatDateKorean } from "../utils";
 import { generateUUID } from "../../orders/utils";
 import { ProjectEditModal } from "../components/ProjectEditModal";
 import { RewardEditModal } from "../components/RewardEditModal";
-import { useFilesByOwner, useUploadFile } from "../../files/hooks";
+import { useFilesByOwner, useUploadFile, resolveThumbnailUrl } from "../../files/hooks";
 import { ACCEPTED_IMAGE_TYPES, IMAGE_FORMAT_GUIDE } from "../../files/types";
 import {
   Button,
@@ -34,7 +34,7 @@ function MyProjectCard({ project }: { project: ProjectSummary }) {
   const queryClient = useQueryClient();
   const { data: rewards } = useRewards(project.projectId);
   const { data: projectFiles } = useFilesByOwner("PROJECT", project.projectId, true);
-  const thumbnailUrl = projectFiles && projectFiles.length > 0 ? projectFiles[0].storedUrl : null;
+  const thumbnailUrl = resolveThumbnailUrl(projectFiles, project.thumbnailId);
 
   const [editingProject, setEditingProject] = useState(false);
   const [editingReward, setEditingReward] = useState<Reward | null>(null);

@@ -19,6 +19,21 @@ export function useFilesByOwner(ownerType: FileOwnerType, ownerId: number, enabl
   });
 }
 
+// 한 owner에 파일이 여러 개 쌓일 수 있으므로(수정 시 새 파일이 추가됨) 표시용 썸네일은
+// 항상 project.thumbnailId가 가리키는 파일을 쓴다. thumbnailId가 없는 레거시 프로젝트만
+// 첫 파일로 폴백한다. (files[0]만 쓰면 이미지를 바꿔도 예전 파일이 계속 보인다.)
+export function resolveThumbnailUrl(
+  files: FileRecord[] | undefined,
+  thumbnailId?: number | null,
+): string | null {
+  if (!files || files.length === 0) return null;
+  if (thumbnailId != null) {
+    const match = files.find((f) => f.id === thumbnailId);
+    if (match) return match.storedUrl;
+  }
+  return files[0].storedUrl;
+}
+
 export interface UploadFileInput {
   file: File;
   ownerType: FileOwnerType;
