@@ -10,6 +10,7 @@ import {
 } from "../../../shared/ui";
 import { useUpdateReward, useDeleteReward } from "../hooks";
 import { useFilesByOwner, useUploadFile } from "../../files/hooks";
+import { deleteFile } from "../../files/api";
 import { ACCEPTED_IMAGE_TYPES, IMAGE_FORMAT_GUIDE } from "../../files/types";
 import type { Reward } from "../types";
 
@@ -69,6 +70,15 @@ export function RewardEditModal({
 
     try {
       if (newImageFile) {
+        // Reward에는 thumbnailId가 없어 표시 쪽이 files[0]을 쓴다 — 새로 올리기 전에 기존
+        // REWARD 파일을 지워서 "리워드당 사진 1장" 불변식을 유지한다. 안 지우면 옛 사진이 계속 보인다.
+        for (const f of existingFiles ?? []) {
+          try {
+            await deleteFile(f.id);
+          } catch (err) {
+            console.warn("기존 리워드 사진 삭제 실패(무시하고 업로드 진행):", err);
+          }
+        }
         await uploadFileMutation.mutateAsync({
           file: newImageFile,
           ownerType: "REWARD",
