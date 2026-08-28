@@ -7,6 +7,7 @@ import {
   ErrorState,
   Reveal,
   Select,
+  Spinner,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -225,7 +226,7 @@ export function ProjectListPage() {
   }, [keyword, categoryId, status, sort, creatorId, searchParams, setSearchParams]);
 
   // Fetch projects passing params (tier 2: 확정된 keyword로만 하이브리드 검색)
-  const { data: projects, isPending, isError, error } = useProjects({
+  const { data: projects, isPending, isPlaceholderData, isError, error } = useProjects({
     keyword: keyword.trim() || undefined,
     status: status !== ALL ? status : undefined,
     sort: sort === "RELEVANCE" ? undefined : sort,
@@ -253,6 +254,10 @@ export function ProjectListPage() {
 
   // 그리드에 쓸 소스: 타이핑 중이면 클라 필터 결과, 아니면 하이브리드 검색 결과
   const baseProjects = liveFiltered ?? projects;
+
+  // 확정 검색(tier 2) 응답 대기 중: keepPreviousData로 이전 결과가 남아있는 그 구간.
+  // 라이브뷰(showLive)가 아니고, placeholder(=이전 데이터)를 보여주는 중일 때만.
+  const searchPending = isPlaceholderData && !showLive;
 
   const { data: categories } = useCategories();
 
@@ -633,7 +638,20 @@ export function ProjectListPage() {
       ) : filteredAndSorted.length === 0 ? (
         <EmptyState message="조건에 맞는 프로젝트가 없어요. 다른 키워드나 카테고리로 검색해 보세요." />
       ) : (
-        <>
+        // 확정 검색(tier 2) 응답 대기 중엔 이전 결과(placeholderData)를 흐리게 눌러 "로딩 중"임을 알림
+        // (타이핑 라이브뷰 showLive 중엔 즉시 반응이라 제외)
+        <div className="relative">
+          {searchPending && (
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center pt-6">
+              <div className="rounded-full border-2 border-ink bg-surface px-2 shadow-stamp-sm">
+                <Spinner label="검색 중..." />
+              </div>
+            </div>
+          )}
+          <div
+            aria-busy={searchPending}
+            className={`transition-opacity duration-200 ${searchPending ? "pointer-events-none opacity-40" : ""}`}
+          >
           <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4"> {/* <-- 모바일 검색 결과를 한 행에 하나씩 표시합니다. */}
             {paginatedProjects.map((project, index) => ( // <-- 현재 페이지의 프로젝트 12개만 표시합니다.
               <Reveal key={project.projectId} delay={Math.min(index, 8) * 0.04}>
@@ -657,7 +675,8 @@ export function ProjectListPage() {
               </div>
             )}
           </div>
-        </>
+        </div>
+        </div>
       )}
     </div>
   );
