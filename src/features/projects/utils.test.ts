@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   findCategoryPath,
+  findCategoryIdPath,
   getCategoryPathString,
   getCategoryIdsIncludingChildren,
   daysLeft,
@@ -52,6 +53,13 @@ describe("projects utils", () => {
     expect(findCategoryPath(mockCategories, 3)).toEqual(["패션", "의류", "상의"]);
     expect(findCategoryPath(mockCategories, 6)).toEqual(["패션", "잡화", "액세서리"]);
     expect(findCategoryPath(mockCategories, 8)).toEqual(["전자기기", "스마트기기"]);
+  });
+
+  it("findCategoryIdPath는 루트부터 대상까지의 id 경로를 반환한다 (단계별 드롭다운용)", () => {
+    expect(findCategoryIdPath(mockCategories, 3)).toEqual([1, 2, 3]);
+    expect(findCategoryIdPath(mockCategories, 1)).toEqual([1]);
+    expect(findCategoryIdPath(mockCategories, 8)).toEqual([7, 8]);
+    expect(findCategoryIdPath(mockCategories, 999)).toEqual([]);
   });
 
   it("getCategoryPathString은 ' > '로 연결된 문자열을 반환한다", () => {
