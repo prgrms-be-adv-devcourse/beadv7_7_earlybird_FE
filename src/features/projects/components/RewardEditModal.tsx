@@ -70,20 +70,22 @@ export function RewardEditModal({
 
     try {
       if (newImageFile) {
-        // Reward에는 thumbnailId가 없어 표시 쪽이 files[0]을 쓴다 — 새로 올리기 전에 기존
-        // REWARD 파일을 지워서 "리워드당 사진 1장" 불변식을 유지한다. 안 지우면 옛 사진이 계속 보인다.
-        for (const f of existingFiles ?? []) {
-          try {
-            await deleteFile(f.id);
-          } catch (err) {
-            console.warn("기존 리워드 사진 삭제 실패(무시하고 업로드 진행):", err);
-          }
-        }
+        // Reward에는 thumbnailId가 없어 표시 쪽이 files[0]을 쓴다 — "리워드당 사진 1장"을
+        // 유지하려면 옛 파일을 지워야 한다. 새 파일을 먼저 올리고 나서 옛 파일을 지운다:
+        // 업로드가 중간에 실패해도 옛 사진이 그대로 남도록.
+        const staleFiles = existingFiles ?? [];
         await uploadFileMutation.mutateAsync({
           file: newImageFile,
           ownerType: "REWARD",
           ownerId: reward.rewardId,
         });
+        for (const f of staleFiles) {
+          try {
+            await deleteFile(f.id);
+          } catch (err) {
+            console.warn("기존 리워드 사진 삭제 실패(새 사진은 이미 등록됨):", err);
+          }
+        }
         queryClient.invalidateQueries({ queryKey: ["files", "REWARD", reward.rewardId] });
       }
 
