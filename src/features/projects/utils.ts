@@ -150,18 +150,6 @@ function collectAllNodeIds(node: ProjectCategory): number[] {
   return ids;
 }
 
-// 루트부터 targetId까지의 id 경로 (단계별 카테고리 드롭다운용). 못 찾으면 [].
-export function findCategoryIdPath(categories: ProjectCategory[], targetId: number): number[] {
-  for (const cat of categories) {
-    if (cat.id === targetId) return [cat.id];
-    if (cat.children && cat.children.length > 0) {
-      const sub = findCategoryIdPath(cat.children, targetId);
-      if (sub.length > 0) return [cat.id, ...sub];
-    }
-  }
-  return [];
-}
-
 export function findCategoryPath(categories: ProjectCategory[], targetId: number): string[] {
   for (const cat of categories) {
     if (cat.id === targetId) {

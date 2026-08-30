@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Button,
@@ -13,7 +13,7 @@ import { useCategories } from "../../admin/hooks";
 import { useUploadFile, useFilesByOwner, resolveThumbnailUrl } from "../../files/hooks";
 import { ACCEPTED_IMAGE_TYPES, IMAGE_FORMAT_GUIDE } from "../../files/types";
 import type { ProjectDetail } from "../types";
-import { CategoryCascader } from "./CategoryCascader";
+import { flattenCategories } from "../utils";
 
 export function ProjectEditModal({
   project,
@@ -30,7 +30,12 @@ export function ProjectEditModal({
   const uploadFileMutation = useUploadFile();
   const { data: existingFiles } = useFilesByOwner("PROJECT", project.projectId, open);
 
-  const isPublished =project.status !== "PENDING_REVIEW" && project.status !== "REJECTED";
+  const flatCategoryOptions = useMemo(
+    () => flattenCategories(categories ?? []),
+    [categories]
+  );
+
+  const isPublished = project.status !== "PENDING_REVIEW" && project.status !== "REJECTED";
 
   const [title, setTitle] = useState(project.title);
   const [categoryId, setCategoryId] = useState<number>(project.categoryId);
@@ -141,12 +146,18 @@ export function ProjectEditModal({
 
           <div>
             <label className="mb-1 block font-semibold text-ink">카테고리</label>
-            <CategoryCascader
-              categories={categories ?? []}
-              value={categoryId}
-              onChange={setCategoryId}
+            <select
               disabled={isPublished}
-            />
+              value={categoryId}
+              onChange={(e) => setCategoryId(Number(e.target.value))}
+              className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none bg-surface"
+            >
+              {flatCategoryOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.displayName}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
