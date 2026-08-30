@@ -10,7 +10,7 @@ import {
 } from "../../../shared/ui";
 import { useUpdateProject } from "../hooks";
 import { useCategories } from "../../admin/hooks";
-import { useUploadFile, useFilesByOwner } from "../../files/hooks";
+import { useUploadFile, useFilesByOwner, resolveThumbnailUrl } from "../../files/hooks";
 import { ACCEPTED_IMAGE_TYPES, IMAGE_FORMAT_GUIDE } from "../../files/types";
 import type { ProjectDetail } from "../types";
 import { flattenCategories } from "../utils";
@@ -182,10 +182,10 @@ export function ProjectEditModal({
 
           <div>
             <label className="mb-1 block font-semibold text-ink">대표 이미지 (사진 추가/변경)</label>
-            {(thumbnailPreviewUrl || (existingFiles && existingFiles.length > 0)) && (
+            {(thumbnailPreviewUrl || resolveThumbnailUrl(existingFiles, project.thumbnailId)) && (
               <div className="mb-2 relative flex items-center justify-center w-full rounded-sm border border-ink/20 bg-paper/60 p-1">
                 <img
-                  src={thumbnailPreviewUrl || existingFiles?.[0]?.storedUrl}
+                  src={thumbnailPreviewUrl || resolveThumbnailUrl(existingFiles, project.thumbnailId) || undefined}
                   alt="대표 이미지 미리보기"
                   className="max-h-80 w-full rounded-sm object-contain transition-all duration-300"
                 />

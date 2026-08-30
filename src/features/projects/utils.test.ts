@@ -9,6 +9,8 @@ import {
   maxExtendedEndAt,
 } from "./utils";
 import type { ProjectCategory } from "../admin/types";
+import { resolveThumbnailUrl } from "../files/hooks";
+import type { FileRecord } from "../files/types";
 
 const mockCategories: ProjectCategory[] = [
   {
@@ -70,6 +72,18 @@ describe("projects utils", () => {
     expect(fundedPercent(10000, 0)).toBe(0);
     expect(daysLeft(new Date(Date.now() + 86400000 * 2).toISOString())).toBeGreaterThanOrEqual(1);
     expect(getStatusLabel("IN_PROGRESS")).toBe("🔥 펀딩 진행 중");
+  });
+
+  it("resolveThumbnailUrl은 files[0]이 아니라 thumbnailId가 가리키는 파일을 쓴다 (이미지 변경 후 예전 파일이 남아 있어도 새 이미지 표시)", () => {
+    const files = [
+      { id: 10, storedUrl: "old.jpg" } as FileRecord,
+      { id: 20, storedUrl: "new.jpg" } as FileRecord,
+    ];
+    expect(resolveThumbnailUrl(files, 20)).toBe("new.jpg");
+    expect(resolveThumbnailUrl(files, null)).toBe("old.jpg"); // 레거시 폴백
+    expect(resolveThumbnailUrl(files, 999)).toBe("old.jpg"); // 매칭 실패 시 폴백
+    expect(resolveThumbnailUrl([], 20)).toBeNull();
+    expect(resolveThumbnailUrl(undefined, 20)).toBeNull();
   });
 
   it("maxExtendedEndAt은 UTC 변환 없이 로컬 캘린더 날짜로 +3개월을 계산한다 (자정~9시 시작 프로젝트도 하루 밀리지 않음)", () => {
