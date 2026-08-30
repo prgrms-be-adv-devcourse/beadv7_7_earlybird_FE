@@ -109,7 +109,9 @@ export interface FlatCategory {
 export function flattenCategories(categories: ProjectCategory[], level = 0): FlatCategory[] {
   const result: FlatCategory[] = [];
   for (const cat of categories) {
-    const indent = level > 0 ? `${"  ".repeat(level)}└ ` : "";
+    // 브라우저는 <option> 텍스트의 일반 공백을 접어버려서 들여쓰기가 안 보인다.
+    // NBSP( )는 접히지 않으므로 계층 깊이가 계단식으로 드러난다.
+    const indent = level > 0 ? `${"   ".repeat(level)}└ ` : "";
     result.push({
       id: cat.id,
       name: cat.name,
