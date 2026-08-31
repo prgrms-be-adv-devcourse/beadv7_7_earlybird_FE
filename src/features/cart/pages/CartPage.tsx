@@ -5,6 +5,7 @@ import {Minus, Plus} from "lucide-react";
 import {useCart, useClearCart, useRemoveCartItem, useUpdateCartItems} from "../hooks";
 import {usePlaceOrder} from "../../orders/hooks";
 import {useFilesByOwner} from "../../files/hooks";
+import {useReward} from "../../projects/hooks";
 import {generateUUID} from "../../orders/utils";
 import {Button, Card, Dialog, DialogContent, DialogDescription, DialogTitle, Skeleton} from "../../../shared/ui";
 import {ErrorState} from "../../../shared/ui/ErrorState";
@@ -29,6 +30,7 @@ function CartRewardRow({
   isUpdating: boolean;
 }) {
   const {data: rewardFiles} = useFilesByOwner("REWARD", reward.rewardId, true); // <-- 장바구니 리워드 사진을 조회합니다.
+  const {data: rewardDetail} = useReward(reward.rewardId); // <-- 리워드 설명을 조회합니다.
   const thumbnailUrl = rewardFiles?.[0]?.storedUrl;
   const unitPrice = reward.unitPrice > 0 ? reward.unitPrice : reward.totalPrice / (reward.quantity || 1);
   const totalPrice = reward.totalPrice > 0 ? reward.totalPrice : unitPrice * reward.quantity;
@@ -49,7 +51,7 @@ function CartRewardRow({
         )}
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="truncate font-semibold text-ink hover:text-brand">{reward.rewardName}</span>
-가
+          <span className="truncate text-xs text-mist">{rewardDetail?.description || "리워드 상세 옵션"}</span>
         </div>
       </Link>
       <div className="flex items-center gap-3">
