@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import {useMemo, useState} from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import {Link} from "react-router-dom";
 import {
   Badge,
   Button,
@@ -20,13 +20,13 @@ import {
   useReconciliationReviewDetail,
   useRefundDetail,
   useRegisterCreatorPayoutProfile,
-  useSettlementDetail,
-  useRunProjectPayout,
   useRunPgReconciliation,
+  useRunProjectPayout,
+  useSettlementDetail,
 } from "../../settlements/hooks";
-import { useTriggerCloseExpired } from "../hooks";
-import { useAuthStore } from "../../../shared/auth/authStore";
-import type { AdminSettlementSort, PayoutObligationStatus } from "../../settlements/types";
+import {useTriggerCloseExpired} from "../hooks";
+import {useAuthStore} from "../../../shared/auth/authStore";
+import type {AdminSettlementEntry, AdminSettlementSort, PayoutObligationStatus} from "../../settlements/types";
 
 function getPayoutStatusInfo(status: PayoutObligationStatus) {
   switch (status) {
@@ -407,7 +407,10 @@ export function SettlementAdminPage() {
     const list = settlements ?? [];
     const payoutEntries = list.filter((entry) => entry.type === "PAYOUT");
     const registrationPendingEntries = list.filter((entry) => entry.type === "REGISTRATION_PENDING");
-    const pendingPayoutEntries = list.filter((entry) => "pendingPayout" in entry);
+    const pendingPayoutEntries = list.filter(
+      (entry): entry is Extract<AdminSettlementEntry, { pendingPayout: unknown }> =>
+        "pendingPayout" in entry && (entry as { pendingPayout?: unknown }).pendingPayout != null,
+    ); // <-- null인 미지급 정보를 요약 계산에서 제외합니다.
     const refundEntries = list.filter((entry) => entry.type === "REFUND");
     const totalBase = [...payoutEntries, ...registrationPendingEntries, ...pendingPayoutEntries].reduce(
       (sum, entry) => sum + (entry.type === "PAYOUT" ? entry.payout.settlementBaseAmount : entry.type === "REGISTRATION_PENDING" ? entry.registrationPending.settlementBaseAmount : entry.pendingPayout.settlementBaseAmount),
