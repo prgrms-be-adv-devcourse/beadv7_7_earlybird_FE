@@ -36,10 +36,10 @@ export function ProjectCard({ project, categoryName, className = "" }: ProjectCa
       <div className="flex flex-1 flex-col p-4">
         <div className="mb-1.5 flex items-center justify-between gap-2">
           <Badge tone={badgeTone}>{statusLabel}</Badge>
-          {categoryName && <span className="text-xs text-mist">{categoryName}</span>}
+          {categoryName && <span className="truncate text-xs text-mist">{categoryName}</span>}
         </div>
 
-        <h3 className="mb-2 line-clamp-2 break-keep text-sm font-semibold leading-snug text-ink group-hover:text-brand">
+        <h3 className="mb-2 h-10 line-clamp-2 break-keep text-sm font-semibold leading-5 text-ink group-hover:text-brand">
           {project.title}
         </h3>
 
@@ -51,7 +51,7 @@ export function ProjectCard({ project, categoryName, className = "" }: ProjectCa
         <div className="tabular-nums text-xs text-mist">목표 {project.goalAmount.toLocaleString()}원</div>
 
         {/* Creation Date & Deadline */}
-        <div className="mt-3 flex flex-col gap-1 border-t border-ink/10 pt-2 text-xs text-mist">
+        <div className="mt-auto pt-3 flex flex-col gap-1 border-t border-ink/10 text-xs text-mist">
           <div className="flex items-center gap-1">
             <Calendar className="h-3.5 w-3.5" />
             <span>마감일: {formatDateKorean(project.endAt)}</span>
