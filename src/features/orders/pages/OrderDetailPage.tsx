@@ -343,14 +343,13 @@ export function OrderDetailPage() {
                     <AlertDialogCancel asChild>
                       <Button variant="ghost">돌아가기</Button>
                     </AlertDialogCancel>
-                    <AlertDialogAction asChild>
+                      <AlertDialogAction asChild>
                       <Button onClick={async () => {
                         try {
                           await cancelMutation.mutateAsync();
-                          navigate("/orders", {replace: true}); // <-- 취소 성공 후 주문 목록으로 이동합니다.
-                          window.scrollTo({top: 0, behavior: "smooth"}); // <-- 주문 목록을 최상단에서 표시합니다.
+                          await refetchOrder(); // <-- 취소 완료 상태를 상세 화면에 즉시 반영합니다.
                         } catch {
-                          // mutation의 오류 상태를 유지하고 현재 페이지에 머뭅니다.
+                          await refetchOrder(); // <-- 실패 응답 후 실제 주문 상태를 재확인합니다.
                         }
                       }}>취소하기</Button>
                     </AlertDialogAction>
