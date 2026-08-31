@@ -5,10 +5,10 @@
 // - id 필드가 아니라 settlementId이다.
 // - amount 하나가 아니라 정산 기준액(settlementBaseAmount)과 창작자에게 실제 지급되는 금액
 //   (creatorPayoutAmount) 두 개로 나뉘어 내려온다.
-// - status는 자유 문자열이 아니라 실제 5개 값의 enum(PayoutStatus)이다.
+// - status는 지급 의무의 5개 상태와, 지급 의무가 아직 없는 등록 대기 상태를 구분한다.
 // - 브리프가 언급하지 않은 날짜 필드가 세 개 더 있다: confirmedAt(OffsetDateTime),
 //   scheduledDate(LocalDate), completedAt(OffsetDateTime, COMPLETED 상태가 되기 전까지는 null).
-//   JSON으로는 전부 ISO 문자열로 내려오므로 string(및 completedAt만 string | null)으로 둔다.
+//   JSON으로는 ISO 문자열로 내려오며, 등록 대기 중 scheduledDate와 completedAt은 null이다.
 export type PayoutObligationStatus =
   | "SCHEDULED"
   | "PROCESSING"
@@ -26,7 +26,7 @@ export interface Settlement {
   creatorPayoutAmount: number;
   status: CreatorSettlementStatus;
   confirmedAt: string;
-  scheduledDate: string;
+  scheduledDate: string | null;
   completedAt: string | null;
 }
 
@@ -118,7 +118,7 @@ export interface CreatorProjectSettlementDetail {
   breakdown: SettlementBreakdown;
   payout: {
     status: CreatorSettlementStatus;
-    scheduledDate: string;
+    scheduledDate: string | null;
     completedAt: string | null;
   };
 }
