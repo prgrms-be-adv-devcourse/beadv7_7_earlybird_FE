@@ -4,6 +4,7 @@ import type { ApiResponse } from "../../shared/types/ApiResponse";
 import type {
   AdminCreatorProfile,
   AdminProjectRefundDetail,
+  AdminProjectReconciliationReviewDetail,
   AdminSettlementDetail,
   AdminSettlementEntry,
   AdminSettlementSort,
@@ -31,6 +32,13 @@ export async function fetchCreatorProfile(creatorId: number): Promise<AdminCreat
 export async function fetchRefundDetail(refundRequestId: string): Promise<AdminProjectRefundDetail | null> {
   const response = await apiClient.get<ApiResponse<AdminProjectRefundDetail>>(
     SETTLEMENT_SERVICE.refundDetail(refundRequestId),
+  );
+  return response.data.data ?? null;
+}
+
+export async function fetchReconciliationReviewDetail(projectId: number): Promise<AdminProjectReconciliationReviewDetail | null> {
+  const response = await apiClient.get<ApiResponse<AdminProjectReconciliationReviewDetail>>(
+    SETTLEMENT_SERVICE.reconciliationReviewDetail(projectId),
   );
   return response.data.data ?? null;
 }

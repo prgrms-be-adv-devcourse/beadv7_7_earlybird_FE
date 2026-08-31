@@ -6,6 +6,7 @@ import {
   fetchCreatorProfile,
   fetchCreatorSettlementDetail,
   fetchRefundDetail,
+  fetchReconciliationReviewDetail,
   fetchMySettlements,
   fetchSettlementDetail,
   runPgReconciliation,
@@ -137,6 +138,22 @@ describe("settlements api", () => {
     const result = await fetchRefundDetail("refund-5");
 
     expect(apiClient.get).toHaveBeenCalledWith(SETTLEMENT_SERVICE.refundDetail("refund-5"));
+    expect(result).toEqual(detail);
+  });
+
+  it("fetchReconciliationReviewDetail은 projectId로 대사 검토 결제를 GET한다", async () => {
+    const detail = {
+      projectId: 5,
+      projectName: "프로젝트 5",
+      payments: [{ orderId: 1, pgOrderId: "pg-1", reconciliationStatus: "REVIEW_REQUIRED" as const }],
+    };
+    (apiClient.get as any).mockResolvedValue({
+      data: { success: true, data: detail, error: null },
+    });
+
+    const result = await fetchReconciliationReviewDetail(5);
+
+    expect(apiClient.get).toHaveBeenCalledWith(SETTLEMENT_SERVICE.reconciliationReviewDetail(5));
     expect(result).toEqual(detail);
   });
 

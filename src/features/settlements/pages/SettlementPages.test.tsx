@@ -17,6 +17,15 @@ vi.mock("../hooks", () => ({
       confirmedAt: "2026-08-01T00:00:00+09:00",
       scheduledDate: "2026-08-10",
       completedAt: "2026-08-10T00:00:00+09:00",
+    }, {
+      settlementId: null,
+      projectId: 43,
+      settlementBaseAmount: null,
+      creatorPayoutAmount: null,
+      status: "RECONCILIATION_REVIEW_REQUIRED",
+      confirmedAt: null,
+      scheduledDate: null,
+      completedAt: null,
     }],
     isPending: false,
     isError: false,
@@ -49,9 +58,12 @@ describe("creator settlement pages", () => {
     render(<MemoryRouter><SettlementDashboardPage /></MemoryRouter>);
 
     expect(screen.getByText("지급 완료")).toBeInTheDocument();
-    expect(screen.getByText(/확정일:/)).toBeInTheDocument();
+    expect(screen.getAllByText(/확정일:/)).toHaveLength(2);
     expect(screen.getByText(/완료일:/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "상세 보기 →" })).toHaveAttribute("href", "/settlements/7");
+    expect(screen.getByText("대사 검토 필요")).toBeInTheDocument();
+    expect(screen.getByText("정산 확정 후 지급액이 표시됩니다.")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "상세 보기 →" })).toHaveLength(1);
   });
 
   it("상세는 서버의 금액과 지급 일정을 표시하고 계좌 정보를 표시하지 않는다", () => {

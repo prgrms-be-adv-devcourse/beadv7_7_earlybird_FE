@@ -102,12 +102,44 @@ const settlementEntries: AdminSettlementEntry[] = [
       paymentCount: 3,
     },
   },
+  {
+    type: "PAYOUT_PENDING",
+    projectId: 8,
+    projectName: "지급 대기",
+    pendingPayout: {
+      settlementId: 8,
+      creatorId: 8,
+      settlementBaseAmount: 80000,
+      creatorPayoutAmount: 72000,
+      confirmedAt: "2026-08-01T00:00:00Z",
+    },
+  },
+  {
+    type: "RECONCILIATION_REVIEW_REQUIRED",
+    projectId: 9,
+    projectName: "대사 검토",
+  },
+  {
+    type: "SETTLEMENT_PENDING",
+    projectId: 10,
+    projectName: "정산 대기",
+  },
+  {
+    type: "REFUND_PENDING",
+    projectId: 11,
+    projectName: "환불 대기",
+  },
 ];
 
 vi.mock("../../settlements/hooks", () => ({
   useAllSettlements: () => ({ data: settlementEntries, isPending: false, isError: false, refetch }),
   useCreatorProfile: () => ({ data: null, isPending: false, isError: false, error: null }),
   useRefundDetail: () => ({ data: null, isPending: false, isError: false }),
+  useReconciliationReviewDetail: () => ({
+    data: { projectId: 9, projectName: "대사 검토", payments: [{ orderId: 99, pgOrderId: "pg-99", reconciliationStatus: "REVIEW_REQUIRED" }] },
+    isPending: false,
+    isError: false,
+  }),
   useSettlementDetail: () => ({ data: null, isPending: false, isError: false }),
   useRunProjectPayout: () => runPayout,
   useRunPgReconciliation: () => runPgReconciliation,
@@ -127,16 +159,29 @@ describe("SettlementAdminPage", () => {
   it("혼합 지급·환불 목록에서 8개 KPI를 계산한다", () => {
     render(<MemoryRouter><SettlementAdminPage /></MemoryRouter>);
 
-    expect(screen.getByText("전체 내역").parentElement).toHaveTextContent("7건");
-    expect(screen.getByText("전체 내역").parentElement).toHaveTextContent("지급 4건 · 환불 3건");
-    expect(screen.getByText("총 모금 기준액").parentElement).toHaveTextContent("100,000원");
+    expect(screen.getByText("전체 내역").parentElement).toHaveTextContent("11건");
+    expect(screen.getByText("전체 내역").parentElement).toHaveTextContent("지급 5건 · 환불 4건");
+    expect(screen.getByText("총 모금 기준액").parentElement).toHaveTextContent("180,000원");
     expect(screen.getByText("총 지급 완료액").parentElement).toHaveTextContent("9,000원");
     expect(screen.getAllByText("지급 완료")[0].parentElement).toHaveTextContent("1건");
-    expect(screen.getByText("지급 진행 / 대기").parentElement).toHaveTextContent("3건");
-    expect(screen.getByText("환불 현황").parentElement).toHaveTextContent("3건");
+    expect(screen.getByText("지급 진행 / 대기").parentElement).toHaveTextContent("4건");
+    expect(screen.getByText("환불 현황").parentElement).toHaveTextContent("4건");
     expect(screen.getByText("환불 현황").parentElement).toHaveTextContent("대상 결제 6건");
     expect(screen.getByText("환불 처리 중").parentElement).toHaveTextContent("2건");
-    expect(screen.getByText("조치 필요").parentElement).toHaveTextContent("1건");
+    expect(screen.getByText("조치 필요").parentElement).toHaveTextContent("2건");
+    expect(screen.getAllByText("지급 대기")).not.toHaveLength(0);
+    expect(screen.getAllByText("정산 대기")).not.toHaveLength(0);
+    expect(screen.getAllByText("환불 대기")).not.toHaveLength(0);
+  });
+
+  it("대사 검토 필요 항목에서 대상 결제 상세를 표시한다", async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><SettlementAdminPage /></MemoryRouter>);
+
+    await user.click(screen.getByRole("button", { name: "대상 결제" }));
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("대사 검토 필요 결제");
+    expect(screen.getByRole("dialog")).toHaveTextContent("pg-99");
   });
 
   it("수동 실행 성공 뒤 목록만 재조회하고 성공 실행 상세는 표시하지 않는다", async () => {

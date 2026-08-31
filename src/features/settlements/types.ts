@@ -16,16 +16,29 @@ export type PayoutObligationStatus =
   | "COMPLETED"
   | "ACTION_REQUIRED";
 
-export type CreatorSettlementStatus = PayoutObligationStatus | "REGISTRATION_PENDING";
+export type CreatorSettlementStatus =
+  | PayoutObligationStatus
+  | "REGISTRATION_PENDING"
+  | "PAYOUT_PENDING"
+  | "APPROVAL_REQUIRED"
+  | "KYC_REQUIRED"
+  | "PAYOUT_UNAVAILABLE"
+  | "RECONCILIATION_REVIEW_REQUIRED"
+  | "SETTLEMENT_PENDING"
+  | "REFUND_PENDING"
+  | "REFUND_REQUESTED"
+  | "REFUND_PROCESSING"
+  | "REFUND_COMPLETED"
+  | "REFUND_ACTION_REQUIRED";
 
 /** GET /api/v1/settlements 목록 항목 (CreatorProjectSettlementListItemResponse / AdminProjectSettlementListItemResponse). */
 export interface Settlement {
-  settlementId: number;
+  settlementId: number | null;
   projectId: number;
-  settlementBaseAmount: number;
-  creatorPayoutAmount: number;
+  settlementBaseAmount: number | null;
+  creatorPayoutAmount: number | null;
   status: CreatorSettlementStatus;
-  confirmedAt: string;
+  confirmedAt: string | null;
   scheduledDate: string | null;
   completedAt: string | null;
 }
@@ -52,6 +65,12 @@ export interface AdminProjectRefundDetail {
   requestedAt: string;
   paymentResultAt: string | null;
   payments: { orderId: number; pgOrderId: string; actionRequired: boolean }[];
+}
+
+export interface AdminProjectReconciliationReviewDetail {
+  projectId: number;
+  projectName: string;
+  payments: { orderId: number; pgOrderId: string; reconciliationStatus: "REVIEW_REQUIRED" }[];
 }
 
 /** GET /api/v1/settlements/all 관리자 통합 목록 항목. */
@@ -94,6 +113,23 @@ export type AdminSettlementEntry =
         creatorPayoutAmount: number;
         confirmedAt: string;
       };
+    }
+  | {
+      type: "PAYOUT_PENDING" | "APPROVAL_REQUIRED" | "KYC_REQUIRED" | "PAYOUT_UNAVAILABLE";
+      projectId: number;
+      projectName: string;
+      pendingPayout: {
+        settlementId: number;
+        creatorId: number;
+        settlementBaseAmount: number;
+        creatorPayoutAmount: number;
+        confirmedAt: string;
+      };
+    }
+  | {
+      type: "RECONCILIATION_REVIEW_REQUIRED" | "SETTLEMENT_PENDING" | "REFUND_PENDING";
+      projectId: number;
+      projectName: string;
     };
 
 export interface FeeDetail {
