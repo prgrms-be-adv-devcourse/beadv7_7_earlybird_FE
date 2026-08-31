@@ -23,8 +23,14 @@ function SettlementRow({ settlement }: { settlement: Settlement }) {
         <div className="flex flex-col items-end gap-1">
           <Badge tone={getSettlementStatusInfo(settlement.status).tone}>{getSettlementStatusInfo(settlement.status).label}</Badge>
           <span className="text-xs text-mist">{getSettlementStatusInfo(settlement.status).description}</span>
-          <span className="tabular-nums text-sm font-bold text-ink">{settlement.creatorPayoutAmount.toLocaleString()}원</span>
-          <Link to={`/settlements/${settlement.settlementId}`} className="text-xs font-bold text-brand hover:underline">상세 보기 →</Link>
+          {settlement.creatorPayoutAmount === null ? (
+            <span className="text-xs text-mist">정산 확정 후 지급액이 표시됩니다.</span>
+          ) : (
+            <span className="tabular-nums text-sm font-bold text-ink">{settlement.creatorPayoutAmount.toLocaleString()}원</span>
+          )}
+          {settlement.settlementId !== null && (
+            <Link to={`/settlements/${settlement.settlementId}`} className="text-xs font-bold text-brand hover:underline">상세 보기 →</Link>
+          )}
         </div>
       </div>
     </Card>
@@ -63,7 +69,7 @@ export function SettlementDashboardPage() {
           <EmptyState message="정산 내역이 아직 없어요." />
         ) : (
           settlements.map((settlement) => (
-            <SettlementRow key={settlement.settlementId} settlement={settlement} />
+            <SettlementRow key={settlement.projectId} settlement={settlement} />
           ))
         )}
       </div>

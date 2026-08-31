@@ -16,16 +16,29 @@ export type PayoutObligationStatus =
   | "COMPLETED"
   | "ACTION_REQUIRED";
 
-export type CreatorSettlementStatus = PayoutObligationStatus | "REGISTRATION_PENDING";
+export type CreatorSettlementStatus =
+  | PayoutObligationStatus
+  | "REGISTRATION_PENDING"
+  | "PAYOUT_PENDING"
+  | "APPROVAL_REQUIRED"
+  | "KYC_REQUIRED"
+  | "PAYOUT_UNAVAILABLE"
+  | "RECONCILIATION_REVIEW_REQUIRED"
+  | "SETTLEMENT_PENDING"
+  | "REFUND_PENDING"
+  | "REFUND_REQUESTED"
+  | "REFUND_PROCESSING"
+  | "REFUND_COMPLETED"
+  | "REFUND_ACTION_REQUIRED";
 
 /** GET /api/v1/settlements 목록 항목 (CreatorProjectSettlementListItemResponse / AdminProjectSettlementListItemResponse). */
 export interface Settlement {
-  settlementId: number;
+  settlementId: number | null;
   projectId: number;
-  settlementBaseAmount: number;
-  creatorPayoutAmount: number;
+  settlementBaseAmount: number | null;
+  creatorPayoutAmount: number | null;
   status: CreatorSettlementStatus;
-  confirmedAt: string;
+  confirmedAt: string | null;
   scheduledDate: string | null;
   completedAt: string | null;
 }
