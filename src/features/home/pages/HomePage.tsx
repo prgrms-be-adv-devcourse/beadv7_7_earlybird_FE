@@ -87,7 +87,7 @@ function Rail({
             key={project.projectId}
             project={project}
             categoryName={categoryNames.get(project.categoryId)}
-            className="w-64 shrink-0 snap-start"
+            className="w-64 shrink-0 snap-start h-auto"
           />
         ))}
       </div>

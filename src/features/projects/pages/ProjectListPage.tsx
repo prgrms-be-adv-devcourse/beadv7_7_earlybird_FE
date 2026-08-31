@@ -725,8 +725,8 @@ export function ProjectListPage() {
           >
           <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4"> {/* <-- 모바일 검색 결과를 한 행에 하나씩 표시합니다. */}
             {paginatedProjects.map((project, index) => ( // <-- 현재 페이지의 프로젝트 12개만 표시합니다.
-              <Reveal key={project.projectId} delay={Math.min(index, 8) * 0.04}>
-                <ProjectCard project={project} />
+              <Reveal key={project.projectId} delay={Math.min(index, 8) * 0.04} className="h-full">
+                <ProjectCard project={project} className="h-full" />
               </Reveal>
             ))}
           </div>
