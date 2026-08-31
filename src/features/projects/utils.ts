@@ -109,7 +109,9 @@ export interface FlatCategory {
 export function flattenCategories(categories: ProjectCategory[], level = 0): FlatCategory[] {
   const result: FlatCategory[] = [];
   for (const cat of categories) {
-    const indent = level > 0 ? `${"  ".repeat(level)}└ ` : "";
+    // 브라우저는 <option> 텍스트의 일반 공백을 접어버려서 들여쓰기가 안 보인다.
+    // NBSP( )는 접히지 않으므로 계층 깊이가 계단식으로 드러난다.
+    const indent = level > 0 ? `${"   ".repeat(level)}└ ` : "";
     result.push({
       id: cat.id,
       name: cat.name,
@@ -148,18 +150,6 @@ function collectAllNodeIds(node: ProjectCategory): number[] {
     }
   }
   return ids;
-}
-
-// 루트부터 targetId까지의 id 경로 (단계별 카테고리 드롭다운용). 못 찾으면 [].
-export function findCategoryIdPath(categories: ProjectCategory[], targetId: number): number[] {
-  for (const cat of categories) {
-    if (cat.id === targetId) return [cat.id];
-    if (cat.children && cat.children.length > 0) {
-      const sub = findCategoryIdPath(cat.children, targetId);
-      if (sub.length > 0) return [cat.id, ...sub];
-    }
-  }
-  return [];
 }
 
 export function findCategoryPath(categories: ProjectCategory[], targetId: number): string[] {
