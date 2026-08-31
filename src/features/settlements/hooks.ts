@@ -6,6 +6,7 @@ import {
   fetchCreatorSettlementDetail,
   fetchMySettlements,
   fetchRefundDetail,
+  fetchReconciliationReviewDetail,
   fetchSettlementDetail,
   runPgReconciliation,
   runProjectPayout,
@@ -47,6 +48,15 @@ export function useRefundDetail(refundRequestId: string | null) {
     queryKey: ["settlements", "refund-detail", refundRequestId],
     queryFn: () => fetchRefundDetail(refundRequestId as string),
     enabled: isAdmin && refundRequestId !== null,
+  });
+}
+
+export function useReconciliationReviewDetail(projectId: number | null) {
+  const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN");
+  return useQuery({
+    queryKey: ["settlements", "reconciliation-review", projectId],
+    queryFn: () => fetchReconciliationReviewDetail(projectId as number),
+    enabled: isAdmin && projectId !== null,
   });
 }
 

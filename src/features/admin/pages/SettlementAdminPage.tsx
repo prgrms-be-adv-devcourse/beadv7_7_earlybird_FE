@@ -17,6 +17,7 @@ import {
 import {
   useAllSettlements,
   useCreatorProfile,
+  useReconciliationReviewDetail,
   useRefundDetail,
   useRegisterCreatorPayoutProfile,
   useSettlementDetail,
@@ -53,6 +54,19 @@ function formatDate(isoString: string | null | undefined) {
   } catch {
     return isoString;
   }
+}
+
+function getPendingStatusInfo(type: string) {
+  return {
+    RECONCILIATION_REVIEW_REQUIRED: { label: "대사 검토 필요", bg: "bg-red-100 text-red-800" },
+    SETTLEMENT_PENDING: { label: "정산 대기", bg: "bg-lavender/30 text-indigo-800" },
+    REFUND_PENDING: { label: "환불 대기", bg: "bg-lavender/30 text-indigo-800" },
+    PAYOUT_PENDING: { label: "지급 대기", bg: "bg-lavender/30 text-indigo-800" },
+    APPROVAL_REQUIRED: { label: "승인 필요", bg: "bg-peach/30 text-amber-900" },
+    KYC_REQUIRED: { label: "KYC 필요", bg: "bg-peach/30 text-amber-900" },
+    PAYOUT_UNAVAILABLE: { label: "지급 불가", bg: "bg-red-100 text-red-800" },
+    REGISTRATION_PENDING: { label: "등록 대기", bg: "bg-paper text-ink" },
+  }[type] ?? { label: type, bg: "bg-paper text-ink" };
 }
 
 function CreatorProfileDialog({
@@ -138,6 +152,41 @@ function RefundDetailDialog({
         <div className="flex justify-end">
           <DialogClose asChild><Button variant="secondary">닫기</Button></DialogClose>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ReconciliationReviewDetailDialog({
+  projectId,
+  open,
+  onOpenChange,
+}: {
+  projectId: number | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: detail, isPending, isError } = useReconciliationReviewDetail(open ? projectId : null);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogTitle>대사 검토 필요 결제</DialogTitle>
+        <DialogDescription>자동 정산을 막고 있는 결제만 표시합니다.</DialogDescription>
+        {isPending && <RowSkeleton />}
+        {isError && <ErrorState error={{ message: "대사 검토 결제를 불러오지 못했습니다.", errors: null }} />}
+        {detail && (
+          <div className="flex flex-col gap-3 text-sm">
+            <p className="font-bold">{detail.projectName}</p>
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-ink/20"><tr><th className="p-2">주문 ID</th><th className="p-2">PG 주문 ID</th><th className="p-2">상태</th></tr></thead>
+              <tbody>{detail.payments.map((payment) => (
+                <tr key={payment.orderId} className="border-b border-ink/10"><td className="p-2">{payment.orderId}</td><td className="p-2 font-mono">{payment.pgOrderId}</td><td className="p-2">대사 검토 필요</td></tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
+        <div className="flex justify-end"><DialogClose asChild><Button variant="secondary">닫기</Button></DialogClose></div>
       </DialogContent>
     </Dialog>
   );
@@ -361,6 +410,8 @@ export function SettlementAdminPage() {
   const [creatorDialogOpen, setCreatorDialogOpen] = useState(false);
   const [selectedRefundRequestId, setSelectedRefundRequestId] = useState<string | null>(null);
   const [refundDetailOpen, setRefundDetailOpen] = useState(false);
+  const [selectedReviewProjectId, setSelectedReviewProjectId] = useState<number | null>(null);
+  const [reviewDetailOpen, setReviewDetailOpen] = useState(false);
 
   const [actionFeedback, setActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -369,9 +420,10 @@ export function SettlementAdminPage() {
     const list = settlements ?? [];
     const payoutEntries = list.filter((entry) => entry.type === "PAYOUT");
     const registrationPendingEntries = list.filter((entry) => entry.type === "REGISTRATION_PENDING");
+    const pendingPayoutEntries = list.filter((entry) => "pendingPayout" in entry);
     const refundEntries = list.filter((entry) => entry.type === "REFUND");
-    const totalBase = [...payoutEntries, ...registrationPendingEntries].reduce(
-      (sum, entry) => sum + (entry.type === "PAYOUT" ? entry.payout.settlementBaseAmount : entry.registrationPending.settlementBaseAmount),
+    const totalBase = [...payoutEntries, ...registrationPendingEntries, ...pendingPayoutEntries].reduce(
+      (sum, entry) => sum + (entry.type === "PAYOUT" ? entry.payout.settlementBaseAmount : entry.type === "REGISTRATION_PENDING" ? entry.registrationPending.settlementBaseAmount : entry.pendingPayout.settlementBaseAmount),
       0,
     );
     const totalPayout = payoutEntries
@@ -389,18 +441,18 @@ export function SettlementAdminPage() {
 
     return {
       totalCount: list.length,
-      payoutCount: payoutEntries.length + registrationPendingEntries.length,
-      refundCount: refundEntries.length,
+      payoutCount: payoutEntries.length + registrationPendingEntries.length + pendingPayoutEntries.length,
+      refundCount: refundEntries.length + list.filter((entry) => entry.type === "REFUND_PENDING").length,
       totalBase,
       totalPayout,
       completedCount,
       processingCount,
       scheduledCount,
-      registrationPendingCount: registrationPendingEntries.length,
+      registrationPendingCount: registrationPendingEntries.length + pendingPayoutEntries.length,
       refundPaymentCount,
       refundRequestedCount,
       refundProcessingCount,
-      refundActionRequiredCount,
+      refundActionRequiredCount: refundActionRequiredCount + list.filter((entry) => entry.type === "RECONCILIATION_REVIEW_REQUIRED").length,
     };
   }, [settlements]);
 
@@ -686,15 +738,17 @@ export function SettlementAdminPage() {
               {filteredSettlements.map((settlement) => {
                 const payout = settlement.type === "PAYOUT" ? settlement.payout : null;
                 const registrationPending = settlement.type === "REGISTRATION_PENDING" ? settlement.registrationPending : null;
+                const pendingPayout = "pendingPayout" in settlement ? settlement.pendingPayout : null;
                 const refund = settlement.type === "REFUND" ? settlement.refund : null;
                 const statusInfo = payout ? getPayoutStatusInfo(payout.status) : null;
+                const pendingStatusInfo = getPendingStatusInfo(settlement.type);
                 return (
                   <tr
-                    key={settlement.type === "REFUND" ? settlement.refundRequestId : payout?.settlementId ?? registrationPending?.settlementId}
+                    key={settlement.projectId}
                     className="hover:bg-paper/50 transition-colors"
                   >
                     <td className="py-3 px-4 font-mono font-bold text-ink">
-                      {settlement.type === "PAYOUT" ? "지급" : settlement.type === "REFUND" ? "환불" : "등록 대기"}
+                      {settlement.type === "PAYOUT" ? "지급" : settlement.type === "REFUND" ? "환불" : pendingStatusInfo.label}
                     </td>
                     <td className="py-3 px-4">
                       <Link
@@ -706,35 +760,35 @@ export function SettlementAdminPage() {
                       </Link>
                     </td>
                     <td className="py-3 px-4 text-right font-mono font-medium text-ink tabular-nums">
-                      {payout?.settlementBaseAmount?.toLocaleString() ?? registrationPending?.settlementBaseAmount?.toLocaleString() ?? "-"}
-                      {(payout || registrationPending) && "원"}
+                      {payout?.settlementBaseAmount?.toLocaleString() ?? registrationPending?.settlementBaseAmount?.toLocaleString() ?? pendingPayout?.settlementBaseAmount?.toLocaleString() ?? "-"}
+                      {(payout || registrationPending || pendingPayout) && "원"}
                     </td>
                     <td className="py-3 px-4 text-right font-mono font-extrabold text-ink tabular-nums">
-                      {payout?.creatorPayoutAmount?.toLocaleString() ?? registrationPending?.creatorPayoutAmount?.toLocaleString() ?? "-"}
-                      {(payout || registrationPending) && "원"}
+                      {payout?.creatorPayoutAmount?.toLocaleString() ?? registrationPending?.creatorPayoutAmount?.toLocaleString() ?? pendingPayout?.creatorPayoutAmount?.toLocaleString() ?? "-"}
+                      {(payout || registrationPending || pendingPayout) && "원"}
                     </td>
                     <td className="py-3 px-4">
-                      {(payout || registrationPending) ? (
+                      {(payout || registrationPending || pendingPayout) ? (
                         <button
                           type="button"
                           className="font-mono text-brand hover:underline"
                           onClick={() => {
-                            setSelectedCreatorId(payout?.creatorId ?? registrationPending?.creatorId ?? null);
+                            setSelectedCreatorId(payout?.creatorId ?? registrationPending?.creatorId ?? pendingPayout?.creatorId ?? null);
                             setCreatorDialogOpen(true);
                           }}
                         >
-                          #{payout?.creatorId ?? registrationPending?.creatorId}
+                          #{payout?.creatorId ?? registrationPending?.creatorId ?? pendingPayout?.creatorId}
                         </button>
                       ) : (
                         "-"
                       )}
                     </td>
                     <td className="py-3 px-4 font-mono text-mist text-[11px]">
-                      {formatDate(payout?.confirmedAt ?? registrationPending?.confirmedAt ?? refund?.requestedAt)}
+                      {formatDate(payout?.confirmedAt ?? registrationPending?.confirmedAt ?? pendingPayout?.confirmedAt ?? refund?.requestedAt)}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-extrabold ${statusInfo?.bg ?? "bg-paper text-ink"}`}>
-                        {statusInfo?.label ?? refund?.refundStatus ?? "등록 대기"}
+                      <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-extrabold ${statusInfo?.bg ?? pendingStatusInfo.bg}`}>
+                        {statusInfo?.label ?? refund?.refundStatus ?? pendingStatusInfo.label}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-center">
@@ -759,6 +813,17 @@ export function SettlementAdminPage() {
                           }}
                         >
                           상세
+                        </Button>
+                      ) : settlement.type === "RECONCILIATION_REVIEW_REQUIRED" ? (
+                        <Button
+                          variant="secondary"
+                          className="py-0.5 px-2 text-[11px] font-bold"
+                          onClick={() => {
+                            setSelectedReviewProjectId(settlement.projectId);
+                            setReviewDetailOpen(true);
+                          }}
+                        >
+                          대상 결제
                         </Button>
                       ) : registrationPending ? (
                         <Button
@@ -796,6 +861,11 @@ export function SettlementAdminPage() {
         refundRequestId={selectedRefundRequestId}
         open={refundDetailOpen}
         onOpenChange={setRefundDetailOpen}
+      />
+      <ReconciliationReviewDetailDialog
+        projectId={selectedReviewProjectId}
+        open={reviewDetailOpen}
+        onOpenChange={setReviewDetailOpen}
       />
     </div>
   );
