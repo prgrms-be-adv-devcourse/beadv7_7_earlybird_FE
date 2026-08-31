@@ -140,7 +140,31 @@ vi.mock("../../settlements/hooks", () => ({
     isPending: false,
     isError: false,
   }),
-  useSettlementDetail: () => ({ data: null, isPending: false, isError: false }),
+  useSettlementDetail: () => ({
+    data: {
+      settlementId: 1,
+      creatorId: 1,
+      project: { projectId: 1 },
+      confirmedAt: "2026-08-01T00:00:00Z",
+      breakdown: {
+        settlementBaseAmount: 10000,
+        paymentAndSettlementAgencyFee: { rate: 0.04, amount: 400, vatRate: 0.1, vatAmount: 40 },
+        platformFee: { rate: 0.04, amount: 400, vatRate: 0.1, vatAmount: 40 },
+        otherDeductionAmount: 0,
+        creatorPayoutAmount: 9000,
+      },
+      payout: {
+        settlementId: 1,
+        status: "COMPLETED",
+        scheduledDate: "2026-08-05",
+        completedAt: "2026-08-05T00:00:00Z",
+        destination: { tossSellerId: "seller-1" },
+        attempts: [{ attemptId: 1, sequence: 1, amount: 9000, status: "COMPLETED", completedAt: "2026-08-05T00:00:00Z" }],
+      },
+    },
+    isPending: false,
+    isError: false,
+  }),
   useRunProjectPayout: () => runPayout,
   useRunPgReconciliation: () => runPgReconciliation,
   useRegisterCreatorPayoutProfile: () => ({ mutate: vi.fn(), isPending: false }),
@@ -193,5 +217,19 @@ describe("SettlementAdminPage", () => {
 
     expect(refetch).toHaveBeenCalledTimes(2);
     expect(screen.queryByText(/배치가 성공적으로 실행되었습니다/)).not.toBeInTheDocument();
+  });
+
+  it("지급 상세는 Toss Seller ID와 지급 이력을 표시하고 은행·계좌는 표시하지 않는다", async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><SettlementAdminPage /></MemoryRouter>);
+
+    await user.click(screen.getAllByRole("button", { name: "명세서" })[0]);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("seller-1");
+    expect(dialog).toHaveTextContent("#1차");
+    expect(dialog).not.toHaveTextContent("수령 은행");
+    expect(dialog).not.toHaveTextContent("계좌번호");
+    expect(dialog).not.toHaveTextContent("미등록");
   });
 });

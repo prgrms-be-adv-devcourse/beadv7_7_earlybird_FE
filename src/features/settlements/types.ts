@@ -161,8 +161,6 @@ export interface CreatorProjectSettlementDetail {
 
 export interface PayoutDestination {
   tossSellerId?: string | null;
-  bankCode?: string | null;
-  maskedAccountNumber?: string | null;
 }
 
 export interface PayoutAttempt {

@@ -316,22 +316,9 @@ function SettlementDetailDialog({
               </div>
             </div>
 
-            {/* 지급 수령 계좌 정보 */}
             <div>
               <h3 className="font-display font-bold text-ink mb-2">🏦 수령처 및 지급 현황</h3>
               <div className="grid grid-cols-2 gap-3 rounded border border-ink/15 bg-paper/40 p-3 text-xs">
-                <div>
-                  <span className="text-mist block">수령 은행</span>
-                  <span className="font-semibold text-ink">
-                    {detail.payout.destination.bankCode || "미등록"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-mist block">계좌번호</span>
-                  <span className="font-mono text-ink">
-                    {detail.payout.destination.maskedAccountNumber || "미등록"}
-                  </span>
-                </div>
                 <div>
                   <span className="text-mist block">Toss Seller ID</span>
                   <span className="font-mono text-ink">
