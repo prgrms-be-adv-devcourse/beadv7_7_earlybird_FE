@@ -1,6 +1,7 @@
 import { apiClient } from "../../shared/api/client";
 import { PROJECT_SERVICE } from "../../shared/api/endpoints";
 import type { ApiResponse } from "../../shared/types/ApiResponse";
+import type { Page } from "../../shared/types/Page";
 import type {
   ProjectDetail,
   ProjectSummary,
@@ -17,25 +18,46 @@ export interface ProjectCategory {
 export interface FetchProjectsParams {
   keyword?: string;
   categoryId?: number | string;
+  creatorId?: number | string;
   status?: string;
   sort?: string;
+  page?: number; // 0-based (서버 기준). FE의 1-based 페이지와 헷갈리지 않게 여기서만 다룬다.
+  size?: number; // 생략 시 서버 기본 8, 상한 100
 }
+
+/** 목록 응답에는 description이 없다(무거워서 제외됨) — 본문이 필요하면 fetchProject를 쓸 것. */
+export type ProjectListItem = Omit<ProjectSummary, "description">;
 
 export async function fetchProjects(
   params?: FetchProjectsParams,
   signal?: AbortSignal,
-): Promise<ProjectSummary[]> {
+): Promise<Page<ProjectListItem>> {
   const searchParams = new URLSearchParams();
   if (params?.keyword) searchParams.set("keyword", params.keyword);
   if (params?.categoryId && params.categoryId !== "ALL") searchParams.set("categoryId", String(params.categoryId));
+  if (params?.creatorId && params.creatorId !== "ALL") searchParams.set("creatorId", String(params.creatorId));
   if (params?.status && params.status !== "ALL") searchParams.set("status", params.status);
   if (params?.sort && params.sort !== "RELEVANCE") searchParams.set("sort", params.sort);
+  if (params?.page !== undefined) searchParams.set("page", String(params.page));
+  if (params?.size !== undefined) searchParams.set("size", String(params.size));
 
   const queryString = searchParams.toString();
   const url = queryString ? `${PROJECT_SERVICE.projects}?${queryString}` : PROJECT_SERVICE.projects;
 
   // signal 전달 → 검색어가 빠르게 바뀌면 React Query가 이전 요청을 취소한다(느린 이전 응답이 최신을 덮는 것 방지).
-  const response = await apiClient.get<ApiResponse<ProjectSummary[]>>(url, { signal });
+  const response = await apiClient.get<ApiResponse<Page<ProjectListItem>>>(url, { signal });
+  return response.data.data ?? { content: [], page: 0, size: 0, totalPages: 0, totalElements: 0 };
+}
+
+export interface ProjectSuggestion {
+  projectId: number;
+  title: string;
+}
+
+/** 제목 prefix 자동완성(최대 10건). 하이브리드 검색과 달리 임베딩 호출이 없다. */
+export async function fetchProjectAutocomplete(keyword: string, signal?: AbortSignal): Promise<ProjectSuggestion[]> {
+  const url = `${PROJECT_SERVICE.autocomplete}?keyword=${encodeURIComponent(keyword)}`;
+  const response = await apiClient.get<ApiResponse<ProjectSuggestion[]>>(url, { signal });
   return response.data.data ?? [];
 }
 

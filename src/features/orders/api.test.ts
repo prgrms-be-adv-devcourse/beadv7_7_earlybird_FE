@@ -28,7 +28,7 @@ describe("orders api", () => {
   it("cancelOrder는 ORDER_SERVICE.cancel(id)로 POST한다", async () => {
     (apiClient.post as any).mockResolvedValue({ data: { success: true, data: null, error: null } });
     await cancelOrder(5);
-    expect(apiClient.post).toHaveBeenCalledWith(ORDER_SERVICE.cancel(5));
+    expect(apiClient.post).toHaveBeenCalledWith(ORDER_SERVICE.cancel(5), {});
   });
 
   it("placeOrder는 ORDER_SERVICE.orders로 orderIdempotencyKey가 포함된 요청 데이터를 POST한다", async () => {

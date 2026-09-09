@@ -36,6 +36,11 @@ export function useCancelOrder(id: number) {
       queryClient.invalidateQueries({ queryKey: ["rewards"] });
       queryClient.invalidateQueries({ queryKey: ["orders", "detail", id] });
       queryClient.invalidateQueries({ queryKey: ["orders", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders", "detail", id] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
     },
   });
 }
