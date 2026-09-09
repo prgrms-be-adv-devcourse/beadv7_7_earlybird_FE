@@ -16,21 +16,29 @@ import {
   SelectValue,
   Spinner,
 } from "../../../shared/ui";
-import {useProjects} from "../hooks";
+import {useProjects, useProjectAutocomplete} from "../hooks";
 import {useCategories} from "../../admin/hooks";
 import {ProjectCard} from "../components/ProjectCard";
 import {
   flattenCategories,
-  getCategoryIdsIncludingChildren,
   getCategoryPathString,
   getCreatorDisplayName,
   getStatusLabel,
 } from "../utils";
 
 import {useAuthStore} from "../../../shared/auth/authStore";
+import type {ProjectStatus} from "../types";
 
 const ALL = "ALL";
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 8; // 서버 기본 size와 동일
+const STATUS_OPTIONS: ProjectStatus[] = [
+  "PENDING_REVIEW",
+  "IN_PROGRESS",
+  "SUCCEEDED",
+  "FAILED",
+  "CANCELLED",
+  "REJECTED",
+];
 
 function HighlightMatch({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <>{text}</>;
@@ -139,39 +147,15 @@ export function ProjectListPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
-  // Fetch all projects for autocomplete pool
-  const { data: rawAllProjects } = useProjects();
-
-  // Compute matching autocomplete items with flexible word & synonym matching
-  const suggestions = useMemo(() => {
-    const term = inputKeyword.trim().toLowerCase();
-    if (!term || !rawAllProjects) return [];
-
-    const words = term.split(/\s+/).filter(Boolean);
-
-    return rawAllProjects
-      .filter((p) => {
-        const titleLower = p.title.toLowerCase();
-        const summaryLower = (p.summary || "").toLowerCase();
-
-        // Exact substring match
-        if (titleLower.includes(term) || summaryLower.includes(term)) return true;
-
-        // Word-by-word match
-        if (words.some((w) => titleLower.includes(w) || summaryLower.includes(w))) return true;
-
-        // Synonym match (e.g. '냥이' <-> '고양이', '멍멍이' <-> '강아지')
-        if (
-          (term.includes("냥이") || term.includes("고양이")) &&
-          (titleLower.includes("고양이") || titleLower.includes("냥이") || summaryLower.includes("고양이") || summaryLower.includes("냥이"))
-        ) {
-          return true;
-        }
-
-        return false;
-      })
-      .slice(0, 6);
-  }, [inputKeyword, rawAllProjects]);
+  // 추천 검색어는 서버 자동완성(title prefix, 최대 10건)에서 받는다.
+  // 목록 API가 페이징되면서 "전체 목록을 받아 클라이언트에서 거르는" 옛 방식은 쓸 수 없다.
+  const [suggestKeyword, setSuggestKeyword] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setSuggestKeyword(inputKeyword.trim()), 200);
+    return () => clearTimeout(timer);
+  }, [inputKeyword]);
+  const { data: suggestionData } = useProjectAutocomplete(suggestKeyword);
+  const suggestions = useMemo(() => (suggestionData ?? []).slice(0, 6), [suggestionData]);
 
   // Click outside listener to close suggestions
   useEffect(() => {
@@ -216,9 +200,7 @@ export function ProjectListPage() {
     setSort(currentSort);
   }, [searchParams]);
 
-  // 2-tier 검색:
-  //  · 타이핑 중(각 글자)  → 이미 받아둔 전체 목록을 클라이언트에서 필터링만 (LLM·서버 호출 없음, 아래 liveFiltered)
-  //  · 엔터 or 500ms 무입력 → keyword를 확정해 기존 하이브리드 검색 플로우(LLM 질의이해+임베딩+kNN) 실행
+  // 엔터 or 500ms 무입력 → keyword를 확정해 하이브리드 검색(LLM 질의이해+임베딩+kNN)을 실행한다.
   useEffect(() => {
     const timer = setTimeout(() => {
       setKeyword(inputKeyword.trim());
@@ -244,39 +226,28 @@ export function ProjectListPage() {
     setSearchParams(params, { replace: true });
   }, [keyword, categoryId, status, sort, creatorId, searchParams, setSearchParams]);
 
-  // Fetch projects passing params (tier 2: 확정된 keyword로만 하이브리드 검색)
-  const { data: projects, isPending, isPlaceholderData, isError, error } = useProjects({
+  // 목록은 서버가 필터·정렬·페이징을 모두 처리한다(keyword/categoryId/creatorId/status/sort/page/size).
+  // 서버 page는 0-based, 화면의 currentPage는 1-based다.
+  const { data, isPending, isPlaceholderData, isError, error } = useProjects({
     keyword: keyword.trim() || undefined,
+    categoryId: categoryId !== ALL ? categoryId : undefined,
+    creatorId: creatorId !== ALL ? creatorId : undefined,
     status: status !== ALL ? status : undefined,
     sort: sort === "RELEVANCE" ? undefined : sort,
+    page: currentPage - 1,
+    size: PAGE_SIZE,
   });
 
-  // tier 1: 타이핑 중이거나(입력이 아직 keyword로 확정 안 됨) 확정 검색이 첫 로딩 중이면,
-  // 전체 풀(rawAllProjects)을 클라이언트에서 필터링해 바로 보여준다(서버·LLM 호출 없음, 스켈레톤 깜빡임 방지).
+  const visibleProjects = data?.content ?? [];
+  const totalCount = data?.totalElements ?? 0;
+  const totalPages = data?.totalPages ?? 0;
+
+  // 입력이 아직 확정 keyword로 넘어가지 않은 구간(디바운스 500ms 대기 중).
   const trimmedInput = inputKeyword.trim();
   const isTyping = trimmedInput.length > 0 && trimmedInput !== keyword.trim();
-  const showLive = trimmedInput.length > 0 && (isTyping || (isPending && !projects));
-  const liveFiltered = useMemo(() => {
-    if (!showLive || !rawAllProjects) return null;
-    const term = trimmedInput.toLowerCase();
-    const words = term.split(/\s+/).filter(Boolean);
-    const termNoSpace = term.replace(/\s/g, ""); // "롱 코트" ↔ "롱코트" 매칭
-    return rawAllProjects.filter((p) => {
-      const hay = `${p.title} ${p.summary ?? ""}`.toLowerCase();
-      return (
-        hay.includes(term) ||
-        hay.replace(/\s/g, "").includes(termNoSpace) ||
-        words.every((w) => hay.includes(w))
-      );
-    });
-  }, [showLive, trimmedInput, rawAllProjects]);
 
-  // 그리드에 쓸 소스: 타이핑 중이면 클라 필터 결과, 아니면 하이브리드 검색 결과
-  const baseProjects = liveFiltered ?? projects;
-
-  // 확정 검색(tier 2) 응답 대기 중: keepPreviousData로 이전 결과가 남아있는 그 구간.
-  // 라이브뷰(showLive)가 아니고, placeholder(=이전 데이터)를 보여주는 중일 때만.
-  const searchPending = isPlaceholderData && !showLive;
+  // 확정 검색 응답 대기 중: keepPreviousData로 이전 결과가 남아있는 그 구간.
+  const searchPending = isPlaceholderData;
 
   const { data: categories } = useCategories();
 
@@ -289,43 +260,6 @@ export function ProjectListPage() {
   const selectedCategoryPath = categoryId === ALL
     ? ""
     : getCategoryPathString(categories, Number(categoryId)).replaceAll(" > ", " - "); // <-- 선택한 상위·하위 카테고리 경로를 표시합니다.
-
-  const statusOptions = useMemo(
-    () => Array.from(new Set((baseProjects ?? []).map((project) => project.status))),
-    [baseProjects]
-  );
-
-  // Filter & sort including parent/child category tree matching
-  const filteredAndSorted = useMemo(() => {
-    if (!baseProjects) return [];
-
-    let list = baseProjects;
-
-    if (status !== ALL) {
-      list = list.filter((project) => project.status === status);
-    }
-
-    if (categoryId !== ALL) {
-      const validCategoryIds = getCategoryIdsIncludingChildren(categories ?? [], Number(categoryId));
-      list = list.filter((project) => validCategoryIds.includes(project.categoryId));
-    }
-
-    if (creatorId !== ALL) {
-      list = list.filter((project) => String(project.creatorId) === creatorId);
-    }
-
-    // Client-side sort fallback
-    if (sort === "DEADLINE") {
-      list = [...list].sort((a, b) => new Date(a.endAt).getTime() - new Date(b.endAt).getTime());
-    } else if (sort === "FUNDED_AMOUNT") {
-      list = [...list].sort((a, b) => b.fundedAmount - a.fundedAmount);
-    } else if (sort === "LATEST") {
-      list = [...list].sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
-    }
-    // When sort === "RELEVANCE", preserve the server's Elasticsearch relevance ranking!
-
-    return list;
-  }, [baseProjects, status, categoryId, creatorId, sort, categories]);
 
   useEffect(() => {
     setCurrentPage(1); // <-- 검색·필터 조건이 바뀌면 첫 페이지를 표시합니다.
@@ -345,12 +279,6 @@ export function ProjectListPage() {
 
     window.scrollTo({top: 0, behavior: "smooth"});
   }, [currentPage]);
-
-  const totalPages = Math.ceil(filteredAndSorted.length / PAGE_SIZE);
-  const paginatedProjects = filteredAndSorted.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  );
 
   // 추가 : 검색·드롭다운 입력 중이 아닐 때 좌우 방향키로 페이지를 이동합니다.
   useEffect(() => {
@@ -513,27 +441,17 @@ export function ProjectListPage() {
                         >
                           <div className="flex items-center gap-2.5 overflow-hidden">
                             <span className="text-xs">🔍</span>
-                            <div className="flex flex-col truncate">
-                              <span className="truncate text-sm font-medium">
-                                <HighlightMatch text={project.title} query={inputKeyword.trim()} />
-                              </span>
-                              {project.summary && (
-                                <span className="truncate text-xs text-mist">
-                                  {project.summary}
-                                </span>
-                              )}
-                            </div>
+                            <span className="truncate text-sm font-medium">
+                              <HighlightMatch text={project.title} query={inputKeyword.trim()} />
+                            </span>
                           </div>
-                          <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-medium text-mist">
-                            {getStatusLabel(project.status)}
-                          </span>
                         </button>
                       </li>
                     ))}
                   </ul>
                 ) : (
                   <div className="px-3 py-3 text-center text-xs text-mist">
-                    '{inputKeyword}'(으)로 시작하거나 포함된 추천 검색어가 없습니다.
+                    '{inputKeyword}'(으)로 시작하는 추천 검색어가 없습니다.
                   </div>
                 )}
               </div>
@@ -613,7 +531,7 @@ export function ProjectListPage() {
             </SelectTrigger>
             <SelectContent className="!rounded-lg">
               <SelectItem value={ALL}>🏷️ 전체 상태</SelectItem>
-              {statusOptions.map((option) => (
+              {STATUS_OPTIONS.map((option) => (
                 <SelectItem key={option} value={option}>
                   {getStatusLabel(option)}
                 </SelectItem>
@@ -673,7 +591,7 @@ export function ProjectListPage() {
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-mist">
         <div className="flex min-w-0 items-center gap-2 text-sm"> {/* <-- 검색 결과 오른쪽에 선택한 카테고리 경로를 표시합니다. */}
           <span className="shrink-0">
-            검색 결과 <strong className="text-ink font-bold">{filteredAndSorted.length}</strong>개
+            검색 결과 <strong className="text-ink font-bold">{totalCount}</strong>개
           </span>
           {selectedCategoryPath && (
             <span className="truncate font-semibold text-brand">· {selectedCategoryPath}</span>
@@ -698,7 +616,7 @@ export function ProjectListPage() {
       </div>
 
       {/* Grid Content / Skeletons / Error / Empty */}
-      {isPending && !liveFiltered && (!projects || (projects as any[]).length === 0) ? (
+      {isPending ? (
         <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4"> {/* <-- 모바일 로딩 카드도 한 행에 하나씩 표시합니다. */}
           {Array.from({ length: 8 }).map((_, index) => (
             <CardSkeleton key={index} />
@@ -706,11 +624,10 @@ export function ProjectListPage() {
         </div>
       ) : isError && !isTyping ? (
         <ErrorState error={{ message: errorMsg!, errors: null }} />
-      ) : filteredAndSorted.length === 0 ? (
+      ) : visibleProjects.length === 0 ? (
         <EmptyState message="조건에 맞는 프로젝트가 없어요. 다른 키워드나 카테고리로 검색해 보세요." />
       ) : (
-        // 확정 검색(tier 2) 응답 대기 중엔 이전 결과(placeholderData)를 흐리게 눌러 "로딩 중"임을 알림
-        // (타이핑 라이브뷰 showLive 중엔 즉시 반응이라 제외)
+        // 확정 검색 응답 대기 중엔 이전 결과(placeholderData)를 흐리게 눌러 "로딩 중"임을 알림
         <div className="relative">
           {searchPending && (
             <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center pt-6">
@@ -724,7 +641,7 @@ export function ProjectListPage() {
             className={`transition-opacity duration-200 ${searchPending ? "pointer-events-none opacity-40" : ""}`}
           >
           <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4"> {/* <-- 모바일 검색 결과를 한 행에 하나씩 표시합니다. */}
-            {paginatedProjects.map((project, index) => ( // <-- 현재 페이지의 프로젝트 12개만 표시합니다.
+            {visibleProjects.map((project, index) => ( // <-- 현재 페이지의 프로젝트만 표시합니다.
               <Reveal key={project.projectId} delay={Math.min(index, 8) * 0.04} className="h-full">
                 <ProjectCard project={project} className="h-full" />
               </Reveal>

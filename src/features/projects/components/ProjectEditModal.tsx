@@ -80,6 +80,19 @@ export function ProjectEditModal({
     setErrorMsg(null);
     setIsSaving(true);
 
+    if (!isPublished) {
+      if (!title.trim()) {
+        setErrorMsg("프로젝트 제목을 입력해주세요.");
+        setIsSaving(false);
+        return;
+      }
+      if (title.length > 200) {
+        setErrorMsg("프로젝트 제목은 최대 200자 이하로 작성해주세요.");
+        setIsSaving(false);
+        return;
+      }
+    }
+
     try {
       let uploadedThumbnailId = project.thumbnailId;
 
@@ -134,14 +147,27 @@ export function ProjectEditModal({
 
         <form onSubmit={handleSubmit} className="my-4 flex flex-col gap-4 text-sm">
           <div>
-            <label className="mb-1 block font-semibold text-ink">프로젝트 제목</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="font-semibold text-ink">프로젝트 제목</label>
+              <span className={`text-xs tabular-nums ${title.length >= 200 ? "text-red-500 font-bold" : "text-mist"}`}>
+                {title.length}/200자
+              </span>
+            </div>
             <input
               type="text"
               disabled={isPublished}
+              maxLength={200}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-sm border border-ink/30 px-3 py-2 text-ink disabled:bg-surface disabled:text-mist focus:border-brand focus:outline-none"
+              className={`w-full rounded-sm border px-3 py-2 text-ink disabled:bg-surface disabled:text-mist focus:outline-none ${
+                title.length >= 200 ? "border-amber-500 focus:border-amber-500" : "border-ink/30 focus:border-brand"
+              }`}
             />
+            {title.length >= 200 && (
+              <p className="mt-1 text-xs text-amber-600 font-medium">
+                ⚠️ 프로젝트 제목은 최대 200자까지만 입력할 수 있습니다.
+              </p>
+            )}
           </div>
 
           <div>

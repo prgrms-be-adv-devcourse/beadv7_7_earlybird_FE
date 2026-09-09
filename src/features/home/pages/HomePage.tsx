@@ -9,7 +9,6 @@ import {logoutRequest} from "../../auth/api";
 import {useProjects} from "../../projects/hooks";
 import {useCategories} from "../../admin/hooks";
 import {ProjectCard} from "../../projects/components/ProjectCard";
-import {getCategoryIdsIncludingChildren} from "../../projects/utils";
 import type {ProjectCategory} from "../../admin/types";
 import type {ProjectSummary} from "../../projects/types";
 
@@ -100,10 +99,36 @@ export function HomePage() {
   const logout = useAuthStore((state) => state.logout);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { data: projects, isPending, isError, error } = useProjects();
+
+  // 섹션별로 서버 쿼리를 분리해 각 8건씩 정확하게 받는다.
+  // size=100 단건 호출 대신 병렬 4개로 쪼개 응답 크기를 줄이고 프로젝트 수 증가에도 안전하게 유지한다.
+  const { data: popularPage,    isPending: isPendingPopular,   isError: isErrorPopular,   error: errorPopular   } = useProjects({ status: "IN_PROGRESS", sort: "FUNDED_AMOUNT", size: 8 });
+  const { data: endingSoonPage, isPending: isPendingEnding,    isError: isErrorEnding,    error: errorEnding    } = useProjects({ status: "IN_PROGRESS", sort: "DEADLINE",      size: 8 });
+  const { data: freshestPage,   isPending: isPendingFreshest,  isError: isErrorFreshest,  error: errorFreshest  } = useProjects({ status: "IN_PROGRESS", sort: "LATEST",        size: 8 });
+  const { data: successPage,    isPending: isPendingSuccess,   isError: isErrorSuccess,   error: errorSuccess   } = useProjects({ status: "SUCCEEDED",  size: 8 });
+
+  const popular        = popularPage?.content    ?? [];
+  const endingSoon     = endingSoonPage?.content ?? [];
+  const freshest       = freshestPage?.content   ?? [];
+  const successStories = successPage?.content    ?? [];
+  // IN_PROGRESS 전체 건수는 인기 섹션의 totalElements로 표시한다(같은 status 필터를 씀).
+  const inProgressCount = popularPage?.totalElements ?? 0;
+
+  const isPending = isPendingPopular || isPendingEnding || isPendingFreshest || isPendingSuccess;
+  const isError   = isErrorPopular   || isErrorEnding   || isErrorFreshest   || isErrorSuccess;
+  const error     = errorPopular     ?? errorEnding     ?? errorFreshest     ?? errorSuccess;
+
   const { data: categories } = useCategories();
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [activeHeroSlide, setActiveHeroSlide] = useState(0);
+
+  // 카테고리 클릭 시 해당 카테고리의 인기 IN_PROGRESS 프로젝트를 서버에서 직접 받는다.
+  const { data: categoryPage } = useProjects(
+    selectedCategoryId !== null
+      ? { categoryId: selectedCategoryId, status: "IN_PROGRESS", sort: "FUNDED_AMOUNT", size: 8 }
+      : undefined,
+  );
+  const selectedCategoryProjects = categoryPage?.content ?? [];
 
   useEffect(() => {
     const timer = window.setTimeout(
@@ -127,31 +152,6 @@ export function HomePage() {
   };
 
   const categoryNames = useMemo(() => flattenCategoryNames(categories ?? []), [categories]);
-
-  const { endingSoon, popular, freshest, successStories, inProgressCount } = useMemo(() => {
-    const list = projects ?? [];
-    const inProgress = list.filter((project) => project.status === "IN_PROGRESS");
-    return {
-      endingSoon: [...inProgress]
-        .sort((a, b) => new Date(a.endAt).getTime() - new Date(b.endAt).getTime())
-        .slice(0, 8),
-      popular: [...inProgress].sort((a, b) => b.fundedAmount - a.fundedAmount).slice(0, 8),
-      freshest: [...inProgress]
-        .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime())
-        .slice(0, 8),
-      successStories: list.filter((project) => project.status === "SUCCEEDED").slice(0, 8),
-      inProgressCount: inProgress.length,
-    };
-  }, [projects]);
-
-  const selectedCategoryProjects = useMemo(() => {
-    if (!selectedCategoryId) return [];
-
-    const categoryIds = getCategoryIdsIncludingChildren(categories ?? [], selectedCategoryId);
-    return (projects ?? [])
-      .filter((project) => categoryIds.includes(project.categoryId) && project.status === "IN_PROGRESS")
-      .sort((a, b) => b.fundedAmount - a.fundedAmount); // <-- 선택 카테고리의 인기 프로젝트를 먼저 표시합니다.
-  }, [categories, projects, selectedCategoryId]);
   const selectedCategoryName = categories?.find((category) => category.id === selectedCategoryId)?.name ?? "카테고리";
   const heroSlide = HERO_SLIDES[activeHeroSlide];
 
@@ -175,7 +175,7 @@ export function HomePage() {
       </div>
     );
   }
-  if (isError || !projects) {
+  if (isError) {
     const errorMsg =
       (error as any)?.response?.data?.error?.message ||
       (error as any)?.response?.data?.message ||
@@ -385,7 +385,9 @@ export function HomePage() {
         <Rail title="성공 사례" projects={successStories} categoryNames={categoryNames} />
       </div>
 
-      {projects.length === 0 && <EmptyState message="아직 등록된 프로젝트가 없어요." />}
+      {popular.length === 0 && endingSoon.length === 0 && freshest.length === 0 && successStories.length === 0 && (
+        <EmptyState message="아직 등록된 프로젝트가 없어요." />
+      )}
 
       <footer className="flex flex-col gap-3 border-t-2 border-ink pt-8 text-sm text-mist">
         <div className="flex items-center gap-2 font-display text-lg font-bold text-ink">
