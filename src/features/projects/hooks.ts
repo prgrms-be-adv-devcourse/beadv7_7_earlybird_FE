@@ -1,9 +1,8 @@
-import axios from "axios";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
   fetchProjects,
+  fetchProjectAutocomplete,
   fetchProject,
-  fetchMyProjects,
   fetchRewards,
   fetchReward,
   fetchCategories,
@@ -17,9 +16,7 @@ import {
   closeProjectEarly,
   type FetchProjectsParams,
 } from "./api";
-import type { CreateProjectRequest, CreateRewardRequest, ProjectDetail } from "./types";
-import { useAuthStore } from "../../shared/auth/authStore";
-import { fetchPendingProjects } from "../admin/api";
+import type { CreateProjectRequest, CreateRewardRequest } from "./types";
 
 export function useProjects(params?: FetchProjectsParams) {
   return useQuery({
@@ -31,58 +28,22 @@ export function useProjects(params?: FetchProjectsParams) {
   });
 }
 
+/** 제목 자동완성. 서버가 prefix 매칭으로 최대 10건만 내려준다 — 호출 전에 디바운스할 것. */
+export function useProjectAutocomplete(keyword: string) {
+  const trimmed = keyword.trim();
+  return useQuery({
+    queryKey: ["projects", "autocomplete", trimmed],
+    queryFn: ({ signal }) => fetchProjectAutocomplete(trimmed, signal),
+    enabled: trimmed.length > 0,
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useProject(id: number) {
   return useQuery({
     queryKey: ["projects", "detail", id],
-    queryFn: async (): Promise<ProjectDetail> => {
-      try {
-        return await fetchProject(id);
-      } catch (error) {
-        // Backend GET /api/v1/projects/{id} only serves single-project detail for published statuses
-        // (e.g. IN_PROGRESS), throwing 404 EntityNotFoundException for PENDING_REVIEW / REJECTED projects.
-        // Fall back to fetchPendingProjects() (for admin), fetchMyProjects() (for creator), or fetchProjects().
-        const accessToken = useAuthStore.getState().accessToken;
-        if (axios.isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 500) && accessToken) {
-          try {
-            const user = useAuthStore.getState().user;
-            if (user?.role === "ADMIN") {
-              const pending = await fetchPendingProjects();
-              const foundPending = pending.find((project) => project.projectId === id);
-              if (foundPending) {
-                return { ...foundPending, summary: foundPending.summary ?? null, description: foundPending.description ?? null, isOwnerPreview: true };
-              }
-            }
-
-            const mine = await fetchMyProjects();
-            const foundMy = mine.find((project) => project.projectId === id);
-            if (foundMy) {
-              return { ...foundMy, summary: foundMy.summary ?? null, description: foundMy.description ?? null, isOwnerPreview: true };
-            }
-
-            const pendingProjects = await fetchProjects({ status: "PENDING_REVIEW" });
-            const foundPending = pendingProjects.find((project) => project.projectId === id);
-            if (foundPending) {
-              return { ...foundPending, summary: foundPending.summary ?? null, description: foundPending.description ?? null, isOwnerPreview: true };
-            }
-
-            const allProjects = await fetchProjects();
-            const foundAll = allProjects.find((project) => project.projectId === id);
-            if (foundAll) {
-              return { ...foundAll, summary: foundAll.summary ?? null, description: foundAll.description ?? null, isOwnerPreview: true };
-            }
-
-            const rejectedProjects = await fetchProjects({ status: "REJECTED" });
-            const foundRejected = rejectedProjects.find((project) => project.projectId === id);
-            if (foundRejected) {
-              return { ...foundRejected, summary: foundRejected.summary ?? null, description: foundRejected.description ?? null, isOwnerPreview: true };
-            }
-          } catch {
-            // Ignore fallback fetch error
-          }
-        }
-        throw error;
-      }
-    },
+    queryFn: () => fetchProject(id),
     staleTime: 0,
     refetchOnWindowFocus: true,
   });

@@ -19,6 +19,7 @@ export const PROJECT_SERVICE = {
   projects: "/api/v1/projects",
   project: (id: number | string) => `/api/v1/projects/${id}`,
   approve: (projectId: number | string) => `/api/v1/projects/${projectId}/approve`,
+  autocomplete: "/api/v1/projects/autocomplete",
   myProjects: "/api/v1/projects/me",
   categories: "/api/v1/project-categories",
   rewards: (projectId: number | string) => `/api/v1/projects/${projectId}/rewards`,
