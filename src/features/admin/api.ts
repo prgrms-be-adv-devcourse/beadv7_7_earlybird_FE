@@ -1,7 +1,8 @@
 import { apiClient } from "../../shared/api/client";
 import { PROJECT_SERVICE } from "../../shared/api/endpoints";
 import type { ApiResponse } from "../../shared/types/ApiResponse";
-import type { ProjectSummary } from "../projects/types";
+import type { Page } from "../../shared/types/Page";
+import type { ProjectListItem } from "../projects/api";
 import type { ProjectCategory } from "./types";
 
 const ADMIN_HEADER = { headers: { "X-User-Role": "ADMIN" } };
@@ -31,12 +32,15 @@ export async function deleteCategory(id: number): Promise<void> {
   await apiClient.delete<ApiResponse<null>>(`${PROJECT_SERVICE.categories}/${id}`, ADMIN_HEADER);
 }
 
-export async function fetchPendingProjects(): Promise<ProjectSummary[]> {
-  const response = await apiClient.get<ApiResponse<ProjectSummary[]>>(
-    `${PROJECT_SERVICE.projects}?status=PENDING_REVIEW`,
+export async function fetchPendingProjects(): Promise<ProjectListItem[]> {
+  const response = await apiClient.get<ApiResponse<Page<ProjectListItem> | ProjectListItem[]>>(
+    `${PROJECT_SERVICE.projects}?status=PENDING_REVIEW&size=100`,
     ADMIN_HEADER
   );
-  return response.data.data ?? [];
+  const data = response.data.data;
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  return data.content ?? [];
 }
 
 export async function approveProject(id: number): Promise<void> {
