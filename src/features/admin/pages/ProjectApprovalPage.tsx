@@ -148,7 +148,7 @@ function ExtendDeadlineButton({
 }
 
 export function ProjectApprovalPage() {
-  const { data: projects, isPending, isError } = usePendingProjects();
+  const { data: projects = [], isPending, isError } = usePendingProjects();
   const approveMutation = useApproveProject();
   const triggerCloseExpiredMutation = useTriggerCloseExpired();
   const reindexMutation = useReindexProjects();
